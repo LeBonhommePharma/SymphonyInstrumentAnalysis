@@ -2,7 +2,9 @@
 
 Standalone mic-capture + spectral analysis project (**not** related to FlexAIDdS).
 
-**Live crayon piano:** serve `web/` then open http://localhost:4173/keyboard.html (Chrome or Safari; mic **or** replay yesterday’s Shannon capture → visual keyboard). **Do not use port 8765** — Claude Science owns it. See [`web/README.md`](web/README.md).
+**iOS (no ports):** open [`ios/CrayonPiano/CrayonPiano.xcodeproj`](ios/CrayonPiano/CrayonPiano.xcodeproj) in Xcode and run on an iPhone. Tap keys, listen through the mic, or replay the built-in demo. See [`ios/README.md`](ios/README.md).
+
+**Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold keys to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. Live mic on iPhone needs the native app above (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
 
 Records from the best available macOS mic, denoises, then estimates:
 

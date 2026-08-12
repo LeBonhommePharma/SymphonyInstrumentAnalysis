@@ -1,36 +1,32 @@
 # Piano-crayon / Crayon piano
 
-Live mic **or** yesterday’s Shannon capture → visual piano, color-coded with the macOS Crayons pitch map. Same AnalyserNode FFT peak-picker for both. Track chips pick which musician band to follow. Auto-accord estimates concert pitch so slightly-off outdoor tuning still lights the right crayon.
+Live mic **or** a built-in demo (or yesterday’s Shannon capture if present) → visual piano, color-coded with the macOS Crayons pitch map. Same AnalyserNode FFT peak-picker for both. Track chips pick which musician band to follow. Auto-accord estimates concert pitch so slightly-off outdoor tuning still lights the right crayon.
 
-## Open
+**On iPhone, use the native app** — [`ios/README.md`](../ios/README.md) — so you never pick a port. Safari will not give the microphone to a `file://` page.
 
-**Chrome or Safari** (allow the microphone for live mode).
+## Open (no server)
 
-Serve from this directory on a free port. **Do not use 8765** — that port is taken by Claude Science (you will get a “You've been signed out…” page instead of the piano). 8766 is also Claude Science; 8787 is often Cursor.
+Open [`keyboard.html`](keyboard.html) directly in Safari or Chrome (`file://`). Hold a key or a crayon in the legend to hear it. **Rejouer / Replay** synthesizes an 8 s demo when `samples/final_song.wav` is absent, so nothing needs to be served.
 
-```bash
-cd web
-python3 -m http.server 4173
-```
+If you already have `samples/final_song.wav` and want to serve the folder, any free port is fine — there is no required port.
 
-Then visit http://localhost:4173/keyboard.html
+## Replay
 
-Safari can also open [`keyboard.html`](keyboard.html) via `file://` as a fallback (Chrome often blocks the mic **and** sample fetch on `file://`).
+1. Click **Rejouer l’échantillon / Replay yesterday** (or **Replay demo** when using the built-in phrase).
+2. If `samples/final_song.wav` is present it loads that; otherwise a built-in synth demo is used. Same FFT peak-picker either way.
+3. Default is **muted** (visual only). Check **Entendre / Unmute sample** to hear it quietly.
+4. Scrub **Temps / Time** from 0 to the end.
 
-## Replay yesterday (Parc Roland Beaudin)
-
-1. Click **Rejouer l’échantillon / Replay yesterday**.
-2. Loads `samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s) into Web Audio.
-3. The **same FFT peak-picker** as live mic lights the crayon keys (polyphonic, brightness = dynamics).
-4. Default is **muted** (visual only). Check **Entendre / Unmute sample** to hear it quietly.
-5. Scrub **Temps / Time** from 0 to the end.
-
-Status line: `Échantillon / Sample: final_song.wav (Shannon, hier)`.
+Status line: file sample → `Échantillon / Sample: final_song.wav (Shannon, hier)`; otherwise `Démo intégrée / Built-in demo (pas de serveur / no server)`.
 
 ## Live mic
 
+On **iPhone / iPad**, use the native app (`ios/CrayonPiano`) — Safari will not grant the microphone to a `file://` page.
+
+On **macOS / desktop**:
+
 1. Click **Écouter / Start listening** and allow the mic.
-2. The piano **follows the macOS default input** (Shannon, LPhone, built-in, …). Change it in System Settings → Sound; this page switches with it.
+2. The piano follows the OS default input. Change it in System Settings → Sound; this page switches with it.
 3. Same crayon color = same pitch class (any octave). Do/C is Maraschino; La/A Blueberry is the concert A (auto-accord, not blindly 440).
 
 ## Pistes / Tracks

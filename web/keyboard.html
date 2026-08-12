@@ -365,6 +365,8 @@
     .key {
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
       transition:
         background-color 160ms var(--ease),
         box-shadow 160ms var(--ease);
@@ -530,6 +532,20 @@
           background: color-mix(in srgb, var(--crayon-p3, var(--crayon)) calc(100% - var(--pop, 0%)), #ffffff) !important;
         }
       }
+    }
+    @media (max-width: 700px) {
+      body {
+        padding:
+          max(8px, var(--safe-t))
+          max(10px, var(--safe-r))
+          max(12px, var(--safe-b))
+          max(10px, var(--safe-l));
+      }
+      h1 { font-size: 1.12rem; }
+      .sub { margin-bottom: 8px; }
+      #board { height: 152px; min-width: 720px; }
+      .pencils { grid-template-columns: repeat(6, 1fr); }
+      .pencil { min-height: 44px; }
     }
     @media (max-width: 900px) {
       .pencils { grid-template-columns: repeat(6, 1fr); }
@@ -703,8 +719,8 @@
       Stealth / Scène
     </label>
     <div class="status">
-      <div id="micLine" class="mic">Micro OS / OS mic: (appuie sur Écouter) · ou rejoue hier</div>
-      <div id="hint" class="hint">Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons</div>
+      <div id="micLine" class="mic">Touche le clavier · Tap keys · ou Écouter / Rejouer</div>
+      <div id="hint" class="hint">Pas de serveur · No port · Tap keys, live mic, or built-in demo</div>
     </div>
   </div>
   <div id="trackLine">Pistes / Tracks: Tous / All</div>
@@ -739,8 +755,8 @@
 
   <details class="adv">
     <summary>Autre micro / Other mic (avancé)</summary>
-    <p>Par défaut on suit le micro choisi dans macOS (Réglages → Son). Change-le là-bas; le piano suit.</p>
-    <p>Default is whatever macOS is using. Switch it in System Settings → Sound; this page follows.</p>
+    <p>Par défaut on suit le micro du système (iPhone Réglages → Piano-crayon, ou macOS Son). Change-le là-bas; le piano suit.</p>
+    <p>Default is the system input. On iPhone use the native app in <code>ios/CrayonPiano</code> (no server). This page also works as <code>file://</code>.</p>
     <label>
       Micro / Mic
       <select id="micAlt">
@@ -793,9 +809,11 @@
   const BLACK = { 1: true, 3: true, 6: true, 8: true, 10: true };
 
   const SAMPLE_URL = "samples/final_song.wav";
-  const SAMPLE_STATUS = "Échantillon / Sample: final_song.wav (Shannon, hier)";
-  const LIVE_HINT = "Le piano suit le micro de macOS · Follows the OS default input";
+  const SAMPLE_STATUS_FILE = "Échantillon / Sample: final_song.wav (Shannon, hier)";
+  const SAMPLE_STATUS_SYNTH = "Démo intégrée / Built-in demo (pas de serveur / no server)";
+  const LIVE_HINT = "Le piano suit le micro · Follows the OS default input";
   const REPLAY_HINT = "Même FFT que le micro · Same peak-picker as live · visuel (muet par défaut)";
+  let sampleStatus = SAMPLE_STATUS_SYNTH;
   const MIXED_LO_HZ = 60;
   const MIXED_HI_HZ = 2500;
   // Approximate musician stems by frequency band (no true stems).
@@ -1155,6 +1173,19 @@
         '<div class="fr">' + c.fr + "</div>" +
         '<div class="en">' + name + " · " + c.pencil + "</div>" +
         '<div class="hz">~' + Math.round(c.hz) + " Hz</div>";
+      el.setAttribute("role", "button");
+      el.tabIndex = 0;
+      el.style.cursor = "pointer";
+      (function (pcName, midi) {
+        el.addEventListener("pointerdown", function (ev) {
+          ev.preventDefault();
+          try { el.setPointerCapture(ev.pointerId); } catch (_) {}
+          startHold(midi);
+        });
+        el.addEventListener("pointerup", function () { endHold(midi); });
+        el.addEventListener("pointercancel", function () { endHold(midi); });
+        el.addEventListener("lostpointercapture", function () { endHold(midi); });
+      })(name, 60 + NOTE_NAMES.indexOf(name));
       $pencils.appendChild(el);
 
       const bar = document.createElement("div");
@@ -1192,7 +1223,14 @@
       }
       el.appendChild(lab);
       el.dataset.idleName = lab.textContent;
-      el.addEventListener("click", function () { previewKey(m); });
+      el.addEventListener("pointerdown", function (ev) {
+        ev.preventDefault();
+        try { el.setPointerCapture(ev.pointerId); } catch (_) {}
+        startHold(m);
+      });
+      el.addEventListener("pointerup", function () { endHold(m); });
+      el.addEventListener("pointercancel", function () { endHold(m); });
+      el.addEventListener("lostpointercapture", function () { endHold(m); });
       $board.appendChild(el);
       keys.set(m, el);
     }
@@ -1220,28 +1258,58 @@
     });
   }
 
-  let studyMidi = null;
-  function previewKey(midi) {
-    if (studyMidi !== null && keys.get(studyMidi)) {
-      keys.get(studyMidi).classList.remove("study");
-    }
-    studyMidi = midi;
+  const heldNotes = new Map();
+
+  function startHold(midi) {
+    ensureAnalyser();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    if (heldNotes.has(midi)) return;
+    const freq = midiToHz(midi);
+    const osc = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "triangle";
+    osc.frequency.value = freq;
+    osc2.type = "sine";
+    osc2.frequency.value = freq * 2;
+    g.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.14, audioCtx.currentTime + 0.02);
+    osc.connect(g);
+    osc2.connect(g);
+    g.connect(audioCtx.destination);
+    osc.start();
+    osc2.start();
+    heldNotes.set(midi, { osc: osc, osc2: osc2, g: g });
     const el = keys.get(midi);
     const c = crayonOf(midi);
-    el.classList.add("study", "on");
-    paintEl(el, c);
-    const nameEl = el.querySelector(".name");
-    if (nameEl) nameEl.textContent = c.fr + octaveOf(midi);
+    if (el) {
+      el.classList.add("study", "on");
+      paintEl(el, c);
+      const nameEl = el.querySelector(".name");
+      if (nameEl) nameEl.textContent = c.fr + octaveOf(midi);
+    }
     $hzLive.textContent =
       c.fr + octaveOf(midi) + " / " + pcOf(midi) + octaveOf(midi) +
-      " · " + c.pencil + " · ~" + Math.round(midiToHz(midi)) + " Hz";
-    setTimeout(function () {
-      if (mode === "idle") {
-        el.classList.remove("on");
-        const lab = el.querySelector(".name");
-        if (lab && el.dataset.idleName) lab.textContent = el.dataset.idleName;
-      }
-    }, 700);
+      " · " + c.pencil + " · ~" + Math.round(freq) + " Hz";
+  }
+
+  function endHold(midi) {
+    const h = heldNotes.get(midi);
+    if (!h) return;
+    const now = audioCtx ? audioCtx.currentTime : 0;
+    try {
+      h.g.gain.cancelScheduledValues(now);
+      h.g.gain.setValueAtTime(Math.max(0.0001, h.g.gain.value), now);
+      h.g.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+      h.osc.stop(now + 0.18);
+      h.osc2.stop(now + 0.18);
+    } catch (_) {}
+    heldNotes.delete(midi);
+    const el = keys.get(midi);
+    if (el && mode === "idle") {
+      el.classList.remove("on", "study");
+      restoreIdleLabel(el);
+    }
   }
 
   function showErr(msg) {
@@ -1358,11 +1426,17 @@
     }
     if (!analyser) {
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 16384;
+      analyser.fftSize = 8192;
       analyser.smoothingTimeConstant = 0.78;
       analyser.minDecibels = -95;
       analyser.maxDecibels = -18;
       spec = new Float32Array(analyser.frequencyBinCount);
+      // Keep the analyser in the destination graph so Chrome actually
+      // computes FFT when the audible gain is 0 (muted demo).
+      const silent = audioCtx.createGain();
+      silent.gain.value = 0;
+      analyser.connect(silent);
+      silent.connect(audioCtx.destination);
     }
     if (!sampleGain) {
       sampleGain = audioCtx.createGain();
@@ -1466,7 +1540,7 @@
         ? "Autorise le micro / Allow the mic."
         : (e && e.message ? e.message : String(e));
       if (location.protocol === "file:") {
-        msg += " Chrome bloque souvent file:// — ouvre via: python3 -m http.server 4173 --directory web";
+        msg += " — sur iPhone, ouvre l’app native ios/CrayonPiano (aucun port). / On iPhone, run the native app in ios/CrayonPiano (no server).";
       }
       showErr(msg);
     }
@@ -1478,8 +1552,8 @@
     stopTracks();
     $btn.classList.remove("live");
     $btn.textContent = "Écouter / Start listening";
-    $micLine.textContent = "Micro OS / OS mic: (appuie sur Écouter) · ou rejoue hier";
-    $hint.textContent = "Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons";
+    $micLine.textContent = "Touche le clavier · Tap keys · ou Écouter / Rejouer";
+    $hint.textContent = "Pas de serveur · No port · Tap keys, live mic, or built-in demo";
     clearLights();
     resetTune();
   }
@@ -1494,8 +1568,8 @@
     $replay.classList.remove("playing");
     $replay.textContent = "Rejouer l’échantillon / Replay yesterday";
     if (mode === "idle") {
-      $micLine.textContent = SAMPLE_STATUS + " — stop";
-      $hint.textContent = "Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons";
+      $micLine.textContent = sampleStatus + " — stop";
+      $hint.textContent = "Pas de serveur · No port · Tap keys, live mic, or built-in demo";
       clearLights();
       resetTune();
       if (!keepScrub) {
@@ -1505,20 +1579,66 @@
     }
   }
 
+  function synthesizeDemoBuffer() {
+    ensureAnalyser();
+    const sr = audioCtx.sampleRate;
+    const dur = 8;
+    const n = Math.floor(sr * dur);
+    const buf = audioCtx.createBuffer(1, n, sr);
+    const data = buf.getChannelData(0);
+    function addTone(freq, start, length, amp) {
+      const harmonics = [1, 0.5, 0.25];
+      const i0 = Math.floor(start * sr);
+      const i1 = Math.min(n, Math.floor((start + length) * sr));
+      for (let i = i0; i < i1; i++) {
+        const t = i / sr - start;
+        const env = Math.min(1, t / 0.05) * Math.exp(-t / (length * 0.8));
+        let s = 0;
+        for (let h = 0; h < harmonics.length; h++) {
+          s += harmonics[h] * Math.sin(2 * Math.PI * freq * (h + 1) * t);
+        }
+        data[i] += amp * env * s;
+      }
+    }
+    addTone(65.41, 0, 8, 0.35);
+    addTone(196.00, 0.5, 3, 0.25);
+    addTone(261.63, 3.5, 3, 0.25);
+    [[0.5, [329.63, 415.30, 493.88]],
+     [2.5, [349.23, 440.00, 523.25]],
+     [4.5, [392.00, 493.88, 587.33]],
+     [6.5, [329.63, 415.30, 493.88]]].forEach(function (row) {
+      row[1].forEach(function (f) { addTone(f, row[0], 1.8, 0.18); });
+    });
+    addTone(1046.50, 1.0, 0.3, 0.08);
+    addTone(1318.51, 5.0, 0.3, 0.08);
+    let peak = 0.0001;
+    for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(data[i]));
+    const gain = 0.9 / peak;
+    for (let i = 0; i < n; i++) data[i] *= gain;
+    sampleBuffer = buf;
+    sampleDuration = dur;
+    sampleStatus = SAMPLE_STATUS_SYNTH;
+    updateScrubUi();
+    return buf;
+  }
+
   async function loadSample() {
     if (sampleBuffer) return sampleBuffer;
     if (sampleLoad) return sampleLoad;
     sampleLoad = (async function () {
-      const res = await fetch(SAMPLE_URL);
-      if (!res.ok) {
-        throw new Error("WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL);
+      try {
+        const res = await fetch(SAMPLE_URL);
+        if (!res.ok) throw new Error("missing");
+        const arr = await res.arrayBuffer();
+        ensureAnalyser();
+        sampleBuffer = await audioCtx.decodeAudioData(arr);
+        sampleDuration = sampleBuffer.duration;
+        sampleStatus = SAMPLE_STATUS_FILE;
+        updateScrubUi();
+        return sampleBuffer;
+      } catch (_) {
+        return synthesizeDemoBuffer();
       }
-      const arr = await res.arrayBuffer();
-      ensureAnalyser();
-      sampleBuffer = await audioCtx.decodeAudioData(arr);
-      sampleDuration = sampleBuffer.duration;
-      updateScrubUi();
-      return sampleBuffer;
     })();
     try {
       return await sampleLoad;
@@ -1564,7 +1684,7 @@
       startBufferAt(sampleOffset);
       $replay.classList.add("playing");
       $replay.textContent = "Stop échantillon / Stop sample";
-      $micLine.textContent = SAMPLE_STATUS;
+      $micLine.textContent = sampleStatus;
       $hint.textContent = REPLAY_HINT;
       loop();
     } catch (e) {
@@ -1572,9 +1692,6 @@
       $replay.classList.remove("playing");
       $replay.textContent = "Rejouer l’échantillon / Replay yesterday";
       var msg = e && e.message ? e.message : String(e);
-      if (location.protocol === "file:") {
-        msg += " — sers web/ : python3 -m http.server 4173 --directory web";
-      }
       showErr(msg);
     }
   }
@@ -1838,7 +1955,6 @@
   buildKeyboard();
   buildTracks();
   syncTuneUi();
-  loadSample().catch(function () {});
 })();
   </script>
 </body>

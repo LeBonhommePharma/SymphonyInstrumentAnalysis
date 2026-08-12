@@ -14,3 +14,5 @@ analysis_out/*
 !analysis_out/*.md
 !analysis_out/*.json
 .ipynb_checkpoints/
+xcuserdata/
+*.xcuserstate
