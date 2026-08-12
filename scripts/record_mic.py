@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Record from a chosen (or auto-best) mic with denoising filters."""
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from list_mics import list_audio_devices  # noqa: E402
+from probe_mics import record_probe, wav_stats  # noqa: E402
+
+
+def pick_best(seconds: float = 2.0) -> tuple[int, str]:
+    devices = list_audio_devices()
+    best = (-1.0, devices[0][0], devices[0][1])
+    import tempfile
+
+    import numpy as np
+
+    with tempfile.TemporaryDirectory() as td:
+        for idx, name in devices:
+            out = Path(td) / f"d{idx}.wav"
+            record_probe(idx, seconds, out)
+            st = wav_stats(out)
+            score = st["rms"] * float(np.log1p(st["snr_like"]))
+            print(f"probe [{idx}] {name}: rms={st['rms']:.5f} peak={st['peak']:.5f} score={score:.6f}")
+            if score > best[0]:
+                best = (score, idx, name)
+    return best[1], best[2]
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--device", type=int, default=None, help="AVFoundation audio index")
+    ap.add_argument("--seconds", type=float, default=90.0)
+    ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--no-denoise", action="store_true")
+    ap.add_argument("--probe-seconds", type=float, default=2.0)
+    args = ap.parse_args()
+
+    devices = {i: n for i, n in list_audio_devices()}
+    if args.device is None:
+        print("Auto-selecting lowest-noise / strongest mic...")
+        device, name = pick_best(args.probe_seconds)
+    else:
+        device = args.device
+        name = devices.get(device, f"device_{device}")
+
+    captures = ROOT / "captures"
+    captures.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out = args.out or captures / f"capture_{stamp}_dev{device}.wav"
+
+    # Keep lowpass under Nyquist for devices that capture at 24 kHz (e.g. Shannon).
+    af = "highpass=f=70,lowpass=f=10000"
+    if not args.no_denoise:
+        af += ",afftdn=nr=12:nf=-30"
+
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f",
+        "avfoundation",
+        "-i",
+        f":{device}",
+        "-t",
+        str(args.seconds),
+        "-ac",
+        "1",
+        "-ar",
+        "48000",
+        "-af",
+        af,
+        str(out),
+    ]
+    print(f"Recording [{device}] {name} -> {out}")
+    print(f"Filters: {af}")
+    print("Play the music now.")
+    proc = subprocess.run(cmd)
+    if proc.returncode != 0:
+        raise SystemExit(proc.returncode)
+    st = wav_stats(out)
+    print(f"Done. rms={st['rms']:.5f} peak={st['peak']:.5f}")
+    if st["peak"] <= 0:
+        print("ERROR: capture is silent. Grant mic access to Terminal/Cursor and retry.")
+        raise SystemExit(2)
+    print(out)
+
+
+if __name__ == "__main__":
+    main()

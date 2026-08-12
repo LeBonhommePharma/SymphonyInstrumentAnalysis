@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.env.*
+captures/*
+!captures/.gitkeep
+*.wav
+*.flac
+*.aiff
+analysis_out/*
+!analysis_out/.gitkeep
+!analysis_out/*.md
+!analysis_out/*.json
+.ipynb_checkpoints/
