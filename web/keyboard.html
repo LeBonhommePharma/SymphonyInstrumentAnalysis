@@ -1272,6 +1272,7 @@
       const bar = document.createElement("div");
       bar.className = "bar";
       bar.dataset.pc = name;
+      bar.dataset.i = String(NOTE_NAMES.indexOf(name));
       paintEl(bar, c);
       bar.innerHTML = '<div class="fill"></div><div class="lab">' + c.fr + "</div>";
       $chroma.appendChild(bar);
@@ -1814,7 +1815,7 @@
       ensureAnalyser();
       sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
       sampleDuration = sampleBuffer.duration;
-      updateScrubUi();
+      updateScrubUi(true);
       return sampleBuffer;
     })();
     try {
@@ -2134,12 +2135,14 @@
     for (let b = 0; b < chromaBars.length; b++) {
       const bar = chromaBars[b];
       const name = bar.dataset.pc;
-      const v = chromaDb[NOTE_NAMES.indexOf(name)];
+      const v = chromaDb[bar.dataset.i | 0];
       const on = v >= gate && !!litPc[name];
       bar.classList.toggle("on", on);
       const pct = Math.max(0, Math.min(100, (v - absGate) * 1.8));
       const frac = on ? Math.max(0.28, pct / 100) : Math.max(0, pct * 0.0025);
-      bar.firstElementChild.style.transform = "scaleY(" + frac.toFixed(3) + ")";
+      const fill = bar.firstElementChild;
+      const tr = "scaleY(" + frac.toFixed(3) + ")";
+      if (fill.style.transform !== tr) fill.style.transform = tr;
     }
 
     const chipKey = lit.map(function (c) { return c.midi; }).sort(function (a, b) { return a - b; }).join(",");
@@ -2177,6 +2180,10 @@
       }
     }
 
+    if (mode === "idle") {
+      loopOn = false;
+      return;
+    }
     raf = requestAnimationFrame(loop);
   }
 
