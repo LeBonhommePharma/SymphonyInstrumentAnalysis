@@ -5,11 +5,12 @@ from __future__ import annotations
 import argparse
 import subprocess
 import tempfile
+import wave
 from pathlib import Path
 
 import numpy as np
 
-from list_mics import list_audio_devices
+from list_mics import require_audio_devices
 
 
 def record_probe(device: int, seconds: float, out: Path) -> None:
@@ -32,8 +33,6 @@ def record_probe(device: int, seconds: float, out: Path) -> None:
 
 
 def wav_stats(path: Path) -> dict[str, float]:
-    import wave
-
     with wave.open(str(path), "rb") as w:
         sr = w.getframerate()
         nch = w.getnchannels()
@@ -60,7 +59,7 @@ def main() -> None:
     ap.add_argument("--seconds", type=float, default=2.5)
     args = ap.parse_args()
 
-    devices = list_audio_devices()
+    devices = require_audio_devices()
     print(f"Probing {len(devices)} device(s) for {args.seconds:.1f}s each...")
     ranked: list[tuple[float, int, str, dict[str, float]]] = []
     with tempfile.TemporaryDirectory() as td:
