@@ -1997,41 +1997,41 @@
   }
 
   function loop() {
-    if (mode === "idle" || !analyser) return;
-    // Shared FFT peak-picker for live mic AND yesterday's sample replay.
+    raf = 0;
+    if (mode === "idle" || !analyser) {
+      loopOn = false;
+      return;
+    }
     analyser.getFloatFrequencyData(spec);
     const binHz = audioCtx.sampleRate / analyser.fftSize;
     updateConcertPitch(spec, binHz);
-    detectHeard(spec, binHz);
+    if (heardTracks.size < MUSICIANS.length) detectHeard(spec, binHz);
     const mixed = isTous();
     const heardBands = activeMusicians();
-    const bands = heardBands.length
-      ? heardBands
-      : [{ lo: MIXED_LO_HZ, hi: MIXED_HI_HZ }];
-    let scanLo = MIXED_HI_HZ;
-    let scanHi = MIXED_LO_HZ;
-    bands.forEach(function (t) {
-      if (t.lo < scanLo) scanLo = t.lo;
-      if (t.hi > scanHi) scanHi = t.hi;
-    });
+    const useBands = heardBands.length > 0;
+    const bands = useBands ? heardBands : [{ lo: MIXED_LO_HZ, hi: MIXED_HI_HZ }];
+    let scanLo = bands[0].lo;
+    let scanHi = bands[0].hi;
+    for (let b = 1; b < bands.length; b++) {
+      if (bands[b].lo < scanLo) scanLo = bands[b].lo;
+      if (bands[b].hi > scanHi) scanHi = bands[b].hi;
+    }
     const i0 = Math.max(2, Math.floor(scanLo / binHz));
     const i1 = Math.min(spec.length - 2, Math.ceil(scanHi / binHz));
-    const nKeys = MIDI_HI - MIDI_LO + 1;
-    const score = new Float32Array(nKeys);
-    const scoreHz = new Float32Array(nKeys);
     score.fill(-120);
+    scoreHz.fill(0);
     const fold = !mixed;
 
     const peaks = [];
     for (let i = i0; i <= i1; i++) {
       const freq = i * binHz;
-      if (!freqInActiveBands(freq)) continue;
+      if (useBands && !freqInActiveBands(freq)) continue;
       const db = spec[i];
       if (db > spec[i - 1] && db >= spec[i + 1] && db > spec[i - 2] && db >= spec[i + 2]) {
         const denom = spec[i - 1] - 2 * spec[i] + spec[i + 1];
         const delta = denom ? 0.5 * (spec[i - 1] - spec[i + 1]) / denom : 0;
         const pf = (i + delta) * binHz;
-        if (freqInActiveBands(pf)) peaks.push({ freq: pf, db: db });
+        if (!useBands || freqInActiveBands(pf)) peaks.push({ freq: pf, db: db });
       }
       const midi = midiFromHz(freq, fold);
       if (midi >= MIDI_LO && midi <= MIDI_HI) {
@@ -2082,14 +2082,21 @@
     candidates.sort(function (a, b) { return b.s - a.s; });
     const lit = candidates.slice(0, maxN);
     const litSet = {};
-    lit.forEach(function (c) { litSet[c.midi] = c; });
+    const litPc = {};
+    for (let k = 0; k < lit.length; k++) {
+      litSet[lit[k].midi] = lit[k];
+      litPc[pcOf(lit[k].midi)] = true;
+    }
 
     const ghostSet = {};
-    lit.forEach(function (c) {
-      [c.midi + 12, c.midi - 12, c.midi + 7, c.midi - 7].forEach(function (g) {
-        if (g >= MIDI_LO && g <= MIDI_HI && !litSet[g]) ghostSet[g] = true;
-      });
-    });
+    for (let k = 0; k < lit.length; k++) {
+      const c = lit[k];
+      const ghosts = [c.midi + 12, c.midi - 12, c.midi + 7, c.midi - 7];
+      for (let g = 0; g < ghosts.length; g++) {
+        const midi = ghosts[g];
+        if (midi >= MIDI_LO && midi <= MIDI_HI && !litSet[midi]) ghostSet[midi] = true;
+      }
+    }
 
     keys.forEach(function (el, midi) {
       const hit = litSet[midi];
@@ -2099,7 +2106,7 @@
       const wasHarm = el.classList.contains("harm");
       el.classList.toggle("on", on);
       el.classList.toggle("harm", harm);
-      const lab = el.querySelector(".name");
+      const lab = el.firstElementChild;
       if (on) {
         const span = Math.max(6, loudest - gate);
         const vel = Math.max(0.22, Math.min(1, (hit.s - gate) / span));
@@ -2119,20 +2126,21 @@
       }
     });
 
-    const chroma = {};
-    NOTE_NAMES.forEach(function (n) { chroma[n] = -120; });
+    chromaDb.fill(-120);
     for (let i = 0; i < nKeys; i++) {
-      const name = pcOf(i + MIDI_LO);
-      if (smooth[i] > chroma[name]) chroma[name] = smooth[i];
+      const pc = ((i + MIDI_LO) % 12 + 12) % 12;
+      if (smooth[i] > chromaDb[pc]) chromaDb[pc] = smooth[i];
     }
-    $chroma.querySelectorAll(".bar").forEach(function (bar) {
+    for (let b = 0; b < chromaBars.length; b++) {
+      const bar = chromaBars[b];
       const name = bar.dataset.pc;
-      const v = chroma[name];
-      const on = v >= gate && lit.some(function (c) { return pcOf(c.midi) === name; });
+      const v = chromaDb[NOTE_NAMES.indexOf(name)];
+      const on = v >= gate && !!litPc[name];
       bar.classList.toggle("on", on);
       const pct = Math.max(0, Math.min(100, (v - absGate) * 1.8));
-      bar.querySelector(".fill").style.height = (on ? Math.max(28, pct) : Math.max(0, pct * 0.25)) + "%";
-    });
+      const frac = on ? Math.max(0.28, pct / 100) : Math.max(0, pct * 0.0025);
+      bar.firstElementChild.style.transform = "scaleY(" + frac.toFixed(3) + ")";
+    }
 
     const chipKey = lit.map(function (c) { return c.midi; }).sort(function (a, b) { return a - b; }).join(",");
     if (chipKey !== lastChipKey) {
@@ -2152,15 +2160,22 @@
       $chips.appendChild($hzLive);
     }
     if (lit.length) {
-      const top = lit[0];
-      const info = crayonOf(top.midi);
-      const hz = top.freq;
-      $hzLive.textContent = String(Math.round(hz));
-    } else {
+      $hzLive.textContent = String(Math.round(lit[0].freq));
+    } else if ($hzLive.textContent) {
       $hzLive.textContent = "";
     }
 
-    if (mode === "replay") updateScrubUi();
+    if (mode === "replay") {
+      paintPlayhead(false);
+      const t = sampleNow();
+      const text = fmtTime(t);
+      if (text !== lastClockText) {
+        lastClockText = text;
+        $clock.textContent = text;
+        $arrange.setAttribute("aria-valuenow", String(Math.round(t)));
+        $arrange.setAttribute("aria-valuetext", text);
+      }
+    }
 
     raf = requestAnimationFrame(loop);
   }
@@ -2171,21 +2186,8 @@
   syncTuneUi();
   requestAnimationFrame(function () {
     layoutBlackKeys();
-    drawWave();
+    drawWave(true);
   });
-  fetch(SAMPLE_URL).then(function (res) {
-    if (!res.ok) return null;
-    return res.arrayBuffer();
-  }).then(function (arr) {
-    if (!arr) return;
-    waveBuf = arr;
-    if (!wavePeaks) {
-      wavePeaks = wavPeaks(arr, 900);
-      drawRuler();
-      drawWave();
-      updateScrubUi();
-    }
-  }).catch(function () {});
 })();
   </script>
 </body>
