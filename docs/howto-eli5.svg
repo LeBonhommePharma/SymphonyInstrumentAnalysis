@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">How this music tool works  explained like you are 5</title>
+  <desc id="desc">Four steps: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF8F0"/>
+      <stop offset="100%" stop-color="#F3E8D8"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-8%" y="-8%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#1F2937" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <text x="800" y="78" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="42" font-weight="700" fill="#1F2937">How this music tool works</text>
+  <text x="800" y="122" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" fill="#6B4F3A">Explained like you are 5</text>
+
+  <!-- arrows between cards -->
+  <g fill="#9A8474">
+    <polygon points="430,430 458,418 458,442"/>
+    <rect x="402" y="425" width="30" height="10" rx="3"/>
+    <polygon points="790,430 818,418 818,442"/>
+    <rect x="762" y="425" width="30" height="10" rx="3"/>
+    <polygon points="1150,430 1178,418 1178,442"/>
+    <rect x="1122" y="425" width="30" height="10" rx="3"/>
+  </g>
+
+  <!-- 1 Play -->
+  <g filter="url(#cardShadow)">
+    <rect x="56" y="176" width="330" height="520" rx="28" fill="#FFFFFF"/>
+  </g>
+  <rect x="56" y="176" width="330" height="14" rx="7" fill="#F97316"/>
+  <circle cx="108" cy="232" r="28" fill="#F97316"/>
+  <text x="108" y="242" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">1</text>
+  <text x="221" y="244" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1F2937">Play a song</text>
+
+  <g transform="translate(221 390)">
+    <rect x="-52" y="-18" width="72" height="78" rx="10" fill="#1F2937"/>
+    <rect x="-40" y="-6" width="48" height="10" rx="3" fill="#FDBA74"/>
+    <rect x="-40" y="12" width="48" height="10" rx="3" fill="#FDBA74"/>
+    <rect x="-40" y="30" width="48" height="10" rx="3" fill="#FDBA74"/>
+    <polygon points="20,-8 78,-48 78,72 20,32" fill="#F97316"/>
+    <circle cx="48" cy="-62" r="8" fill="#FB7185"/>
+    <circle cx="78" cy="-78" r="6" fill="#FB7185"/>
+    <path d="M48 -62 v28" stroke="#FB7185" stroke-width="3" fill="none"/>
+    <path d="M78 -78 v24" stroke="#FB7185" stroke-width="3" fill="none"/>
+  </g>
+  <text x="221" y="548" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#7C2D12">Music makes the air wiggle.</text>
+  <text x="221" y="618" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">Put on a song you care about.</text>
+  <text x="221" y="642" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">Keep playing while we listen.</text>
+
+  <!-- 2 Mic -->
+  <g filter="url(#cardShadow)">
+    <rect x="416" y="176" width="330" height="520" rx="28" fill="#FFFFFF"/>
+  </g>
+  <rect x="416" y="176" width="330" height="14" rx="7" fill="#0D9488"/>
+  <circle cx="468" cy="232" r="28" fill="#0D9488"/>
+  <text x="468" y="242" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">2</text>
+  <text x="581" y="244" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1F2937">The mic listens</text>
+
+  <g transform="translate(581 390)">
+    <rect x="-28" y="-70" width="56" height="92" rx="28" fill="#0F766E"/>
+    <rect x="-10" y="22" width="20" height="36" fill="#115E59"/>
+    <rect x="-36" y="56" width="72" height="12" rx="6" fill="#134E4A"/>
+    <path d="M-48 -20 a48 48 0 0 0 96 0" fill="none" stroke="#5EEAD4" stroke-width="8" stroke-linecap="round"/>
+    <path d="M-68 -20 a68 68 0 0 0 136 0" fill="none" stroke="#99F6E4" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="581" y="548" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#115E59">We pick the best ear.</text>
+  <text x="581" y="618" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">List mics, then probe them.</text>
+  <text x="581" y="642" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">Record the song (about 90s).</text>
+
+  <!-- 3 Wiggles -->
+  <g filter="url(#cardShadow)">
+    <rect x="776" y="176" width="330" height="520" rx="28" fill="#FFFFFF"/>
+  </g>
+  <rect x="776" y="176" width="330" height="14" rx="7" fill="#7C3AED"/>
+  <circle cx="828" cy="232" r="28" fill="#7C3AED"/>
+  <text x="828" y="242" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">3</text>
+  <text x="941" y="244" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1F2937">Look at wiggles</text>
+
+  <g transform="translate(941 390)">
+    <path d="M-110 20 C -80 -40, -50 70, -20 10 S 40 -50, 70 8 S 130 40, 150 -10" fill="none" stroke="#7C3AED" stroke-width="8" stroke-linecap="round"/>
+    <rect x="-108" y="48" width="22" height="36" rx="6" fill="#1D4ED8"/>
+    <rect x="-78" y="28" width="22" height="56" rx="6" fill="#0D9488"/>
+    <rect x="-48" y="8" width="22" height="76" rx="6" fill="#CA8A04"/>
+    <rect x="-18" y="-8" width="22" height="92" rx="6" fill="#EA580C"/>
+    <rect x="12" y="-28" width="22" height="112" rx="6" fill="#DC2626"/>
+    <rect x="42" y="-18" width="22" height="102" rx="6" fill="#7C3AED"/>
+  </g>
+  <text x="941" y="548" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600" fill="#5B21B6">Slow = low. Fast = high.</text>
+  <text x="941" y="618" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">We also wash out hiss.</text>
+  <text x="941" y="642" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">Singing is turned down.</text>
+
+  <!-- 4 Names -->
+  <g filter="url(#cardShadow)">
+    <rect x="1136" y="176" width="408" height="520" rx="28" fill="#FFFFFF"/>
+  </g>
+  <rect x="1136" y="176" width="408" height="14" rx="7" fill="#2563EB"/>
+  <circle cx="1188" cy="232" r="28" fill="#2563EB"/>
+  <text x="1188" y="242" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="700" fill="#FFFFFF">4</text>
+  <text x="1301" y="244" font-family="ui-sans-serif, system-ui, sans-serif" font-size="26" font-weight="700" fill="#1F2937">Name the sounds</text>
+
+  <g transform="translate(1340 430)">
+    <rect x="-150" y="-78" width="300" height="168" rx="16" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="3"/>
+    <text x="-128" y="-42" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="700" fill="#1E3A8A">Likely families</text>
+    <text x="-128" y="-14" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#1F2937">Bass  ·  40250 Hz</text>
+    <text x="-128" y="12" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#1F2937">Melody  ·  5002000 Hz</text>
+    <text x="-128" y="38" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#1F2937">Sparkle  ·  20005000 Hz</text>
+    <text x="-128" y="68" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" font-weight="700" fill="#1D4ED8">A4 H 440 Hz</text>
+  </g>
+  <text x="1340" y="618" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">A report lists instrument families</text>
+  <text x="1340" y="642" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#6B7280">and notes with frequencies in Hz.</text>
+
+  <!-- footer -->
+  <rect x="56" y="732" width="1488" height="112" rx="22" fill="#1F2937"/>
+  <text x="800" y="784" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="24" font-weight="700" fill="#FFFFFF">Hertz (Hz) = how many wiggles in one second</text>
+  <text x="800" y="816" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="18" fill="#D1D5DB">A piano A is 440 Hz. A low bass note can be near 110 Hz. Faster wiggle = higher pitch.</text>
+</svg>

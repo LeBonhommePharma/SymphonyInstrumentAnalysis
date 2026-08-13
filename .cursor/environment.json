@@ -1,0 +1,4 @@
+{
+  "name": "symphony-instrument-analysis",
+  "install": "bash .cursor/install.sh"
+}

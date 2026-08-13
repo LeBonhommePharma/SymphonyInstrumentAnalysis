@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n-title="hubTitle">Symphony Instrument Analysis — see the Hertz of this device</title>
+  <meta name="description" content="Silent live-listen for whatever this phone or computer is already playing. No background music. English and French. Works on 5G over HTTPS.">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/">
+  <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/?lang=en">
+  <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/?lang=fr">
+  <link rel="stylesheet" href="tutorial/styles.css">
+  <style>
+    .hub-hero { max-width: 42rem; }
+    .hub-hero h1 { font-size: clamp(1.7rem, 5vw, 2.4rem); }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .figure-wrap img { width: 100%; height: auto; border-radius: 18px; display: block; }
+    .kid-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .kid-grid article { background: #fff; border-radius: 18px; padding: 16px; box-shadow: var(--shadow); }
+    .kid-grid h2 { margin: 0 0 6px; font-size: 1.05rem; }
+    .kid-grid p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .home-link { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    .home-link:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <p class="crumb">
+      <a class="home-link" href="https://thebonhomme.com/">thebonhomme.com</a>
+      <span class="lang-switch" role="group" aria-label="English / Français">
+        <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+      </span>
+    </p>
+    <header class="hero">
+      <div class="hub-hero">
+        <div class="badge" data-i18n="hubBadge">HTTPS · phone · 5G · silent · EN/FR</div>
+        <h1 data-i18n="hubH1">See what this device is playing</h1>
+        <p data-i18n="hubLead">
+          The page stays quiet. It only draws the live sound of this device
+          (speaker / Now Playing through the speaker / room). One Logic-style
+          track per instrument (up to 6). No melody? We still draw the noise.
+          We never fake a tune.
+        </p>
+        <div class="cta-row">
+          <a class="primary" style="text-decoration:none;display:inline-block" href="tutorial/" data-i18n="hubCtaTutorial">Open the 60-second live listen</a>
+          <a class="ghost" style="text-decoration:none;display:inline-block" href="how-to.html" data-i18n="hubCtaHowTo">How it works (ELI5)</a>
+        </div>
+      </div>
+    </header>
+
+    <section class="figure-wrap panel">
+      <img src="howto-eli5.png" width="1600" height="900" data-i18n-alt="howImgAlt" alt="Four-step how-to: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz.">
+    </section>
+
+    <section class="kid-grid">
+      <article>
+        <h2 data-i18n="hubUsefulTitle">Useful</h2>
+        <p data-i18n="hubUsefulBody">A song is a sandwich: boom / tune / sparkle. Each instrument gets its own track. Practice one layer instead of drowning in the whole mix.</p>
+      </article>
+      <article>
+        <h2 data-i18n="hubHardTitle">Why live is hard</h2>
+        <p data-i18n="hubHardBody">Notes stack, pianos ring extra high copies, and the picture keeps moving. The grown-up tool records, then looks.</p>
+      </article>
+      <article>
+        <h2 data-i18n="hubPianoTitle">Piano superpower</h2>
+        <p data-i18n="hubPianoBody">If the loudest wiggle is 440 Hz, that is the A key. Find it. Play it. Match it.</p>
+      </article>
+    </section>
+
+    <p class="footer">
+      <span data-i18n="hubFoot">Grown-up CLI stays on a Mac. Public pages: English and French first. Source:</span>
+      <a href="https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis">GitHub</a>.
+    </p>
+  </div>
+  <script src="i18n.js"></script>
+</body>
+</html>
