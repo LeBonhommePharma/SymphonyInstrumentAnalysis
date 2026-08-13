@@ -1,0 +1,86 @@
+{
+  "method": "user_constrained_wooden_chord_reguess_outdoor",
+  "n_instruments": 6,
+  "location": "Parc Roland Beaudin, Sainte-Foy, Québec City, QC, Canada",
+  "setting": "outdoor evening spectacle / park audience",
+  "constraints": [
+    "outdoor park — not indoor chamber",
+    "wooden chord instruments only",
+    "no clarinet",
+    "no flute / brass / wind-heavy as primary IDs"
+  ],
+  "note": "Previous harmonic_template_match ranked clarinet/flute highest; discarded under user hard constraints. Scores below are narrative salience for a wooden-chord outdoor re-guess grounded in bass floor, mid body, high sparkle, A-centered floating chords, near-zero percussion — not raw template ranks.",
+  "instruments": [
+    {
+      "rank": 1,
+      "name": "acoustic guitar (chord body)",
+      "role": "mid chord / strummed-fingered wooden harmony",
+      "score_pct": 28.0
+    },
+    {
+      "rank": 2,
+      "name": "classical / nylon guitar",
+      "role": "warm mid-high wooden sparkle & arpeggiated chords",
+      "score_pct": 22.0
+    },
+    {
+      "rank": 3,
+      "name": "upright double bass",
+      "role": "bass floor (~33% band energy)",
+      "score_pct": 18.0
+    },
+    {
+      "rank": 4,
+      "name": "cello",
+      "role": "low-mid wooden sustain under chords",
+      "score_pct": 14.0
+    },
+    {
+      "rank": 5,
+      "name": "viola / violin (wooden string color)",
+      "role": "high string sheen / floating A-centered tones",
+      "score_pct": 12.0
+    },
+    {
+      "rank": 6,
+      "name": "second acoustic guitar / wooden chord double",
+      "role": "extra add9/maj7 chord density; little percussion",
+      "score_pct": 6.0
+    }
+  ],
+  "discarded_prior_ids": [
+    "clarinet",
+    "flute",
+    "trumpet",
+    "timpani",
+    "oboe",
+    "French horn",
+    "trombone"
+  ],
+  "all_ranked": [
+    {
+      "name": "acoustic guitar (chord body)",
+      "score_pct": 28.0
+    },
+    {
+      "name": "classical / nylon guitar",
+      "score_pct": 22.0
+    },
+    {
+      "name": "upright double bass",
+      "score_pct": 18.0
+    },
+    {
+      "name": "cello",
+      "score_pct": 14.0
+    },
+    {
+      "name": "viola / violin (wooden string color)",
+      "score_pct": 12.0
+    },
+    {
+      "name": "second acoustic guitar / wooden chord double",
+      "score_pct": 6.0
+    }
+  ]
+}
