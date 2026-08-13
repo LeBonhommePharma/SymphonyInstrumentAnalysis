@@ -1,11 +1,11 @@
 # Piano-crayon
 
-Open [`keyboard.html`](keyboard.html) in Safari or Chrome (`file://`). No server.
+Open [`keyboard.html`](keyboard.html) in Safari or Chrome. Prefer `python3 -m http.server 4173` in this folder, then http://localhost:4173/keyboard.html. Chrome often blocks mic and sample fetch on `file://`. On iPhone use the native app in `ios/`.
 
-**Écouter** — live mic FFT, silent (the analyser is not tapped to speakers). On iPhone use the native app in `ios/`; Safari will not grant the mic to a `file://` page.
+**Listen** (green ring) — live mic FFT, silent. Turns into a red square to stop.
 
-**Rejouer** — `samples/final_song.wav` if present, otherwise an 8 s built-in demo. Muted until **Entendre**.
+**Replay** (play circle) — `samples/final_song.wav` if present. Muted until **Son**. Turns into a square while playing.
 
-**Pistes** — Tous stacks all five musicians. Click a musician while Tous is on to solo; click more to union those lanes. Empty selection snaps back to Tous.
+**Pistes** — empty until a band is heard. Click a chip to follow that musician; empty selection snaps back to the mix.
 
-**Waves** — stacked GarageBand-style lanes, one per selected musician, in that musician’s color. Time is the waveforms: drag to seek, click a column to jump, ← / → to skip ±1 s.
+**Time** — one Logic-style waveform lane with a playhead. Drag to seek; ← / → skip ±1 s. Sensitivity is automatic from the noise floor.
