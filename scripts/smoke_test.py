@@ -163,8 +163,10 @@ def check_crayon_piano() -> None:
     html = (SCRIPTS.parent / "web" / "keyboard.html").read_text(encoding="utf-8")
     if 'id="scrub"' in html:
         raise SystemExit("HTML piano must not use a playback time slider")
-    if "ensureBandEnvelopes" not in html:
-        raise SystemExit("HTML piano must draw musician band envelopes")
+    if 'id="sens"' in html:
+        raise SystemExit("HTML piano must not use a sensitivity slider")
+    if 'id="arrange"' not in html or 'id="playhead"' not in html:
+        raise SystemExit("HTML piano must use a Logic-style arrange playhead")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "crayon_piano.py"), "--self-test"],
         capture_output=True,
