@@ -1682,20 +1682,20 @@
       if (doRestart) lastSeekRestart = now;
       seekTo(waveGrabT - dt, doRestart);
     });
-    function endWaveScrub(ev) {
+    function endWaveScrub(ev, allowJump) {
       if (!scrubbing) return;
       const jumped = !waveDidDrag;
       scrubbing = false;
-      if (jumped && ev && canSeek()) {
+      if (allowJump && jumped && ev && canSeek()) {
         seekTo(timeFromClientX(ev.clientX), mode === "replay");
       } else if (mode === "replay" && sampleBuffer) {
         startBufferAt(sampleOffset);
       }
       drawWave();
     }
-    $waveWell.addEventListener("pointerup", endWaveScrub);
-    $waveWell.addEventListener("pointercancel", endWaveScrub);
-    $waveWell.addEventListener("lostpointercapture", endWaveScrub);
+    $waveWell.addEventListener("pointerup", function (ev) { endWaveScrub(ev, true); });
+    $waveWell.addEventListener("pointercancel", function (ev) { endWaveScrub(ev, false); });
+    $waveWell.addEventListener("lostpointercapture", function (ev) { endWaveScrub(ev, false); });
   }
 
   window.addEventListener("keydown", function (ev) {
