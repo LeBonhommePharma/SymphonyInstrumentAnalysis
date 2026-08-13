@@ -167,6 +167,14 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must not use a sensitivity slider")
     if 'id="arrange"' not in html or 'id="playhead"' not in html:
         raise SystemExit("HTML piano must use a Logic-style arrange playhead")
+    if "Contrebasse" in html or "Violoncelle" in html or "Guitare A" in html:
+        raise SystemExit("HTML piano must not idle five hardcoded musician chips")
+    if "groupHarmonicFunds" not in html or "densityClusterFunds" not in html:
+        raise SystemExit("HTML piano must density-cluster independent tracks")
+    if "getDisplayMedia" not in html:
+        raise SystemExit("HTML piano must capture tab/system audio for listen")
+    if ">Nuit<" in html:
+        raise SystemExit("HTML piano must not use the Nuit checkbox label")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "crayon_piano.py"), "--self-test"],
         capture_output=True,
