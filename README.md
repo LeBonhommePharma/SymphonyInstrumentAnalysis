@@ -11,9 +11,15 @@ Records from the best available macOS mic, denoises, then estimates:
 
 Sound is air wiggling. We count the wiggles per second (**Hz**), then name the instruments and notes.
 
+**Live tutorial (silent — it only draws what the device is already playing):**
+
+```bash
+python3 scripts/serve_tutorial.py
+```
+
 ![Figure 1. Play a song, the mic listens, look at the wiggles, name the sounds.](docs/howto-eli5.png)
 
-Full walkthrough: [docs/HOW_TO_ELI5.md](docs/HOW_TO_ELI5.md).
+Full walkthrough: [docs/HOW_TO_ELI5.md](docs/HOW_TO_ELI5.md). Live page: [docs/tutorial/index.html](docs/tutorial/index.html).
 
 ## Setup
 

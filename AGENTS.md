@@ -4,6 +4,12 @@ Python CLI for mic capture + spectral instrument analysis. There is no web serve
 
 ELI5 how-to and figure: `docs/HOW_TO_ELI5.md` (figure: `docs/howto-eli5.png`).
 
+Silent live tutorial (visualizes the device’s current audio, does not play music):
+
+```bash
+python3 scripts/serve_tutorial.py
+```
+
 ## Setup
 
 Debian/Ubuntu — install OS packages before creating the venv (`python3-venv` matches default `python3`):
