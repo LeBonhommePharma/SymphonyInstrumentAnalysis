@@ -15,7 +15,7 @@ If you already have `samples/final_song.wav` and want to serve the folder, any f
 1. Click **Rejouer l’échantillon / Replay yesterday** (or **Replay demo** when using the built-in phrase).
 2. If `samples/final_song.wav` is present it loads that; otherwise a built-in synth demo is used. Same FFT peak-picker either way.
 3. Default is **muted** (visual only). Check **Entendre / Unmute sample** to hear it quietly.
-4. Scrub **Temps / Time** from 0 to the end.
+4. The timeline is a **DAW-style waveform track** (like Logic Pro / GarageBand): a fixed playhead with the waveform scrolling right→left as it plays. **Drag the lane** to scrub.
 
 Status line: file sample → `Échantillon / Sample: final_song.wav (Shannon, hier)`; otherwise `Démo intégrée / Built-in demo (pas de serveur / no server)`.
 

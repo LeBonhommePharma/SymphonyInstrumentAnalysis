@@ -21,6 +21,7 @@ Same crayon map as [`web/keyboard.html`](../../web/keyboard.html):
 - **Tap / hold keys** (multi-touch) — plays a tone and lights the macOS crayon for that pitch class.
 - **Écouter / Start listening** — device mic → Accelerate FFT peak-picker → keys light up.
 - **Rejouer / Replay demo** — built-in 8 s synth phrase (no WAV file, no HTTP). Check **Entendre / Unmute** to hear it.
+- **Waveform track** — the replay timeline is a DAW-style lane (like Logic Pro / GarageBand): a fixed playhead with the waveform scrolling right→left as it plays. Drag the lane to scrub.
 - Track chips, auto-accord, stealth/studio scene, sensitivity, chords — same behaviour as the web piano.
 
 Live mic on iPhone **cannot** work from a `file://` web page (Safari requires a secure context). That is why this app exists: AVAudioEngine + `NSMicrophoneUsageDescription`, zero network.
@@ -32,6 +33,7 @@ Live mic on iPhone **cannot** work from a `file://` web page (Safari requires a 
 | `CrayonTheme.swift` | macOS Crayons.clr palette + stealth/studio |
 | `PitchMath.swift` | MIDI ↔ Hz, C2–C7 |
 | `SpectrumAnalyzer.swift` | vDSP FFT + the web peak-picker |
-| `PianoSession.swift` | mic, tap tones, built-in demo |
+| `PianoSession.swift` | mic, tap tones, built-in demo, waveform peaks |
 | `PianoKeyboardView.swift` | multi-touch keyboard |
+| `WaveformTrackView.swift` | scrolling DAW-style waveform timeline |
 | `ContentView.swift` | iPhone / iPad layout |

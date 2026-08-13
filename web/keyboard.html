@@ -114,25 +114,54 @@
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 10px 14px;
+      gap: 8px 14px;
       margin: 0 0 10px;
     }
-    .scrub .track {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.78rem;
-      color: var(--muted);
+    .scrub[hidden] { display: none !important; }
+    .wave-well {
+      position: relative;
       flex: 1;
-      min-width: min(100%, 220px);
+      min-width: min(100%, 240px);
+      height: 68px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      overflow: hidden;
+      touch-action: none;
+      cursor: ew-resize;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
-    .scrub input[type="range"] { width: 100%; accent-color: var(--replay); }
+    .wave-well canvas { display: block; width: 100%; height: 100%; }
+    .wave-hint {
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+      pointer-events: none;
+    }
+    .wave-hint .en { opacity: 0.82; }
     .scrub .clock {
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1;
       font-weight: 650;
       color: var(--ink);
-      min-width: 10rem;
+      min-width: 9rem;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
     }
     .status {
       font-size: 0.88rem;
@@ -726,12 +755,13 @@
   <div id="trackLine">Pistes / Tracks: Tous / All</div>
   <div class="tracks" id="tracks" role="group" aria-label="Pistes / Tracks"></div>
   <div id="tuneLine" class="tune-line">La / A ≈ 440 Hz · Auto-accord en attente / waiting</div>
-  <div class="scrub">
-    <label class="track">
-      Temps / Time — échantillon d’hier / yesterday’s sample
-      <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
-    </label>
+  <div class="scrub" id="scrubWrap">
+    <div class="wave-well" id="waveWell">
+      <canvas id="wave"></canvas>
+      <div class="wave-hint" id="waveHint">Temps / Time · <span class="en">glisse pour naviguer / drag to scrub</span></div>
+    </div>
     <div id="clock" class="clock">0:00.0 / 0:00.0</div>
+    <input id="scrub" class="sr-only" type="range" min="0" max="1000" value="0" step="1" aria-label="Temps / Time — position dans l’échantillon">
   </div>
   <div id="err" class="err" hidden></div>
 
@@ -833,6 +863,11 @@
   const $unmute = document.getElementById("unmute");
   const $scrub = document.getElementById("scrub");
   const $clock = document.getElementById("clock");
+  const $scrubWrap = document.getElementById("scrubWrap");
+  const $waveWell = document.getElementById("waveWell");
+  const $wave = document.getElementById("wave");
+  const $waveHint = document.getElementById("waveHint");
+  const waveCtx = $wave ? $wave.getContext("2d") : null;
   const $micLine = document.getElementById("micLine");
   const $hint = document.getElementById("hint");
   const $err = document.getElementById("err");
@@ -870,6 +905,21 @@
   let sampleOffset = 0;
   let sampleStartCtxTime = 0;
   let scrubbing = false;
+
+  // DAW-style scrolling waveform (Logic/GarageBand feel): fixed playhead,
+  // waveform scrolls right→left as the sample plays.
+  const WAVE_PX_PER_SEC = 96;      // horizontal zoom
+  const WAVE_PLAYHEAD_FRAC = 0.34; // playhead position across the lane
+  const PEAKS_PER_SEC = 240;       // waveform resolution
+  let wavePeaks = null;
+  let wavePeaksFor = null;
+  let waveW = 0;
+  let waveH = 0;
+  let waveColors = null;
+  let waveGrabX = 0;
+  let waveGrabT = 0;
+  let lastSeekRestart = 0;
+
   const smooth = new Float32Array(MIDI_HI - MIDI_LO + 1);
   smooth.fill(-120);
   let aEst = A4_REF;
@@ -930,6 +980,8 @@
       const pc = el.dataset.pc;
       if (pc && CRAYONS[pc]) paintEl(el, CRAYONS[pc]);
     });
+    refreshWaveColors();
+    drawWave();
   }
   function concertA() { return $autotune.checked ? aEst : A4_REF; }
   function midiToHzRef(m, a) { return a * Math.pow(2, (m - 69) / 12); }
@@ -1463,6 +1515,162 @@
     return Math.min(sampleDuration, sampleOffset + (audioCtx.currentTime - sampleStartCtxTime));
   }
 
+  function ensurePeaks() {
+    if (!sampleBuffer) { wavePeaks = null; wavePeaksFor = null; return null; }
+    if (wavePeaks && wavePeaksFor === sampleBuffer) return wavePeaks;
+    const ch = sampleBuffer.getChannelData(0);
+    const n = ch.length;
+    const buckets = Math.max(1, Math.ceil((sampleDuration || (n / sampleBuffer.sampleRate)) * PEAKS_PER_SEC));
+    const per = n / buckets;
+    const mn = new Float32Array(buckets);
+    const mx = new Float32Array(buckets);
+    let peak = 0.0001;
+    for (let b = 0; b < buckets; b++) {
+      const s = Math.floor(b * per);
+      const e = Math.min(n, Math.floor((b + 1) * per));
+      let lo = 0, hi = 0;
+      for (let i = s; i < e; i++) {
+        const v = ch[i];
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      mn[b] = lo; mx[b] = hi;
+      if (-lo > peak) peak = -lo;
+      if (hi > peak) peak = hi;
+    }
+    wavePeaks = { mn: mn, mx: mx, buckets: buckets, norm: 0.94 / peak };
+    wavePeaksFor = sampleBuffer;
+    return wavePeaks;
+  }
+
+  function refreshWaveColors() {
+    const cs = getComputedStyle(document.documentElement);
+    function v(name, fallback) {
+      const raw = cs.getPropertyValue(name);
+      return raw && raw.trim() ? raw.trim() : fallback;
+    }
+    waveColors = {
+      played: v("--replay-on", "rgb(72, 126, 153)"),
+      future: v("--hairline-strong", "#3a3a42"),
+      ink: v("--ink", "#9a9aa2"),
+      muted: v("--muted", "#6e6e76")
+    };
+  }
+
+  function resizeWave() {
+    if (!waveCtx || !$waveWell) return;
+    const rect = $waveWell.getBoundingClientRect();
+    if (rect.width < 2) return;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    waveW = Math.max(120, Math.floor(rect.width));
+    waveH = Math.max(48, Math.floor(rect.height));
+    $wave.width = Math.floor(waveW * dpr);
+    $wave.height = Math.floor(waveH * dpr);
+    waveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawWave();
+  }
+
+  function drawWave() {
+    if (!waveCtx || waveW < 2) return;
+    if (!waveColors) refreshWaveColors();
+    const w = waveW, h = waveH, mid = h / 2;
+    const dur = sampleDuration || 0;
+    const t = scrubbing ? sampleOffset : sampleNow();
+    const playheadX = Math.round(w * WAVE_PLAYHEAD_FRAC);
+    const pxPerSec = WAVE_PX_PER_SEC;
+    const peaks = ensurePeaks();
+
+    waveCtx.clearRect(0, 0, w, h);
+
+    // Second gridlines + tick labels (like DAW bar lines) — these scroll with
+    // the audio, making the right→left motion obvious.
+    const firstSec = Math.floor(t - playheadX / pxPerSec);
+    const lastSec = Math.ceil(t + (w - playheadX) / pxPerSec);
+    waveCtx.lineWidth = 1;
+    waveCtx.font = "9px 'SF Pro Text', system-ui, sans-serif";
+    waveCtx.textBaseline = "bottom";
+    for (let s = firstSec; s <= lastSec; s++) {
+      if (s < 0 || dur > 0 && s > dur) continue;
+      const x = Math.round(playheadX + (s - t) * pxPerSec) + 0.5;
+      if (x < 0 || x > w) continue;
+      waveCtx.strokeStyle = waveColors.muted;
+      waveCtx.globalAlpha = 0.28;
+      waveCtx.beginPath();
+      waveCtx.moveTo(x, 12);
+      waveCtx.lineTo(x, h);
+      waveCtx.stroke();
+      waveCtx.globalAlpha = 0.7;
+      waveCtx.fillStyle = waveColors.muted;
+      waveCtx.fillText(s + "s", x + 3, 11);
+    }
+    waveCtx.globalAlpha = 1;
+
+    // Center baseline.
+    waveCtx.globalAlpha = 0.25;
+    waveCtx.beginPath();
+    waveCtx.moveTo(0, mid + 0.5);
+    waveCtx.lineTo(w, mid + 0.5);
+    waveCtx.stroke();
+    waveCtx.globalAlpha = 1;
+
+    if (peaks) {
+      const norm = peaks.norm;
+      const amp = mid - 3;
+      for (let x = 0; x < w; x++) {
+        const tt = t + (x - playheadX) / pxPerSec;
+        if (tt < 0 || tt > dur) continue;
+        const b = Math.floor(tt * PEAKS_PER_SEC);
+        if (b < 0 || b >= peaks.buckets) continue;
+        const yTop = mid - peaks.mx[b] * norm * amp;
+        const yBot = mid - peaks.mn[b] * norm * amp;
+        const played = tt <= t;
+        waveCtx.strokeStyle = played ? waveColors.played : waveColors.future;
+        waveCtx.globalAlpha = played ? 0.95 : 0.5;
+        waveCtx.beginPath();
+        waveCtx.moveTo(x + 0.5, yTop);
+        waveCtx.lineTo(x + 0.5, Math.max(yBot, yTop + 1));
+        waveCtx.stroke();
+      }
+      waveCtx.globalAlpha = 1;
+    }
+
+    // Playhead.
+    waveCtx.strokeStyle = waveColors.ink;
+    waveCtx.lineWidth = 2;
+    waveCtx.beginPath();
+    waveCtx.moveTo(playheadX + 0.5, 0);
+    waveCtx.lineTo(playheadX + 0.5, h);
+    waveCtx.stroke();
+    waveCtx.fillStyle = waveColors.ink;
+    waveCtx.beginPath();
+    waveCtx.moveTo(playheadX - 4.5, 0);
+    waveCtx.lineTo(playheadX + 5.5, 0);
+    waveCtx.lineTo(playheadX + 0.5, 6);
+    waveCtx.closePath();
+    waveCtx.fill();
+
+    if ($waveHint) $waveHint.style.opacity = peaks ? "0" : "1";
+  }
+
+  function syncScrubVisibility() {
+    if (!$scrubWrap) return;
+    $scrubWrap.hidden = mode === "live";
+    if (mode !== "live") {
+      resizeWave();
+    }
+  }
+
+  function seekTo(t, doRestart) {
+    const dur = sampleDuration || 0;
+    sampleOffset = Math.max(0, Math.min(dur, t));
+    if (!scrubbing) {
+      $scrub.value = String(dur > 0 ? Math.round(1000 * sampleOffset / dur) : 0);
+    }
+    $clock.textContent = fmtTime(sampleOffset) + " / " + fmtTime(dur);
+    drawWave();
+    if (doRestart && mode === "replay" && sampleBuffer) startBufferAt(sampleOffset);
+  }
+
   function updateScrubUi() {
     const t = sampleNow();
     const dur = sampleDuration || 0;
@@ -1471,6 +1679,7 @@
       $scrub.value = String(dur > 0 ? Math.round(1000 * t / dur) : 0);
     }
     $clock.textContent = fmtTime(t) + " / " + fmtTime(dur);
+    drawWave();
   }
 
   function stopBufferSource() {
@@ -1533,6 +1742,7 @@
       $btn.classList.add("live");
       $btn.textContent = "Stop / Arrêter";
       $hint.textContent = LIVE_HINT;
+      syncScrubVisibility();
       loop();
     } catch (e) {
       mode = "idle";
@@ -1556,6 +1766,7 @@
     $hint.textContent = "Pas de serveur · No port · Tap keys, live mic, or built-in demo";
     clearLights();
     resetTune();
+    syncScrubVisibility();
   }
 
   function stopReplay(keepScrub) {
@@ -1686,6 +1897,8 @@
       $replay.textContent = "Stop échantillon / Stop sample";
       $micLine.textContent = sampleStatus;
       $hint.textContent = REPLAY_HINT;
+      ensurePeaks();
+      syncScrubVisibility();
       loop();
     } catch (e) {
       mode = "idle";
@@ -1721,15 +1934,40 @@
     applyScene($stealth.checked);
   });
 
-  $scrub.addEventListener("pointerdown", function () { scrubbing = true; });
-  $scrub.addEventListener("pointerup", function () { scrubbing = false; });
+  // Hidden range keeps keyboard accessibility (arrow keys) for the timeline.
   $scrub.addEventListener("input", function () {
     const dur = sampleDuration || 0;
-    sampleOffset = dur * (Number($scrub.value) / 1000);
-    $clock.textContent = fmtTime(sampleOffset) + " / " + fmtTime(dur);
-    if (mode === "replay" && sampleBuffer) startBufferAt(sampleOffset);
+    seekTo(dur * (Number($scrub.value) / 1000), mode === "replay");
   });
-  $scrub.addEventListener("change", function () { scrubbing = false; });
+
+  // Drag the waveform lane to scrub (grab-and-drag like a DAW track).
+  if ($waveWell) {
+    $waveWell.addEventListener("pointerdown", function (ev) {
+      if (!sampleBuffer) return;
+      ev.preventDefault();
+      scrubbing = true;
+      waveGrabX = ev.clientX;
+      waveGrabT = sampleNow();
+      try { $waveWell.setPointerCapture(ev.pointerId); } catch (_) {}
+    });
+    $waveWell.addEventListener("pointermove", function (ev) {
+      if (!scrubbing) return;
+      const dt = (ev.clientX - waveGrabX) / WAVE_PX_PER_SEC;
+      const now = (window.performance && performance.now) ? performance.now() : Date.now();
+      const doRestart = now - lastSeekRestart > 110;
+      if (doRestart) lastSeekRestart = now;
+      seekTo(waveGrabT - dt, doRestart);
+    });
+    function endWaveScrub() {
+      if (!scrubbing) return;
+      scrubbing = false;
+      if (mode === "replay" && sampleBuffer) startBufferAt(sampleOffset);
+      drawWave();
+    }
+    $waveWell.addEventListener("pointerup", endWaveScrub);
+    $waveWell.addEventListener("pointercancel", endWaveScrub);
+    $waveWell.addEventListener("lostpointercapture", endWaveScrub);
+  }
 
   $micAlt.addEventListener("change", function () {
     micOverrideId = $micAlt.value === "os" ? null : $micAlt.value;
@@ -1740,9 +1978,13 @@
     }
   });
 
-  window.addEventListener("resize", layoutBlackKeys);
+  function onViewportResize() {
+    layoutBlackKeys();
+    resizeWave();
+  }
+  window.addEventListener("resize", onViewportResize);
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", layoutBlackKeys);
+    window.visualViewport.addEventListener("resize", onViewportResize);
   }
 
   let lastConstell = "";
@@ -1955,6 +2197,9 @@
   buildKeyboard();
   buildTracks();
   syncTuneUi();
+  refreshWaveColors();
+  syncScrubVisibility();
+  resizeWave();
 })();
   </script>
 </body>

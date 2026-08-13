@@ -66,22 +66,13 @@ struct ContentView: View {
                 Slider(value: $session.sensitivity, in: 0...1)
                     .tint(NoteName.gSharp.color)
             }
-            if session.mode == .replay || session.sampleTime > 0 {
-                HStack {
-                    Text("Temps / Time")
-                        .font(.caption)
-                        .foregroundStyle(session.scene.muted)
-                    Slider(
-                        value: Binding(
-                            get: { session.sampleDuration == 0 ? 0 : session.sampleTime / session.sampleDuration },
-                            set: { session.seekReplay(fraction: $0) }
-                        ),
-                        in: 0...1
-                    )
-                    .tint(NoteName.gSharp.color)
+            if session.mode != .live {
+                HStack(alignment: .center, spacing: 10) {
+                    WaveformTrackView(session: session)
                     Text(clock)
                         .font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(session.scene.ink)
+                        .fixedSize()
                 }
             }
             HStack(spacing: 14) {

@@ -14,6 +14,7 @@
 		8F3A1B2C4D5E6F708192A0E4 /* SpectrumAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3A1B2C4D5E6F708192A0D4 /* SpectrumAnalyzer.swift */; };
 		8F3A1B2C4D5E6F708192A0E5 /* PianoSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3A1B2C4D5E6F708192A0D5 /* PianoSession.swift */; };
 		8F3A1B2C4D5E6F708192A0E6 /* PianoKeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3A1B2C4D5E6F708192A0D6 /* PianoKeyboardView.swift */; };
+		8F3A1B2C4D5E6F708192A0E7 /* WaveformTrackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3A1B2C4D5E6F708192A0D7 /* WaveformTrackView.swift */; };
 		8F3A1B2C4D5E6F708192A0C1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8F3A1B2C4D5E6F708192A0C0 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -26,6 +27,7 @@
 		8F3A1B2C4D5E6F708192A0D4 /* SpectrumAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumAnalyzer.swift; sourceTree = "<group>"; };
 		8F3A1B2C4D5E6F708192A0D5 /* PianoSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianoSession.swift; sourceTree = "<group>"; };
 		8F3A1B2C4D5E6F708192A0D6 /* PianoKeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianoKeyboardView.swift; sourceTree = "<group>"; };
+		8F3A1B2C4D5E6F708192A0D7 /* WaveformTrackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaveformTrackView.swift; sourceTree = "<group>"; };
 		8F3A1B2C4D5E6F708192A0C0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -66,6 +68,7 @@
 				8F3A1B2C4D5E6F708192A0D4 /* SpectrumAnalyzer.swift */,
 				8F3A1B2C4D5E6F708192A0D5 /* PianoSession.swift */,
 				8F3A1B2C4D5E6F708192A0D6 /* PianoKeyboardView.swift */,
+				8F3A1B2C4D5E6F708192A0D7 /* WaveformTrackView.swift */,
 				8F3A1B2C4D5E6F708192A0C0 /* Assets.xcassets */,
 			);
 			path = CrayonPiano;
@@ -148,6 +151,7 @@
 				8F3A1B2C4D5E6F708192A0E4 /* SpectrumAnalyzer.swift in Sources */,
 				8F3A1B2C4D5E6F708192A0E5 /* PianoSession.swift in Sources */,
 				8F3A1B2C4D5E6F708192A0E6 /* PianoKeyboardView.swift in Sources */,
+				8F3A1B2C4D5E6F708192A0E7 /* WaveformTrackView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

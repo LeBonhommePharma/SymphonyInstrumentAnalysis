@@ -21,6 +21,11 @@ final class PianoSession: ObservableObject {
     @Published var errorMessage: String?
     @Published var sampleTime: Double = 0
     @Published var sampleDuration: Double = 0
+    @Published var scrubbing = false
+
+    /// Symmetric amplitude peaks for the DAW-style waveform track.
+    private(set) var wavePeaks: [Float] = []
+    let peaksPerSec: Double = 240
     @Published var isStealth = true
     @Published var sensitivity: Double = 0.58
     @Published var chordsOn = true
@@ -96,6 +101,31 @@ final class PianoSession: ObservableObject {
         tapMixer.outputVolume = 1
         demoBuffer = Self.makeDemoBuffer(format: format)
         sampleDuration = Double(demoBuffer?.frameLength ?? 0) / 44100
+        wavePeaks = Self.computePeaks(demoBuffer, peaksPerSec: peaksPerSec)
+    }
+
+    /// Live playback position, valid while playing, scrubbing, or paused.
+    func currentSampleTime() -> Double {
+        if scrubbing { return sampleTime }
+        if mode == .replay {
+            return min(sampleDuration, replayOffset + (ProcessInfo.processInfo.systemUptime - replayStartHost))
+        }
+        return sampleTime
+    }
+
+    func beginScrub() {
+        scrubbing = true
+    }
+
+    func scrub(toTime t: Double) {
+        let clamped = max(0, min(sampleDuration, t))
+        replayOffset = clamped
+        sampleTime = clamped
+    }
+
+    func endScrub() {
+        scrubbing = false
+        if mode == .replay { startReplay() }
     }
 
     func toggleListen() {
@@ -414,6 +444,33 @@ final class PianoSession: ObservableObject {
         let g = 0.9 / peak
         for i in 0..<Int(n) { data[i] *= g }
         return buf
+    }
+
+    private static func computePeaks(_ buffer: AVAudioPCMBuffer?, peaksPerSec: Double) -> [Float] {
+        guard let buffer, let data = buffer.floatChannelData?[0] else { return [] }
+        let n = Int(buffer.frameLength)
+        let sr = buffer.format.sampleRate
+        guard n > 0, sr > 0 else { return [] }
+        let buckets = max(1, Int(ceil(Double(n) / sr * peaksPerSec)))
+        let per = Double(n) / Double(buckets)
+        var peaks = [Float](repeating: 0, count: buckets)
+        var mx: Float = 0.0001
+        for b in 0..<buckets {
+            let s = Int(Double(b) * per)
+            let e = min(n, Int(Double(b + 1) * per))
+            var m: Float = 0
+            var i = s
+            while i < e {
+                let v = abs(data[i])
+                if v > m { m = v }
+                i += 1
+            }
+            peaks[b] = m
+            if m > mx { mx = m }
+        }
+        let norm = 0.94 / mx
+        for i in 0..<buckets { peaks[i] *= norm }
+        return peaks
     }
 
     private static func slice(_ buffer: AVAudioPCMBuffer, from offset: Double) -> AVAudioPCMBuffer? {
