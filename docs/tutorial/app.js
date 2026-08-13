@@ -56,6 +56,8 @@
   let softGain = 1;
   let displayGain = 1;
   let lastClusters = [];
+  let listenBusy = false;
+  const SNIFF_MS = 650;
 
   function t(key, vars) {
     if (window.I18N && typeof I18N.t === "function") return I18N.t(key, vars);
@@ -698,18 +700,20 @@
     return Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isiOS;
   }
 
-  function listenErrorKey(err) {
+  function listenErrorKey(err, kind) {
     const name = err && err.name;
     const text = String((err && err.message) || err || "");
-    if (name === "NotAllowedError" || name === "PermissionDeniedError") return "errMicDenied";
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return kind === "tab" ? "errTabDenied" : "errMicDenied";
+    }
     if (name === "NotFoundError" || name === "OverconstrainedError") return "errNoMic";
     if (name === "SecurityError" || /secure context|https/i.test(text)) return "errSecure";
     if (name === "NotSupportedError") return "errNoTabShare";
     return null;
   }
 
-  function showListenError(err) {
-    const key = listenErrorKey(err);
+  function showListenError(err, kind) {
+    const key = listenErrorKey(err, kind);
     if (key) {
       setStatusKey(key);
       return;
@@ -738,7 +742,11 @@
     return new MediaStream(audioTracks);
   }
 
-  async function startFromStream(mediaStream, statusKey) {
+  function setTabFallback(on) {
+    document.body.classList.toggle("need-tab", Boolean(on) && canShareTabAudio());
+  }
+
+  async function startFromStream(mediaStream, statusKey, opts) {
     stopListen();
     demoMode = false;
     stream = mediaStream;
@@ -760,7 +768,7 @@
     heardSound = false;
     resetHistory();
     cancelAnimationFrame(raf);
-    tick();
+    if (!(opts && opts.holdTick)) tick();
   }
 
   function stopListen() {
@@ -776,10 +784,41 @@
       });
       stream = null;
     }
+    setTabFallback(false);
     setListeningUi(false);
   }
 
-  async function listenMic() {
+  function sniffHeard(durationMs) {
+    return new Promise(function (resolve) {
+      const t0 = performance.now();
+      let peakRms = 0;
+      let peakMag = 0;
+      function step() {
+        if (!analyser || !audioCtx) {
+          resolve(false);
+          return;
+        }
+        analyser.getByteFrequencyData(freq);
+        analyser.getByteTimeDomainData(time);
+        const rms = rmsOfTime();
+        updateAutoGain(rms);
+        const extracted = extractPeaks(audioCtx.sampleRate, softGain);
+        const boosted = rms * softGain;
+        if (boosted > peakRms) peakRms = boosted;
+        if (extracted.peaks.length && extracted.peaks[0].mag > peakMag) {
+          peakMag = extracted.peaks[0].mag;
+        }
+        if (performance.now() - t0 < durationMs) {
+          raf = requestAnimationFrame(step);
+          return;
+        }
+        resolve(peakRms > 0.018 || peakMag > 18);
+      }
+      raf = requestAnimationFrame(step);
+    });
+  }
+
+  async function listenMic(opts) {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: false,
@@ -790,7 +829,53 @@
       },
       video: false,
     });
-    await startFromStream(mediaStream, "statusMicOn");
+    await startFromStream(mediaStream, (opts && opts.statusKey) || "statusMicOn", opts);
+  }
+
+  async function listenSmart() {
+    if (listenBusy) return;
+    listenBusy = true;
+    setTabFallback(false);
+    try {
+      try {
+        await listenMic({ holdTick: true, statusKey: "statusSniff" });
+      } catch (micErr) {
+        if (canShareTabAudio()) {
+          try {
+            await listenSystemAudio();
+            return;
+          } catch (tabErr) {
+            showListenError(micErr, "mic");
+            return;
+          }
+        }
+        showListenError(micErr, "mic");
+        return;
+      }
+      const heard = await sniffHeard(SNIFF_MS);
+      if (heard) {
+        setStatusKey("statusMicOn");
+        quietEl.textContent = t("quietPitch");
+        tick();
+        return;
+      }
+      if (canShareTabAudio()) {
+        try {
+          await listenSystemAudio();
+          return;
+        } catch (tabErr) {
+          await listenMic({ statusKey: "statusNeedTab" });
+          setTabFallback(true);
+          quietEl.textContent = t("quietIdle");
+          return;
+        }
+      }
+      setStatusKey("statusMicQuiet");
+      quietEl.textContent = t("quietAfter");
+      tick();
+    } finally {
+      listenBusy = false;
+    }
   }
 
   async function listenSystemAudio() {
@@ -896,19 +981,18 @@
     resizeCanvases();
     window.addEventListener("resize", resizeCanvases);
     window.onSymphonyLangChange = refreshI18n;
-    if (!canShareTabAudio()) {
-      document.querySelectorAll(".share-only").forEach(function (el) {
-        el.hidden = true;
-      });
-    }
     document.querySelectorAll("[data-action='mic']").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        listenMic().catch(showListenError);
+        listenSmart().catch(function (err) {
+          showListenError(err, "mic");
+        });
       });
     });
     document.querySelectorAll("[data-action='system']").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        listenSystemAudio().catch(showListenError);
+        listenSystemAudio().catch(function (err) {
+          showListenError(err, "tab");
+        });
       });
     });
     document.querySelectorAll("[data-action='stop']").forEach(function (btn) {

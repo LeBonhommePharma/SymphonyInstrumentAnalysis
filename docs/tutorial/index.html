@@ -35,14 +35,13 @@
         </div>
         <h1 data-i18n="tutH1">See what this device is playing</h1>
         <p data-i18n="tutLead">
-          This page never plays a song. One tap starts the mic. Soft auto-gain
-          pulls up quiet rooms and headphone bleed. Tracks appear from density
-          clustering — lane count follows the sound, not a fixed number.
+          This page never plays a song. One tap asks for the microphone. If
+          nothing is around, live listen moves to what this computer is playing.
         </p>
       </div>
       <div class="controls">
         <button class="primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
-        <button class="secondary share-only" type="button" data-action="system" data-i18n="btnTab">Share tab audio</button>
+        <button class="secondary share-only" type="button" data-action="system" id="tabFallback" data-i18n="btnTab">This computer is playing</button>
         <button class="ghost" type="button" data-action="stop" data-i18n="btnStop">Stop</button>
       </div>
     </header>
@@ -93,15 +92,13 @@
 
   <div class="bootstrap" id="bootstrap">
     <div class="bootstrap-card">
-      <h2 data-i18n="gateTitle">One tap. Your audio, not ours.</h2>
+      <h2 data-i18n="gateTitle">One tap. Mic first.</h2>
       <p data-i18n="gateBody">
-        Listen uses the microphone — audio only. Soft auto-gain means you do not
-        need to blast headphones. Tracks appear from density clustering. This page
-        never plays sound back.
+        Listen asks for the microphone. If there is no music around, it falls
+        through to live listen of this computer. This page never plays sound back.
       </p>
       <div class="controls">
         <button class="primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
-        <button class="secondary share-only" type="button" data-action="system" data-i18n="btnTab">Share tab audio</button>
       </div>
     </div>
   </div>
