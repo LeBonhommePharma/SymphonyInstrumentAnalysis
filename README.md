@@ -9,12 +9,20 @@ Records from the best available macOS mic, denoises, then estimates:
 
 ## Setup
 
+Debian/Ubuntu (install OS packages first; `python3-venv` matches the default `python3`):
+
 ```bash
+sudo apt-get update
+sudo apt-get install -y python3-venv ffmpeg
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-# also requires ffmpeg on PATH
-# Debian/Ubuntu: sudo apt-get install -y python3.12-venv ffmpeg
+```
+
+Cloud / repeatable install:
+
+```bash
+bash .cursor/install.sh
 ```
 
 Verify the analysis path (works without a microphone):
@@ -41,4 +49,4 @@ python3 scripts/analyze_instruments.py captures/<file>.wav
 
 Outputs land in `analysis_out/` (Markdown + JSON). Raw WAVs stay local in `captures/` (gitignored).
 
-`list_mics.py` / `probe_mics.py` / `record_mic.py` use macOS AVFoundation. On Linux, use `smoke_test.py` or feed a 16-bit PCM WAV to `analyze_instruments.py`.
+`list_mics.py` / `probe_mics.py` / `record_mic.py` use macOS AVFoundation. Without a capture device they exit 1 with `No AVFoundation audio devices found.` On Linux, use `smoke_test.py` or feed a 16-bit PCM WAV to `analyze_instruments.py`.
