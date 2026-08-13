@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 import subprocess
 
+NO_DEVICES_MESSAGE = "No AVFoundation audio devices found."
+
 
 def list_audio_devices() -> list[tuple[int, str]]:
     proc = subprocess.run(
@@ -28,11 +30,16 @@ def list_audio_devices() -> list[tuple[int, str]]:
     return devices
 
 
-def main() -> None:
+def require_audio_devices() -> list[tuple[int, str]]:
     devices = list_audio_devices()
     if not devices:
-        print("No AVFoundation audio devices found.")
+        print(NO_DEVICES_MESSAGE)
         raise SystemExit(1)
+    return devices
+
+
+def main() -> None:
+    devices = require_audio_devices()
     print("Audio devices:")
     for idx, name in devices:
         print(f"  [{idx}] {name}")
