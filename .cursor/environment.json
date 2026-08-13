@@ -1,0 +1,4 @@
+{
+  "name": "symphony-instrument-analysis",
+  "install": "sudo apt-get update\nsudo apt-get install -y --no-install-recommends python3.12-venv ffmpeg\npython3 -m venv .venv\n.venv/bin/pip install --upgrade pip\n.venv/bin/pip install -r requirements.txt"
+}
