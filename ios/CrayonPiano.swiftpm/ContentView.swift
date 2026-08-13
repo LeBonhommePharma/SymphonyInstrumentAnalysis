@@ -33,24 +33,19 @@ struct ContentView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Piano-crayon / Crayon piano")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(session.scene.ink)
-            Text("Même couleur = même son · Tap keys · No server")
-                .font(.footnote)
-                .foregroundStyle(session.scene.muted)
-        }
+        Text("Piano-crayon")
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(session.scene.ink)
     }
 
     private var controls: some View {
         HStack(spacing: 8) {
-            Button(session.mode == .replay ? "Stop échantillon / Stop demo" : "Rejouer / Replay demo") {
+            Button(session.mode == .replay ? "Stop" : "Rejouer") {
                 session.toggleReplay()
             }
             .buttonStyle(CrayonButtonStyle(kind: session.mode == .replay ? .replayOn : .replay, scene: session.scene))
 
-            Button(session.mode == .live ? "Stop / Arrêter" : "Écouter / Start listening") {
+            Button(session.mode == .live ? "Stop" : "Écouter") {
                 session.toggleListen()
             }
             .buttonStyle(CrayonButtonStyle(kind: session.mode == .live ? .live : .stop, scene: session.scene))
@@ -59,13 +54,6 @@ struct ContentView: View {
 
     private var toggles: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Sensibilité / Sensitivity")
-                    .font(.caption)
-                    .foregroundStyle(session.scene.muted)
-                Slider(value: $session.sensitivity, in: 0...1)
-                    .tint(NoteName.gSharp.color)
-            }
             if session.mode != .live {
                 HStack(alignment: .center, spacing: 10) {
                     WaveformTrackView(session: session)
@@ -75,97 +63,90 @@ struct ContentView: View {
                         .fixedSize()
                 }
             }
-            HStack(spacing: 14) {
-                toggle("Accords / Chords", $session.chordsOn)
-                toggle("Entendre / Unmute", $session.unmute)
-                    .onChange(of: session.unmute) { _, _ in session.applyUnmute() }
-                toggle("Auto-accord / Auto-tune", $session.autotune)
-                toggle("Stealth / Scène", $session.isStealth)
+            HStack(spacing: 8) {
+                iconToggle(session.chordsOn, label: "Accords") {
+                    session.chordsOn.toggle()
+                } glyph: {
+                    ChordGlyph(on: session.chordsOn)
+                }
+                iconToggle(session.unmute, label: "Son") {
+                    session.unmute.toggle()
+                    session.applyUnmute()
+                } glyph: {
+                    SpeakerGlyph(on: session.unmute)
+                }
+                iconToggle(session.autotune, label: "La") {
+                    session.autotune.toggle()
+                } glyph: {
+                    LaGlyph(on: session.autotune)
+                }
+                iconToggle(session.isStealth, label: "Scène") {
+                    session.isStealth.toggle()
+                } glyph: {
+                    StageGlyph(on: session.isStealth)
+                }
             }
-            Text(session.statusLine)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(session.scene.ink)
-            Text(session.hint)
-                .font(.caption)
-                .foregroundStyle(session.scene.muted)
+            if !session.statusLine.isEmpty {
+                Text(session.statusLine)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(session.scene.ink)
+            }
         }
     }
 
-    private func toggle(_ title: String, _ value: Binding<Bool>) -> some View {
-        Toggle(title, isOn: value)
-            .font(.caption)
-            .foregroundStyle(session.scene.ink)
-            .toggleStyle(.switch)
-            .labelsHidden()
-            .overlay(alignment: .leading) {
-                Text(title)
-                    .font(.caption2)
-                    .foregroundStyle(session.scene.muted)
-                    .offset(y: 18)
-            }
-            .padding(.bottom, 14)
+    private func iconToggle<G: View>(
+        _ on: Bool,
+        label: String,
+        action: @escaping () -> Void,
+        @ViewBuilder glyph: () -> G
+    ) -> some View {
+        Button(action: action) {
+            glyph()
+                .frame(width: 44, height: 44)
+                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(session.scene.muted.opacity(0.45), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private var trackRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(session.trackLabel)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(session.scene.ink)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    trackChip(
-                        title: "Tous",
-                        en: "All",
-                        hz: "mix FFT",
-                        color: session.isStealth ? Color(white: 0.16) : Color(red: 0.957, green: 0.937, blue: 0.902),
-                        ink: session.scene.ink,
-                        pressed: session.isTous
-                    ) {
-                        session.selectAllTracks()
+        HStack(spacing: 6) {
+            Text("\(session.liveTracks.count)")
+                .font(.caption.weight(.semibold).monospacedDigit())
+                .foregroundStyle(session.scene.muted)
+                .frame(width: 28, height: 44)
+                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            if session.liveTracks.isEmpty {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
+                    .frame(width: 44, height: 44)
+                    .opacity(0.28)
+            } else {
+                ForEach(session.liveTracks) { track in
+                    Button {
+                        session.toggleTrack(track.id)
+                    } label: {
+                        Text(track.caption)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(track.pitchClass.labelColor)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .background(track.pitchClass.color.opacity(track.energy > 0.18 ? 1 : 0.28), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
                     }
-                    ForEach(MusicianTrack.all) { track in
-                        trackChip(
-                            title: track.french,
-                            en: track.english,
-                            hz: "\(Int(track.loHz))–\(Int(track.hiHz)) Hz",
-                            color: track.color,
-                            ink: .white,
-                            pressed: session.selectedTracks.contains(track.id)
-                        ) {
-                            session.toggleTrack(track.id)
-                        }
-                    }
+                    .buttonStyle(.plain)
+                    .opacity(track.energy > 0.18 ? 1 : 0.4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(session.selectedTrackId == track.id || session.isTous ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
+                    )
+                    .accessibilityLabel("\(track.caption) \(Int(track.f0.rounded())) Hz")
                 }
             }
         }
-    }
-
-    private func trackChip(
-        title: String,
-        en: String,
-        hz: String,
-        color: Color,
-        ink: Color,
-        pressed: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 1) {
-                Text(title).font(.caption.weight(.semibold))
-                Text(en).font(.caption2)
-                Text(hz).font(.system(size: 9, weight: .semibold).monospacedDigit())
-            }
-            .foregroundStyle(ink)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(color.opacity(pressed ? 1 : 0.22), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(color.opacity(pressed ? 1 : 0.4), lineWidth: 1)
-            )
-            .opacity(pressed ? 1 : 0.55)
-        }
-        .buttonStyle(.plain)
     }
 
     private var chromaRow: some View {
@@ -197,9 +178,7 @@ struct ContentView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 if session.lit.isEmpty && session.pressed.isEmpty {
-                    Text("Chante, joue, ou tape une touche · Sing, play, or tap a key")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(session.scene.muted)
+                    Color.clear.frame(height: 8)
                 } else {
                     ForEach((session.lit + session.pressed.map { LitNote(midi: $0, db: 0, freq: 0) }).uniquedMidis) { note in
                         Text(note.label)
@@ -233,7 +212,7 @@ struct ContentView: View {
 
     private var legend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Boîte de crayons macOS / macOS crayon box")
+            Text("Crayons")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(session.scene.ink)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 6), spacing: 4) {
@@ -256,10 +235,6 @@ struct ContentView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("Astuce: Blueberry = La / A — Auto-accord trouve le La (~415–466 Hz)")
-                .font(.caption2.italic())
-                .foregroundStyle(session.scene.muted)
-                .frame(maxWidth: .infinity)
         }
     }
 
@@ -321,6 +296,64 @@ private extension Array where Element == LitNote {
     var uniquedMidis: [LitNote] {
         var seen = Set<Int>()
         return filter { seen.insert($0.midi).inserted }
+    }
+}
+
+private struct ChordGlyph: View {
+    var on: Bool
+    var body: some View {
+        ZStack {
+            Circle().fill(on ? Color(red: 0.20, green: 0.66, blue: 0.35) : Color.gray.opacity(0.45)).frame(width: 6, height: 6)
+            if on {
+                Circle().fill(Color(red: 0.20, green: 0.66, blue: 0.35)).frame(width: 6, height: 6).offset(x: 8, y: 8)
+                Circle().fill(Color(red: 0.20, green: 0.66, blue: 0.35)).frame(width: 6, height: 6).offset(x: -8, y: 8)
+            }
+        }
+    }
+}
+
+private struct SpeakerGlyph: View {
+    var on: Bool
+    var color: Color { on ? Color(red: 0.20, green: 0.66, blue: 0.35) : Color.gray.opacity(0.45) }
+    var body: some View {
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 5, height: 6)
+            Triangle().fill(color).frame(width: 9, height: 12)
+        }
+    }
+}
+
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct LaGlyph: View {
+    var on: Bool
+    var body: some View {
+        Circle()
+            .fill(on ? Color(red: 0, green: 0, blue: 1) : Color.clear)
+            .overlay(Circle().stroke(Color(red: 0, green: 0, blue: 1), lineWidth: 2))
+            .frame(width: 16, height: 16)
+    }
+}
+
+private struct StageGlyph: View {
+    var on: Bool
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(on ? Color(red: 0.07, green: 0.07, blue: 0.08) : Color(red: 0.94, green: 0.91, blue: 0.86))
+            .overlay(
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .stroke(on ? Color(white: 0.6) : Color(red: 0.23, green: 0.20, blue: 0.18), lineWidth: 2)
+            )
+            .frame(width: 16, height: 16)
     }
 }
 

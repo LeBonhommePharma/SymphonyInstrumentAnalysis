@@ -27,50 +27,28 @@ final class PianoSession: ObservableObject {
     private(set) var wavePeaks: [Float] = []
     let peaksPerSec: Double = 240
     @Published var isStealth = true
-    @Published var sensitivity: Double = 0.58
     @Published var chordsOn = true
     @Published var unmute = false
     @Published var autotune = true
-    @Published var selectedTracks: Set<String> = Set(MusicianTrack.all.map(\.id))
-    @Published var statusLine = "Touche le clavier · Tap keys"
-    @Published var hint = "Aucun port · No server · Tap, listen, or replay the built-in demo"
+    @Published var liveTracks: [LiveTrack] = []
+    @Published var selectedTrackId: Int?
+    @Published var statusLine = "Touche le clavier"
+    @Published var hint = ""
 
     var scene: SceneStyle { isStealth ? .stealth : .studio }
 
-    var isTous: Bool { selectedTracks.count == MusicianTrack.all.count }
+    var isTous: Bool { selectedTrackId == nil || liveTracks.isEmpty }
 
-    var activeTracks: [MusicianTrack] {
-        MusicianTrack.all.filter { selectedTracks.contains($0.id) }
-    }
-
-    var trackLabel: String {
-        if isTous { return "Pistes / Tracks: Tous / All" }
-        return "Pistes / Tracks: " + activeTracks.map(\.french).joined(separator: " + ")
-    }
+    var trackLabel: String { "\(liveTracks.count)" }
 
     var tuneLine: String {
-        let cents = 1200 * log2(concertA / PitchMath.a4Ref)
         if !autotune {
-            return String(format: "La / A = 440 Hz (verrouillé / locked) · estimé %.0f Hz", concertA)
+            return "440"
         }
-        if mode == .idle {
-            return "La / A ≈ 440 Hz · Auto-accord en attente / waiting"
+        if mode == .idle || !tuneReady {
+            return "440"
         }
-        if !tuneReady {
-            return "La / A ≈ 440 Hz · écoute le La… / listening for A…"
-        }
-        let rounded = Int(cents.rounded())
-        let sign = rounded > 0 ? "+" : ""
-        let phrase: String
-        let a = abs(cents)
-        if a < 4 {
-            phrase = "pile / in tune"
-        } else if cents > 0 {
-            phrase = a < 15 ? "un peu trop haut / a bit sharp" : "trop haut / sharp"
-        } else {
-            phrase = a < 15 ? "un peu trop bas / a bit flat" : "trop bas / flat"
-        }
-        return String(format: "La / A ≈ %.0f Hz · %@%d cents · %@", concertA, sign, rounded, phrase)
+        return String(Int(concertA.rounded()))
     }
 
     private let engine = AVAudioEngine()
@@ -84,6 +62,9 @@ final class PianoSession: ObservableObject {
     private var clockTimer: Timer?
     private var voices: [Int: Voice] = [:]
     private var didInstallTap = false
+    private var nextTrackId = 1
+    private var lastLabelAt: Double = 0
+    private var labelBusy = false
 
     private struct Voice {
         let osc: AVAudioSourceNode
@@ -156,8 +137,8 @@ final class PianoSession: ObservableObject {
             installInputTap()
             analyzer.reset()
             mode = .live
-            statusLine = "Micro / Mic — live"
-            hint = "Le piano suit le micro · Follows the device input"
+            statusLine = "live"
+            hint = ""
         } catch {
             mode = .idle
             errorMessage = micError(error)
@@ -169,8 +150,8 @@ final class PianoSession: ObservableObject {
         didInstallTap = false
         mode = .idle
         clearSpectrum()
-        statusLine = "Touche le clavier · Tap keys"
-        hint = "Aucun port · No server · Tap, listen, or replay the built-in demo"
+        statusLine = ""
+        hint = ""
     }
 
     func startReplay() {
@@ -196,8 +177,8 @@ final class PianoSession: ObservableObject {
             player.play()
             replayStartHost = ProcessInfo.processInfo.systemUptime
             mode = .replay
-            statusLine = "Démo intégrée / Built-in demo (pas de serveur / no server)"
-            hint = "Même FFT que le micro · Same peak-picker as live"
+            statusLine = "démo"
+            hint = ""
             startClock()
             installMixerTap()
         } catch {
@@ -217,8 +198,8 @@ final class PianoSession: ObservableObject {
         if mode == .replay { mode = .idle }
         if mode == .idle {
             clearSpectrum()
-            statusLine = "Démo intégrée / Built-in demo — stop"
-            hint = "Aucun port · No server · Tap, listen, or replay the built-in demo"
+            statusLine = ""
+            hint = ""
             if !keepScrub { sampleTime = 0 }
         }
     }
@@ -236,21 +217,12 @@ final class PianoSession: ObservableObject {
     }
 
     func selectAllTracks() {
-        selectedTracks = Set(MusicianTrack.all.map(\.id))
+        selectedTrackId = nil
         analyzer.reset()
     }
 
-    func toggleTrack(_ id: String) {
-        if isTous {
-            selectedTracks = [id]
-        } else if selectedTracks.contains(id) {
-            selectedTracks.remove(id)
-            if selectedTracks.isEmpty {
-                selectedTracks = Set(MusicianTrack.all.map(\.id))
-            }
-        } else {
-            selectedTracks.insert(id)
-        }
+    func toggleTrack(_ id: Int) {
+        selectedTrackId = selectedTrackId == id ? nil : id
         analyzer.reset()
     }
 
@@ -259,7 +231,7 @@ final class PianoSession: ObservableObject {
         ensureTone(midi)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         let name = NoteName.pitchClass(of: midi)
-        statusLine = "\(name.french)\(PitchMath.octave(of: midi)) · \(name.pencil) · ~\(Int(PitchMath.midiToHz(midi, concertA: concertA).rounded())) Hz"
+        statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
     }
 
     func noteOff(_ midi: Int) {
@@ -351,11 +323,15 @@ final class PianoSession: ObservableObject {
     private func process(samples: [Float], sampleRate: Double, now: Double) {
         guard mode == .live || mode == .replay else { return }
         let tous = isTous
-        let bands: [(lo: Double, hi: Double)] = tous
-            ? [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
-            : activeTracks.map { ($0.loHz, $0.hiHz) }
+        var bands: [(lo: Double, hi: Double)] = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
+        if !tous, let id = selectedTrackId, let t = liveTracks.first(where: { $0.id == id }) {
+            bands = (1...8).map { n in
+                let f = t.f0 * Double(n)
+                return (f * 0.97, f * 1.03)
+            }
+        }
         let config = PeakPickConfig(
-            sensitivity: sensitivity,
+            sensitivity: 0.58,
             chords: chordsOn,
             concertA: autotune ? analyzer.concertA : PitchMath.a4Ref,
             autotune: autotune,
@@ -363,13 +339,85 @@ final class PianoSession: ObservableObject {
             foldOctaves: !tous
         )
         let result = analyzer.analyze(samples: samples, sampleRate: sampleRate, now: now, config: config)
+        syncClusters(DensityCluster.cluster(peaks: result.mixPeaks), now: now)
         lit = result.lit
         harmonics = result.harmonics
         chroma = result.chroma
         concertA = autotune ? analyzer.concertA : PitchMath.a4Ref
         tuneReady = analyzer.tuneReady
         if let top = result.lit.first {
-            statusLine = "\(top.name.pencil) · \(Int(top.freq.rounded())) Hz"
+            statusLine = "\(top.name.french)\(PitchMath.octave(of: top.midi))"
+        }
+        maybeLabel(now: now)
+    }
+
+    private func syncClusters(_ clusters: [SpectralCluster], now: Double) {
+        var used = Set<Int>()
+        for c in clusters {
+            var best: Int?
+            var bestCost = 0.45
+            for (idx, t) in liveTracks.enumerated() {
+                if used.contains(t.id) { continue }
+                let lf = abs(log2(c.f0 / t.f0))
+                if lf < bestCost {
+                    bestCost = lf
+                    best = idx
+                }
+            }
+            if let idx = best {
+                used.insert(liveTracks[idx].id)
+                liveTracks[idx].f0 = liveTracks[idx].f0 * 0.55 + c.f0 * 0.45
+                liveTracks[idx].db = c.db
+                liveTracks[idx].harm = c.harm
+                liveTracks[idx].energy = min(1, Double((c.db + 80) / 50))
+                liveTracks[idx].lastSeen = now
+            } else {
+                let t = LiveTrack(
+                    id: nextTrackId,
+                    f0: c.f0,
+                    db: c.db,
+                    harm: c.harm,
+                    energy: min(1, Double((c.db + 80) / 50)),
+                    born: now,
+                    lastSeen: now
+                )
+                nextTrackId += 1
+                liveTracks.append(t)
+                used.insert(t.id)
+            }
+        }
+        for i in liveTracks.indices where !used.contains(liveTracks[i].id) {
+            liveTracks[i].energy *= 0.72
+        }
+        liveTracks.removeAll { now - $0.lastSeen > 1.4 || $0.energy < 0.04 }
+        if let id = selectedTrackId, !liveTracks.contains(where: { $0.id == id }) {
+            selectedTrackId = nil
+        }
+    }
+
+    private func maybeLabel(now: Double) {
+        guard !labelBusy, !liveTracks.isEmpty, now - lastLabelAt > 1.6 else { return }
+        lastLabelAt = now
+        labelBusy = true
+        let snapshot = liveTracks
+        Task { @MainActor in
+            let rows = await ClusterLabeler.label(snapshot)
+            for row in rows {
+                if let i = liveTracks.firstIndex(where: { $0.id == row.id }) {
+                    if row.source == "fm" || liveTracks[i].label.isEmpty {
+                        liveTracks[i].label = row.name
+                        liveTracks[i].labelSource = row.source
+                    }
+                }
+            }
+            for i in liveTracks.indices where liveTracks[i].label.isEmpty {
+                let h = ClusterLabeler.heuristic(liveTracks[i])
+                if !h.isEmpty {
+                    liveTracks[i].label = h
+                    liveTracks[i].labelSource = "heuristic"
+                }
+            }
+            labelBusy = false
         }
     }
 
@@ -379,6 +427,8 @@ final class PianoSession: ObservableObject {
         chroma = [:]
         tuneReady = false
         concertA = PitchMath.a4Ref
+        liveTracks = []
+        selectedTrackId = nil
         analyzer.reset()
     }
 
@@ -397,7 +447,7 @@ final class PianoSession: ObservableObject {
     }
 
     private func micError(_ error: Error) -> String {
-        "Autorise le micro dans Réglages → Piano-crayon. / Allow the mic in Settings. (\(error.localizedDescription))"
+        "Autorise le micro dans Réglages."
     }
 
     private static func makeDemoBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
