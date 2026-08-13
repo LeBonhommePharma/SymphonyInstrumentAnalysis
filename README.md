@@ -53,33 +53,41 @@ This bot cannot push `lebonhommepharma.github.io`. Add **one object** to the exi
 { name: "Symphony", kind: "Instrument Analysis", glyph: "Hz", c: "var(--cyan)", href: "https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/", cta: "Live listen", desc: "Silent live-listen: see the Hertz of whatever this device is already playing. No background music." },
 ```
 
-### GoDaddy DNS (`thebonhomme.com`)
+### Flawless HTTPS (`thebonhomme.com` + `www`)
 
-Registrar **and** nameservers are GoDaddy (`ns41.domaincontrol.com` / `ns42.domaincontrol.com`). Apex **A** records already match GitHub Pages; `https://thebonhomme.com` works. This agent has no GoDaddy API key, so these still need to be applied in the GoDaddy DNS panel:
+`https://thebonhomme.com` is already a valid GitHub Pages / Let's Encrypt cert (`SAN: thebonhomme.com`).
 
-Keep:
+`https://www.thebonhomme.com` is **not**. GoDaddy has `www` as a CNAME to the apex (`thebonhomme.com`). That lands on GitHub's IPs, but GitHub has not put `www` on the Pages certificate, so TLS presents `*.github.io` and browsers abort before the HTTP 301 to the apex.
 
-| Type | Name | Value |
-| --- | --- | --- |
-| A | `@` | `185.199.108.153` |
-| A | `@` | `185.199.109.153` |
-| A | `@` | `185.199.110.153` |
-| A | `@` | `185.199.111.153` |
-| existing TXT / MX / SPF / Apple / Microsoft 365 | | do not delete |
-
-Change / add:
+GitHub only mints one cert covering **both** names when DNS is:
 
 | Type | Name | Value |
 | --- | --- | --- |
-| CNAME | `www` | `lebonhommepharma.github.io` (not `thebonhomme.com`) |
-| AAAA | `@` | `2606:50c0:8000::153` |
-| AAAA | `@` | `2606:50c0:8001::153` |
-| AAAA | `@` | `2606:50c0:8002::153` |
-| AAAA | `@` | `2606:50c0:8003::153` |
+| A | `@` | `185.199.108.153` `109.153` `110.153` `111.153` (already correct — keep) |
+| CNAME | `www` | `lebonhommepharma.github.io` (**not** `thebonhomme.com`) |
+| AAAA | `@` | `2606:50c0:8000::153` … `8003::153` (optional, recommended) |
 
-Then in the homepage repo Pages settings, add `www.thebonhomme.com` as a custom domain so GitHub can issue a cert that includes `www`. Today `https://www.thebonhomme.com` presents `*.github.io` (name mismatch). HTTP `www` already 301s to the working apex.
+Do **not** delete MX, SPF, Apple, Microsoft 365, or ENS TXT records.
 
-Do **not** add a `_github-pages-challenge-…` TXT until GitHub shows the token (Pages → Custom domain → Verify). Domain state is currently `unverified`.
+**Panel (one edit):** [GoDaddy DNS for thebonhomme.com](https://dcc.godaddy.com/control/thebonhomme.com/dns) → CNAME `www` → `lebonhommepharma.github.io` → save. Wait for GitHub to re-issue Let's Encrypt (minutes, sometimes up to an hour). Confirm:
+
+```bash
+python3 scripts/https_cert.py
+```
+
+You want `FLAWLESS` (www SAN includes `www.thebonhomme.com`). If DNS is right but the cert is still `*.github.io`, on [homepage Pages settings](https://github.com/LeBonhommePharma/lebonhommepharma.github.io/settings/pages) remove and re-add custom domain `thebonhomme.com` (apex stays primary; GitHub then certifies www automatically).
+
+**API:** production key at [developer.godaddy.com/keys](https://developer.godaddy.com/keys), then:
+
+```bash
+export GODADDY_API_KEY=...
+export GODADDY_API_SECRET=...
+python3 scripts/https_cert.py --apply-dns
+```
+
+Or repo Actions secrets `GODADDY_API_KEY` + `GODADDY_API_SECRET` and run workflow **Fix www HTTPS (GoDaddy)**. The script only PUTs `CNAME www` and missing apex `AAAA`; it will not replace the rest of the zone.
+
+Do **not** add a `_github-pages-challenge-…` TXT until GitHub shows the token (Pages → Custom domain → Verify). Domain state is currently `unverified`; that does not block the apex cert, but verifying is still a good idea.
 
 If GitHub Pages is not on for this repo yet: **Settings → Pages → Source: GitHub Actions** ([open](https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis/settings/pages)). The workflow is `.github/workflows/pages.yml`. Actions cannot create the site until that source is selected.
 
