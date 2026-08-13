@@ -6,6 +6,8 @@ Standalone mic-capture + spectral analysis project (**not** related to FlexAIDdS
 
 **Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold keys to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. Live mic on iPhone needs the native app above (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
 
+**Terminal (same layout):** `.venv/bin/python scripts/crayon_piano.py` — Listen / Rejouer, musician lanes, chroma, keyboard. No time slider. Optional `--wav` 16-bit PCM.
+
 Records from the best available macOS mic, denoises, then estimates:
 
 - likely instrument families (vocals/lyrics de-emphasized)

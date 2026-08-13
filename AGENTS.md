@@ -12,6 +12,8 @@ See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README
 - **Web viewer** (`web/keyboard.html`): self-contained Web Audio page. Open the file directly
   (`file://`) — replay synthesizes a demo if the WAV is missing. Live mic on iPhone still
   needs the native app (Safari will not grant `getUserMedia` to `file://`).
+- **Terminal piano** (`scripts/crayon_piano.py`): Textual TUI matching the HTML layout
+  (`piano/ui_contract.json`). `.venv/bin/python scripts/crayon_piano.py` or `--self-test`.
 
 There is no database, backend service, build step, or test/lint framework configured.
 
