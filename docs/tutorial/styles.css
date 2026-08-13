@@ -146,6 +146,8 @@ body {
   align-items: center;
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
+.share-only { display: none !important; }
+body.need-tab .share-only { display: inline-flex !important; }
 button {
   border: 0;
   border-radius: 10px;

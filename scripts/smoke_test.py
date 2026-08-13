@@ -150,6 +150,11 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must prefer audio-only capture")
     if "density" not in tutorial.lower() and "audio only" not in tutorial.lower():
         raise SystemExit("tutorial copy must describe audio-only density clustering")
+    if "listenSmart" not in app_js or "sniffHeard" not in app_js:
+        raise SystemExit("tutorial must sniff the mic then fall through to live listen")
+    bootstrap = tutorial.split('id="bootstrap"', 1)[-1]
+    if 'data-action="system"' in bootstrap:
+        raise SystemExit("bootstrap must not offer a mic vs tab choice")
     check_i18n(docs)
     print("public site files: OK")
 

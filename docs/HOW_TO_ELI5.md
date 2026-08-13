@@ -20,7 +20,7 @@ Local-only fallback:
 python3 scripts/serve_tutorial.py
 ```
 
-Then tap **Listen with the mic** (a real piano / speakers in the room) or **Listen to tab/window audio** (a song already playing in the browser — turn on “share audio”).
+Then tap **Listen**. It asks for the microphone first. If nothing is around, live listen falls through to what this computer is playing (tab/window audio). On a phone, play it out loud — the web cannot read Apple Now Playing.
 
 [Open the live tutorial](tutorial/index.html)
 
