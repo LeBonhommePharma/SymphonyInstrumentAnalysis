@@ -177,6 +177,14 @@ def check_crayon_piano() -> None:
             f"crayon_piano.py --self-test failed:\n{proc.stdout}\n{proc.stderr}"
         )
     print("crayon_piano.py --self-test: OK")
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPTS / "density_cluster.py")],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"density_cluster.py failed:\n{proc.stdout}\n{proc.stderr}")
+    print((proc.stdout or "").strip() or "density_cluster.py: OK")
 
 
 def main() -> None:
