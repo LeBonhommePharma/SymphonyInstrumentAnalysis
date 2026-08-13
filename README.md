@@ -11,15 +11,15 @@ Records from the best available macOS mic, denoises, then estimates:
 
 The tutorial is a static HTTPS page. Open it **on the device that is making sound**. It uses that device’s microphone. It does not play music. `127.0.0.1` and LAN IPs are not reachable on cellular.
 
-**Canonical URL** (GitHub Pages project site under the existing `thebonhomme.com` custom domain — do **not** attach a CNAME of `thebonhomme.com` to this repo, or the homepage would be stolen):
+**Canonical URL** after GitHub Pages is switched on for this repo (Settings → Pages → Source: **GitHub Actions**). Project Pages then appear under the existing `thebonhomme.com` user-site domain. Do **not** attach a CNAME of `thebonhomme.com` to this repo, or the homepage would be stolen:
 
 - Hub: https://thebonhomme.com/SymphonyInstrumentAnalysis/
 - Live listen: https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
 - ELI5: https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html
 
-If Pages is still warming up, same files on this branch:
+One-click: [Pages settings](https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis/settings/pages). The deploy workflow is `.github/workflows/pages.yml`. `GITHUB_TOKEN` cannot create the Pages site from this agent; that toggle is the missing step.
 
-- https://cdn.jsdelivr.net/gh/LeBonhommePharma/SymphonyInstrumentAnalysis@cursor/public-https-tutorial-cfbd/docs/tutorial/index.html
+Fastest 5G path that already has HTTPS: copy this `docs/` folder to `symphony/` on `lebonhommepharma.github.io` (this bot cannot push that repo). Then open https://thebonhomme.com/symphony/tutorial/ on the phone.
 
 On an iPhone, tap **Listen with the mic** and allow Microphone. Tab/window capture is a desktop feature.
 
@@ -81,7 +81,7 @@ Then in the homepage repo Pages settings, add `www.thebonhomme.com` as a custom 
 
 Do **not** add a `_github-pages-challenge-…` TXT until GitHub shows the token (Pages → Custom domain → Verify). Domain state is currently `unverified`.
 
-If GitHub Pages is not on for this repo yet: **Settings → Pages → Source: GitHub Actions**. The workflow is `.github/workflows/pages.yml`.
+If GitHub Pages is not on for this repo yet: **Settings → Pages → Source: GitHub Actions** ([open](https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis/settings/pages)). The workflow is `.github/workflows/pages.yml`. Actions cannot create the site until that source is selected.
 
 ## Setup
 
