@@ -74,7 +74,7 @@ Guitar A/B use a lower vs upper split (not even/odd frames) so the two chips sta
 
 1. Strong spectral peaks (80–1400 Hz) are interpolated, gated vs the noise floor, and grouped so harmonics don’t vote twice.
 2. Each fundamental is mapped to the nearest 12-TET pitch at A=440; the **cents offset** is kept.
-3. Median of those cents over a ~2 s window, clamped to ±100 cents (A4 ≈ 415–466 Hz) so park noise can’t yank tuning to nonsense.
+3. Median of those cents over a ~2 s window, clamped to ±50 cents (A4 ≈ 427–453 Hz). Offsets past a quarter-tone wrap to the neighboring note, so the estimator does not claim ±100 cents.
 4. Leaky average so the estimate doesn’t jump every frame.
 5. Keys snap with `midi = 69 + 12*log2(f / A_est)`. Crayon colors stay pitch-class (Do = Maraschino, …).
 

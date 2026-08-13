@@ -739,7 +739,7 @@
   <section class="legend">
     <h2>Boîte de crayons macOS / macOS crayon box</h2>
     <div id="pencils" class="pencils"></div>
-    <p class="tip">Astuce / Tip: Blueberry = La / A — Auto-accord trouve le La du parc (~415–466 Hz), pas toujours 440</p>
+    <p class="tip">Astuce / Tip: Blueberry = La / A — Auto-accord trouve le La du parc (~427–453 Hz, ±50 cents), pas toujours 440</p>
   </section>
 
   <details class="adv">
@@ -790,8 +790,8 @@
   const MIDI_LO = 36; // C2
   const MIDI_HI = 96; // C7
   const A4_REF = 440;
-  const A4_MIN = 415; // ≈ −100 cents
-  const A4_MAX = 466; // ≈ +100 cents
+  const A4_MIN = 427; // ≈ −50 cents; beyond that, nearest-note votes wrap a semitone
+  const A4_MAX = 453; // ≈ +50 cents
   const TUNE_LO_HZ = 80;
   const TUNE_HI_HZ = 1400;
   const TUNE_WINDOW_S = 2.2;
@@ -1103,7 +1103,9 @@
       const expected = midiToHzRef(midi, A4_REF);
       if (expected <= 0) return;
       const cents = 1200 * Math.log2(p.freq / expected);
-      if (!isFinite(cents) || Math.abs(cents) > 90) return;
+      // Nearest 440-Hz MIDI note only unambiguously measures ±50 cents.
+      // Wider ranges wrap (e.g. +60 → −40) and pull A the wrong way.
+      if (!isFinite(cents) || Math.abs(cents) >= 50) return;
       votes.push(cents);
     });
     if (votes.length >= 1 && audioCtx) {
@@ -1114,7 +1116,7 @@
     }
     if (centsWindow.length >= 8) {
       const med = medianNums(centsWindow.map(function (v) { return v.cents; }));
-      const clamped = Math.max(-100, Math.min(100, med));
+      const clamped = Math.max(-50, Math.min(50, med));
       const target = A4_REF * Math.pow(2, clamped / 1200);
       const alpha = centsWindow.length >= 24 ? 0.12 : 0.05;
       aEst = aEst + alpha * (target - aEst);
