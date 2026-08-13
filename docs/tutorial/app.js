@@ -498,6 +498,37 @@ function wire() {
     });
   });
   showTour(0);
+  if (new URLSearchParams(window.location.search).has("demo")) {
+    fillExampleTracks();
+  }
+}
+
+function fillExampleTracks() {
+  gate.classList.add("hidden");
+  quietEl.textContent = "Example layout only — not live audio. Real use: Listen with the mic on the device that is playing.";
+  statusEl.textContent = "Preview of Mix / Boom / Tune / Sparkle tracks. Time is the waveform. No slider. No song is playing.";
+  showTour(2);
+  for (let i = 0; i < colCount; i += 1) {
+    const t = i / colCount;
+    const beat = Math.max(0, Math.sin(t * Math.PI * 8));
+    const hum = 0.35 + 0.45 * Math.abs(Math.sin(t * Math.PI * 3.2));
+    history[0][i] = Math.min(1, 0.25 + 0.75 * beat * hum);
+    history[1][i] = Math.min(1, 0.15 + 0.7 * Math.abs(Math.sin(t * Math.PI * 2.1)));
+    history[2][i] = Math.min(1, 0.1 + 0.85 * hum * (0.4 + 0.6 * beat));
+    history[3][i] = Math.min(1, 0.08 + 0.35 * Math.abs(Math.sin(t * Math.PI * 11)));
+  }
+  freq.fill(10);
+  freq[10] = 160;
+  freq[38] = 210;
+  freq[56] = 90;
+  writeCol = 0;
+  noteEl.textContent = "A4";
+  hzEl.textContent = "440.0 Hz";
+  lightPiano(69);
+  peaksEl.textContent = "A4   440.0 Hz\nE5   659.3 Hz\nA3   220.0 Hz";
+  hardEl.textContent = "Example: several pitches at once. Live naming is hard because the picture keeps moving.";
+  drawTracks(12);
+  drawSpec([{ f: 440, mag: 200 }], 48000);
 }
 
 wire();
