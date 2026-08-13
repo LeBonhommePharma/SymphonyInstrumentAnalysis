@@ -15,7 +15,7 @@ Records from the best available macOS mic, denoises, then estimates:
 
 ## Public live listen (phone on 5G, any network)
 
-The tutorial is a static HTTPS page. Open it **on the device that is making sound**. It uses that device’s microphone. It does not play music. `127.0.0.1` and LAN IPs are not reachable on cellular. The public UI is **English and French** first (EN / FR). Live tracks: **one lane per instrument** (max 6).
+The tutorial is a static HTTPS page. Open it **on the device that is making sound**. It uses that device’s microphone (audio only). Soft auto-gain lifts quiet rooms and headphone bleed. It does not play music. `127.0.0.1` and LAN IPs are not reachable on cellular. The public UI is **English and French** first (EN / FR). Live tracks: **density-clustered** — lane count follows the sound.
 
 **Canonical URL** after GitHub Pages is switched on for this repo (Settings → Pages → Source: **GitHub Actions**). Project Pages then appear under the existing `thebonhomme.com` user-site domain. Do **not** attach a CNAME of `thebonhomme.com` to this repo, or the homepage would be stolen:
 

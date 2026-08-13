@@ -133,7 +133,7 @@ def check_public_site() -> None:
         raise SystemExit(f"public site files missing: {missing}")
     tutorial = (docs / "tutorial" / "index.html").read_text(encoding="utf-8")
     app_js = (docs / "tutorial" / "app.js").read_text(encoding="utf-8")
-    if "Listen with the mic" not in tutorial:
+    if "data-action=\"mic\"" not in tutorial and "Listen" not in tutorial:
         raise SystemExit("tutorial is missing the mic listen control")
     if 'id="tracks"' not in tutorial:
         raise SystemExit("tutorial is missing Logic-style waveform tracks")
@@ -142,10 +142,19 @@ def check_public_site() -> None:
     silent = tutorial.lower()
     if "does not play music" not in silent and "never plays a song" not in silent:
         raise SystemExit("tutorial must stay silent")
-    if "MAX_INSTRUMENTS = 6" not in app_js:
-        raise SystemExit("tutorial must cap live instrument tracks at 6")
-    if "one track per instrument" not in tutorial.lower() and "up to 6" not in tutorial.lower():
-        raise SystemExit("tutorial must say tracks match the instrument count")
+    if "densityCluster" not in app_js:
+        raise SystemExit("tutorial must density-cluster live sources (no fixed instrument count)")
+    if "softGain" not in app_js and "updateAutoGain" not in app_js:
+        raise SystemExit("tutorial must soft-auto-gain quiet / headphone bleed")
+    if "video: false" not in app_js and "audioOnlyStream" not in app_js:
+        raise SystemExit("tutorial must prefer audio-only capture")
+    if "density" not in tutorial.lower() and "audio only" not in tutorial.lower():
+        raise SystemExit("tutorial copy must describe audio-only density clustering")
+    if "listenSmart" not in app_js or "sniffHeard" not in app_js:
+        raise SystemExit("tutorial must sniff the mic then fall through to live listen")
+    bootstrap = tutorial.split('id="bootstrap"', 1)[-1]
+    if 'data-action="system"' in bootstrap:
+        raise SystemExit("bootstrap must not offer a mic vs tab choice")
     check_i18n(docs)
     print("public site files: OK")
 

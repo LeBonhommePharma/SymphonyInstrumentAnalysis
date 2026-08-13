@@ -10,7 +10,7 @@ Open this **on the device that is already making sound**, including a phone on 5
 
 - https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
 
-The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, or Now Playing if that song is coming out of the speaker. **One Logic-style track per instrument** we can tell apart (up to 6; bass at the bottom). If there is no melody (voices, noise), it still draws that live signal on a noise track. It never invents a tune.
+The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, headphone bleed, or Now Playing if that sound reaches the mic. Soft auto-gain lifts quiet rooms. **Logic-style tracks** come from **density clustering** (lane count follows the sound; not a fixed parameter). If there is no melody (voices, noise), it still draws that live signal. It never invents a tune.
 
 Public pages are **English and French** first (EN / FR toggle, or `?lang=en` / `?lang=fr`).
 
@@ -20,7 +20,7 @@ Local-only fallback:
 python3 scripts/serve_tutorial.py
 ```
 
-Then tap **Listen with the mic** (a real piano / speakers in the room) or **Listen to tab/window audio** (a song already playing in the browser — turn on “share audio”).
+Then tap **Listen**. It asks for the microphone first. If nothing is around, live listen falls through to what this computer is playing (tab/window audio). On a phone, play it out loud — the web cannot read Apple Now Playing.
 
 [Open the live tutorial](tutorial/index.html)
 
