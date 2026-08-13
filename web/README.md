@@ -17,6 +17,19 @@ Then visit http://localhost:4173/keyboard.html
 
 Safari can also open [`keyboard.html`](keyboard.html) via `file://` as a fallback (Chrome often blocks the mic **and** sample fetch on `file://`).
 
+## Prepare yesterday’s sample
+
+`*.wav` files are gitignored, so a clean checkout has no audio. Replay loads `web/samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s).
+
+From the **repository root** (if you already `cd web`, run `cd ..` first):
+
+```bash
+mkdir -p web/samples
+cp captures/final_song.wav web/samples/final_song.wav
+```
+
+The piano does **not** download the WAV until you click **Rejouer l’échantillon / Replay yesterday**. If the file is missing, that click shows an error; live mic still works.
+
 ## Replay yesterday (Parc Roland Beaudin)
 
 1. Click **Rejouer l’échantillon / Replay yesterday**.
@@ -61,7 +74,7 @@ Guitar A/B use a lower vs upper split (not even/odd frames) so the two chips sta
 
 1. Strong spectral peaks (80–1400 Hz) are interpolated, gated vs the noise floor, and grouped so harmonics don’t vote twice.
 2. Each fundamental is mapped to the nearest 12-TET pitch at A=440; the **cents offset** is kept.
-3. Median of those cents over a ~2 s window, clamped to ±100 cents (A4 ≈ 415–466 Hz) so park noise can’t yank tuning to nonsense.
+3. Median of those cents over a ~2 s window, clamped to ±50 cents (A4 ≈ 427–453 Hz). Offsets past a quarter-tone wrap to the neighboring note, so the estimator does not claim ±100 cents.
 4. Leaky average so the estimate doesn’t jump every frame.
 5. Keys snap with `midi = 69 + 12*log2(f / A_est)`. Crayon colors stay pitch-class (Do = Maraschino, …).
 
