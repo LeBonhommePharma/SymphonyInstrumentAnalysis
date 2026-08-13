@@ -80,60 +80,160 @@
       font-size: 1rem;
     }
     #btn, #replay {
-      font-size: 0.95rem;
-      font-weight: 650;
-      padding: 0.65rem 1.1rem;
+      width: 56px;
+      height: 56px;
+      min-width: 56px;
+      min-height: 56px;
+      padding: 0;
       border: 1px solid var(--hairline-strong);
-      border-radius: 6px;
+      border-radius: 50%;
       cursor: pointer;
-      min-height: 44px;
-      min-width: 44px;
       color: var(--ink);
       background: #1c1c20;
+      display: grid;
+      place-items: center;
       touch-action: manipulation;
       -webkit-tap-highlight-color: var(--tap);
-      transition: background-color 160ms var(--ease), border-color 160ms var(--ease);
+      transition: background-color 160ms var(--ease), border-color 160ms var(--ease), transform 160ms var(--ease);
     }
-    /* Idle = start (live/green); .live = actively listening → stop (red). */
-    #btn { border-color: color-mix(in srgb, var(--live) 45%, var(--hairline)); }
+    /* Idle listen = green ring; .live = stop (red square). */
+    #btn { border-color: color-mix(in srgb, var(--live) 55%, var(--hairline)); }
+    #btn .icon {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--live);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--live) 28%, transparent);
+    }
     #btn.live {
-      background: color-mix(in srgb, var(--stop) 18%, #1c1c20);
-      color: var(--ink);
+      background: color-mix(in srgb, var(--stop) 22%, #1c1c20);
       border-color: var(--stop);
+    }
+    #btn.live .icon {
+      width: 14px;
+      height: 14px;
+      border: 0;
+      border-radius: 2px;
+      background: #e8e8ee;
+      box-shadow: none;
     }
     #btn:focus-visible, #replay:focus-visible {
       outline: 1px solid var(--replay-on);
       outline-offset: 2px;
     }
-    #replay { border-color: color-mix(in srgb, var(--replay) 45%, var(--hairline)); }
+    #replay { border-color: color-mix(in srgb, var(--replay) 55%, var(--hairline)); }
+    #replay .icon {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 8px 0 8px 14px;
+      border-color: transparent transparent transparent var(--ink);
+      margin-left: 3px;
+    }
     #replay.playing {
-      background: color-mix(in srgb, var(--replay-on) 18%, #1c1c20);
-      color: var(--ink);
+      background: color-mix(in srgb, var(--replay-on) 22%, #1c1c20);
       border-color: var(--replay-on);
     }
+    #replay.playing .icon,
+    #replay.loading .icon {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      border: 0;
+      border-radius: 2px;
+      background: var(--ink);
+    }
+    #replay.loading { opacity: 0.7; }
     .scrub {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: end;
       margin: 0 0 10px;
     }
-    .scrub .track {
+    .arrange {
+      min-width: 0;
+      outline: none;
+    }
+    .arrange-ruler {
+      height: 18px;
+      position: relative;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    .arrange-ruler span {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+    }
+    .arrange-ruler span:first-child { transform: none; }
+    .arrange-row {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      min-height: 64px;
+      border: 1px solid var(--hairline);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #16161a;
+    }
+    .arrange-head {
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 4px;
-      font-size: 0.78rem;
-      color: var(--muted);
-      flex: 1;
-      min-width: min(100%, 220px);
+      padding: 8px 8px 8px 10px;
+      background: #141418;
+      border-right: 1px solid var(--hairline);
     }
-    .scrub input[type="range"] { width: 100%; accent-color: var(--replay); }
+    .arrange-swatch {
+      width: 28px;
+      height: 8px;
+      border-radius: 1px;
+      background: var(--replay);
+    }
+    .arrange-lane {
+      position: relative;
+      min-height: 64px;
+      cursor: ew-resize;
+      touch-action: none;
+    }
+    .arrange-lane canvas {
+      display: block;
+      width: 100%;
+      height: 64px;
+    }
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      margin-left: -1px;
+      background: #e8e8ee;
+      pointer-events: none;
+      left: 0%;
+    }
+    .playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 7px solid #e8e8ee;
+    }
     .scrub .clock {
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1;
       font-weight: 650;
       color: var(--ink);
-      min-width: 10rem;
+      font-size: 0.82rem;
+      min-width: 4.8rem;
+      padding-bottom: 6px;
     }
     .status {
       font-size: 0.88rem;
@@ -193,9 +293,13 @@
     }
     #trackLine {
       font-weight: 650;
-      font-size: 0.88rem;
+      font-size: 0.78rem;
+      min-height: 1.1em;
       margin: 0 0 6px;
+      color: var(--muted);
     }
+    #trackLine:empty { display: none; }
+    .tracks:empty { display: none; }
     .tune-line {
       font-weight: 650;
       font-size: 0.88rem;
@@ -205,31 +309,64 @@
       margin: 0 0 8px;
     }
     .tune-line .muted { color: var(--muted); font-weight: 600; }
-    label.slider {
+    .toggles {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.78rem;
-      color: var(--muted);
-      min-width: 180px;
-    }
-    input[type="range"] {
-      width: 200px;
-      max-width: 100%;
-      min-height: 44px;
-      accent-color: var(--replay);
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
     }
     .toggle {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.88rem;
-      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 650;
+      color: var(--muted);
       user-select: none;
       min-height: 44px;
+      cursor: pointer;
       touch-action: manipulation;
     }
-    .toggle input { width: 20px; height: 20px; accent-color: var(--replay); }
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+    .toggle .knob {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: #1c1c20;
+      border: 1px solid var(--hairline-strong);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .toggle .knob::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform 160ms var(--ease), background-color 160ms var(--ease);
+    }
+    .toggle input:checked + .knob {
+      border-color: color-mix(in srgb, var(--replay-on) 50%, var(--hairline));
+      background: color-mix(in srgb, var(--replay-on) 22%, #1c1c20);
+    }
+    .toggle input:checked + .knob::after {
+      transform: translateX(16px);
+      background: var(--replay-on);
+    }
+    .toggle input:focus-visible + .knob {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 2px;
+    }
+    .status { display: none; }
     .chroma {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -449,10 +586,14 @@
     }
     .legend h2 {
       margin: 0 0 8px;
-      font-size: 0.82rem;
+      font-size: 0.72rem;
       font-weight: 650;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
+    .pencil .en, .pencil .hz { display: none; }
+    .legend .tip { display: none; }
     .pencils {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -590,24 +731,48 @@
       --replay: rgb(69, 69, 186);
       --replay-on: rgb(76, 151, 189);
     }
-    html.studio #replay {
-      color: #f7f1e8;
+    html.studio .arrange-row {
+      background: color-mix(in srgb, var(--ink) 6%, var(--paper));
     }
+    html.studio .arrange-head { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); }
+    html.studio .playhead { background: var(--ink); }
+    html.studio .playhead::before {
+      background: transparent;
+      border-top-color: var(--ink);
+    }
+    html.studio #replay {
+      color: var(--ink);
+      background: var(--replay);
+    }
+    html.studio #replay .icon {
+      border-color: transparent transparent transparent #f7f1e8;
+    }
+    html.studio #replay.playing .icon,
+    html.studio #replay.loading .icon { background: #f7f1e8; }
     /* Idle start action is green; while listening the button is the stop control (red). */
     html.studio #btn {
       background: var(--live);
       color: var(--ink);
       border-color: var(--hairline-strong);
     }
+    html.studio #btn .icon {
+      border-color: var(--ink);
+      box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 18%, transparent);
+    }
     html.studio #btn.live {
       background: var(--stop);
       color: #f7f1e8;
       border-color: var(--hairline-strong);
     }
+    html.studio #btn.live .icon { background: #f7f1e8; }
     html.studio #replay { background: var(--replay); border-color: var(--hairline-strong); }
     html.studio #replay.playing {
       background: var(--replay-on);
       color: var(--ink);
+      border-color: var(--hairline-strong);
+    }
+    html.studio .toggle .knob {
+      background: var(--paper);
       border-color: var(--hairline-strong);
     }
     html.studio .track-btn {
@@ -681,52 +846,76 @@
   </style>
 </head>
 <body>
-  <h1>Piano-crayon / Crayon piano</h1>
-  <p class="sub">Même couleur = même son · Same pencil = same pitch · Do→Si / C→B</p>
+  <h1>Piano-crayon</h1>
+  <p class="sub" hidden>Même couleur = même son</p>
 
   <div class="row">
-    <button id="replay" type="button">Rejouer l’échantillon / Replay yesterday</button>
-    <button id="btn" type="button">Écouter / Start listening</button>
-    <label class="slider">
-      Sensibilité / Sensitivity
-      <input id="sens" type="range" min="0" max="100" value="58">
-    </label>
-    <label class="toggle">
-      <input id="chords" type="checkbox" checked>
-      Accords / Chords
-    </label>
-    <label class="toggle" title="Par défaut muet — seulement les crayons / Default muted — crayons only">
-      <input id="unmute" type="checkbox">
-      Entendre / Unmute sample
-    </label>
-    <label class="toggle" title="Estime le La du parc, puis allume la bonne touche · Estimates concert A, then snaps keys">
-      <input id="autotune" type="checkbox" checked>
-      Auto-accord / Auto-tune
-    </label>
-    <label class="toggle" title="Scène sombre par défaut · Dark stage default">
-      <input id="stealth" type="checkbox" checked>
-      Stealth / Scène
-    </label>
+    <button id="replay" type="button" aria-label="Rejouer">
+      <span class="icon" aria-hidden="true"></span>
+    </button>
+    <button id="btn" type="button" aria-label="Écouter">
+      <span class="icon" aria-hidden="true"></span>
+    </button>
+    <div class="toggles">
+      <label class="toggle" title="Accords">
+        <input id="chords" type="checkbox" checked>
+        <span class="knob"></span>
+        Accords
+      </label>
+      <label class="toggle" title="Son">
+        <input id="unmute" type="checkbox">
+        <span class="knob"></span>
+        Son
+      </label>
+      <label class="toggle" title="La">
+        <input id="autotune" type="checkbox" checked>
+        <span class="knob"></span>
+        La
+      </label>
+      <label class="toggle" title="Nuit">
+        <input id="stealth" type="checkbox" checked>
+        <span class="knob"></span>
+        Nuit
+      </label>
+    </div>
     <div class="status">
-      <div id="micLine" class="mic">Micro OS / OS mic: (appuie sur Écouter) · ou rejoue hier</div>
-      <div id="hint" class="hint">Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons</div>
+      <div id="micLine" class="mic"></div>
+      <div id="hint" class="hint"></div>
     </div>
   </div>
-  <div id="trackLine">Pistes / Tracks: Tous / All</div>
-  <div class="tracks" id="tracks" role="group" aria-label="Pistes / Tracks"></div>
-  <div id="tuneLine" class="tune-line">La / A ≈ 440 Hz · Auto-accord en attente / waiting</div>
+  <div id="trackLine"></div>
+  <div class="tracks" id="tracks" role="group" aria-label="Pistes"></div>
+  <div id="tuneLine" class="tune-line">440</div>
   <div class="scrub">
-    <label class="track">
-      Temps / Time — échantillon d’hier / yesterday’s sample
-      <input id="scrub" type="range" min="0" max="1000" value="0" step="1">
-    </label>
-    <div id="clock" class="clock">0:00.0 / 0:00.0</div>
+    <div
+      id="arrange"
+      class="arrange"
+      role="slider"
+      tabindex="0"
+      aria-label="Temps"
+      aria-valuemin="0"
+      aria-valuemax="0"
+      aria-valuenow="0"
+      aria-valuetext="0:00"
+    >
+      <div class="arrange-ruler" id="ruler" aria-hidden="true"></div>
+      <div class="arrange-row">
+        <div class="arrange-head" aria-hidden="true">
+          <span class="arrange-swatch"></span>
+        </div>
+        <div class="arrange-lane" id="arrangeLane">
+          <canvas id="wave" aria-hidden="true"></canvas>
+          <div class="playhead" id="playhead"></div>
+        </div>
+      </div>
+    </div>
+    <div id="clock" class="clock">0:00</div>
   </div>
   <div id="err" class="err" hidden></div>
 
   <div id="chroma" class="chroma" aria-label="Crayons allumés · 12 pitch classes"></div>
   <div class="chips" id="chips">
-    <span class="hz-live" id="hzLive">Chante ou joue · Sing or play</span>
+    <span class="hz-live" id="hzLive"></span>
   </div>
   <div id="constellation" class="constellation" hidden aria-live="polite"></div>
 
@@ -737,7 +926,7 @@
   </div>
 
   <section class="legend">
-    <h2>Boîte de crayons macOS / macOS crayon box</h2>
+    <h2>Crayons</h2>
     <div id="pencils" class="pencils"></div>
     <p class="tip">Astuce / Tip: Blueberry = La / A — Auto-accord trouve le La du parc (~427–453 Hz, ±50 cents), pas toujours 440</p>
   </section>
@@ -762,12 +951,12 @@
   /* Canonical crayon RGB = macOS Crayons.clr picker (full sat on keys + legend).
      Pressed keys / chips / chroma / pencils use rgb (and matching display-p3).
      Do  Maraschino  251,2,7
-     Do♯ Cayenne     128,0,2
+     Do♯ Cayenne     198,64,42   (enamel; picker 128,0,2)
      Ré  Tangerine   253,128,8
      Ré♯ Lemon       255,255,10
      Mi  Lime        128,255,8
      Fa  Spring      33,255,6
-     Fa♯ Fern        64,128,2
+     Fa♯ Fern        52,168,88   (enamel; picker 64,128,2)
      Sol Spindrift   102,255,204
      Sol♯ Sky        102,204,255
      La  Blueberry   0,0,255
@@ -775,12 +964,12 @@
      Si  Magenta     251,2,255 */
   const CRAYONS = {
     C:  { fr: "Do",  pencil: "Maraschino", rgb: [251, 2, 7],     p3: [0.903, 0.198, 0.145], hz: 261.63 },
-    "C#": { fr: "Do♯", pencil: "Cayenne",     rgb: [128, 0, 2],     p3: [0.458, 0.080, 0.053], hz: 277.18 },
+    "C#": { fr: "Do♯", pencil: "Cayenne",     rgb: [198, 64, 42],   p3: [0.720, 0.270, 0.175], hz: 277.18 },
     D:  { fr: "Ré",  pencil: "Tangerine",  rgb: [253, 128, 8],   p3: [0.929, 0.528, 0.205], hz: 293.66 },
     "D#": { fr: "Ré♯", pencil: "Lemon",       rgb: [255, 255, 10],  p3: [1.000, 1.000, 0.336], hz: 311.13 },
     E:  { fr: "Mi",  pencil: "Lime",       rgb: [128, 255, 8],   p3: [0.630, 0.988, 0.310], hz: 329.63 },
     F:  { fr: "Fa",  pencil: "Spring",     rgb: [33, 255, 6],    p3: [0.473, 0.985, 0.302], hz: 349.23 },
-    "F#": { fr: "Fa♯", pencil: "Fern",        rgb: [64, 128, 2],    p3: [0.314, 0.496, 0.138], hz: 369.99 },
+    "F#": { fr: "Fa♯", pencil: "Fern",        rgb: [52, 168, 88],   p3: [0.265, 0.640, 0.355], hz: 369.99 },
     G:  { fr: "Sol", pencil: "Spindrift",  rgb: [102, 255, 204], p3: [0.572, 0.987, 0.812], hz: 392.00 },
     "G#": { fr: "Sol♯", pencil: "Sky",        rgb: [102, 204, 255], p3: [0.503, 0.791, 0.981], hz: 415.30 },
     A:  { fr: "La",  pencil: "Blueberry",  rgb: [0, 0, 255],     p3: [0.000, 0.000, 0.959], hz: 440.00 },
@@ -806,7 +995,7 @@
   // Approximate musician stems by frequency band (no true stems).
   // Guitar A = lower-mid; Guitar B = upper guitar so A/B are not identical.
   const MUSICIANS = [
-    { id: "bass", fr: "Contrebasse", en: "Bass", lo: 40, hi: 180, rgb: [128, 0, 2], p3: [0.458, 0.080, 0.053] },
+    { id: "bass", fr: "Contrebasse", en: "Bass", lo: 40, hi: 180, rgb: [198, 64, 42], p3: [0.720, 0.270, 0.175] },
     { id: "cello", fr: "Violoncelle", en: "Cello", lo: 130, hi: 400, rgb: [253, 128, 8], p3: [0.929, 0.528, 0.205] },
     { id: "guitarA", fr: "Guitare A", en: "Guitar A", lo: 200, hi: 520, rgb: [33, 255, 6], p3: [0.473, 0.985, 0.302] },
     { id: "guitarB", fr: "Guitare B", en: "Guitar B", lo: 480, hi: 900, rgb: [102, 204, 255], p3: [0.503, 0.791, 0.981] },
@@ -815,10 +1004,13 @@
 
   const $btn = document.getElementById("btn");
   const $replay = document.getElementById("replay");
-  const $sens = document.getElementById("sens");
   const $chords = document.getElementById("chords");
   const $unmute = document.getElementById("unmute");
-  const $scrub = document.getElementById("scrub");
+  const $arrange = document.getElementById("arrange");
+  const $arrangeLane = document.getElementById("arrangeLane");
+  const $wave = document.getElementById("wave");
+  const $playhead = document.getElementById("playhead");
+  const $ruler = document.getElementById("ruler");
   const $clock = document.getElementById("clock");
   const $micLine = document.getElementById("micLine");
   const $hint = document.getElementById("hint");
@@ -835,7 +1027,12 @@
   const $tuneLine = document.getElementById("tuneLine");
   const $constellation = document.getElementById("constellation");
   const $stealth = document.getElementById("stealth");
-  const selectedTracks = new Set(MUSICIANS.map(function (t) { return t.id; }));
+  const heardTracks = new Set();
+  const hearHits = {};
+  const selectedTracks = new Set();
+  let followHeard = true;
+  let wavePeaks = null;
+  let waveBuf = null;
 
   const keys = new Map();
   let audioCtx = null;
@@ -919,6 +1116,7 @@
       const pc = el.dataset.pc;
       if (pc && CRAYONS[pc]) paintEl(el, CRAYONS[pc]);
     });
+    if (typeof drawWave === "function") drawWave();
   }
   function concertA() { return $autotune.checked ? aEst : A4_REF; }
   function midiToHzRef(m, a) { return a * Math.pow(2, (m - 69) / 12); }
@@ -930,10 +1128,13 @@
   function crayonOf(midi) { return CRAYONS[pcOf(midi)]; }
 
   function isTous() {
-    return selectedTracks.size === MUSICIANS.length;
+    return followHeard || heardTracks.size === 0;
   }
 
   function activeMusicians() {
+    if (isTous()) {
+      return MUSICIANS.filter(function (t) { return heardTracks.has(t.id); });
+    }
     return MUSICIANS.filter(function (t) { return selectedTracks.has(t.id); });
   }
 
@@ -942,46 +1143,86 @@
   }
 
   function syncTrackUi() {
-    const tous = isTous();
-    const allBtn = document.getElementById("trackAll");
-    if (allBtn) allBtn.setAttribute("aria-pressed", tous ? "true" : "false");
-    MUSICIANS.forEach(function (t) {
-      const btn = document.getElementById("track-" + t.id);
-      if (btn) btn.setAttribute("aria-pressed", selectedTracks.has(t.id) ? "true" : "false");
-    });
-    if (tous) {
-      $trackLine.textContent = "Pistes / Tracks: Tous / All";
-    } else {
-      $trackLine.textContent = "Pistes / Tracks: " +
-        activeMusicians().map(trackLabel).join(" + ");
+    const heard = MUSICIANS.filter(function (t) { return heardTracks.has(t.id); });
+    const ids = heard.map(function (t) { return t.id; }).join(",");
+    if ($tracks.dataset.heard !== ids) {
+      $tracks.dataset.heard = ids;
+      $tracks.innerHTML = "";
+      heard.forEach(function (t) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = "track-" + t.id;
+        btn.className = "track-btn";
+        btn.title = t.fr;
+        paintEl(btn, t);
+        btn.textContent = t.fr;
+        btn.addEventListener("click", function () { onMusicianClick(t.id); });
+        $tracks.appendChild(btn);
+      });
     }
+    const solo = !followHeard && selectedTracks.size === 1;
+    heard.forEach(function (t) {
+      const btn = document.getElementById("track-" + t.id);
+      if (btn) {
+        btn.setAttribute("aria-pressed", solo && selectedTracks.has(t.id) ? "true" : String(!solo));
+      }
+    });
+    $trackLine.textContent = heard.map(trackLabel).join(" · ");
   }
 
   function selectAllTracks() {
-    MUSICIANS.forEach(function (t) { selectedTracks.add(t.id); });
+    followHeard = true;
+    selectedTracks.clear();
+    heardTracks.forEach(function (id) { selectedTracks.add(id); });
     syncTrackUi();
     resetSmooth();
   }
 
   function onMusicianClick(id) {
-    if (isTous()) {
-      selectedTracks.clear();
-      selectedTracks.add(id);
-    } else if (selectedTracks.has(id)) {
-      selectedTracks.delete(id);
-      if (selectedTracks.size === 0) {
-        MUSICIANS.forEach(function (t) { selectedTracks.add(t.id); });
-      }
-    } else {
-      selectedTracks.add(id);
+    if (!followHeard && selectedTracks.size === 1 && selectedTracks.has(id)) {
+      selectAllTracks();
+      return;
     }
+    followHeard = false;
+    selectedTracks.clear();
+    selectedTracks.add(id);
     syncTrackUi();
     resetSmooth();
   }
 
+  function resetHeard() {
+    heardTracks.clear();
+    Object.keys(hearHits).forEach(function (k) { delete hearHits[k]; });
+    selectedTracks.clear();
+    followHeard = true;
+    syncTrackUi();
+  }
+
+  function detectHeard(specArr, binHz) {
+    const floor = bandNoiseFloor(specArr, 2, Math.min(specArr.length - 2, Math.ceil(MIXED_HI_HZ / binHz)));
+    let changed = false;
+    MUSICIANS.forEach(function (t) {
+      const i0 = Math.max(2, Math.floor(t.lo / binHz));
+      const i1 = Math.min(specArr.length - 2, Math.ceil(t.hi / binHz));
+      let peak = -120;
+      for (let i = i0; i <= i1; i++) {
+        if (specArr[i] > peak) peak = specArr[i];
+      }
+      const hot = peak > floor + 12 && peak > -70;
+      hearHits[t.id] = Math.max(0, (hearHits[t.id] || 0) + (hot ? 1 : -2));
+      if (hearHits[t.id] >= 10 && !heardTracks.has(t.id)) {
+        heardTracks.add(t.id);
+        if (followHeard) selectedTracks.add(t.id);
+        changed = true;
+      }
+    });
+    if (changed) syncTrackUi();
+  }
+
   function freqInActiveBands(freq) {
-    if (isTous()) return freq >= MIXED_LO_HZ && freq <= MIXED_HI_HZ;
-    return activeMusicians().some(function (t) {
+    const bands = activeMusicians();
+    if (!bands.length) return freq >= MIXED_LO_HZ && freq <= MIXED_HI_HZ;
+    return bands.some(function (t) {
       return freq >= t.lo && freq <= t.hi;
     });
   }
@@ -1068,23 +1309,18 @@
   function syncTuneUi() {
     const cents = 1200 * Math.log2(aEst / A4_REF);
     if (!$autotune.checked) {
-      $tuneLine.innerHTML =
-        "La / A = 440 Hz (verrouillé / locked)" +
-        ' <span class="muted">· estimé / estimate ' +
-        Math.round(aEst) + " Hz · " + signedCents(cents) + "</span>";
+      $tuneLine.textContent = "440";
       return;
     }
     if (mode === "idle") {
-      $tuneLine.textContent = "La / A ≈ 440 Hz · Auto-accord en attente / waiting";
+      $tuneLine.textContent = "440";
       return;
     }
     if (!tuneReady) {
-      $tuneLine.textContent = "La / A ≈ 440 Hz · écoute le La… / listening for A…";
+      $tuneLine.textContent = "440";
       return;
     }
-    $tuneLine.textContent =
-      "La / A ≈ " + Math.round(aEst) + " Hz · " +
-      signedCents(cents) + " · " + tunePhrase(cents);
+    $tuneLine.textContent = String(Math.round(aEst));
   }
 
   function resetTune() {
@@ -1127,28 +1363,6 @@
   }
 
   function buildTracks() {
-    const all = document.createElement("button");
-    all.type = "button";
-    all.id = "trackAll";
-    all.className = "track-btn";
-    all.style.setProperty("--crayon", "rgb(36, 36, 40)");
-    all.style.setProperty("--lab", "#c4c0b8");
-    all.innerHTML = 'Tous<span class="en">All</span><span class="hz">mix FFT</span>';
-    all.addEventListener("click", selectAllTracks);
-    $tracks.appendChild(all);
-    MUSICIANS.forEach(function (t) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.id = "track-" + t.id;
-      btn.className = "track-btn";
-      paintEl(btn, t);
-      btn.innerHTML =
-        t.fr +
-        '<span class="en">' + t.en + "</span>" +
-        '<span class="hz">' + t.lo + "–" + t.hi + " Hz</span>";
-      btn.addEventListener("click", function () { onMusicianClick(t.id); });
-      $tracks.appendChild(btn);
-    });
     syncTrackUi();
   }
 
@@ -1159,11 +1373,9 @@
       el.className = "pencil";
       el.dataset.pc = name;
       el.dataset.rgb = c.rgb.join(",");
+      el.title = c.fr + " · " + c.pencil;
       paintEl(el, c);
-      el.innerHTML =
-        '<div class="fr">' + c.fr + "</div>" +
-        '<div class="en">' + name + " · " + c.pencil + "</div>" +
-        '<div class="hz">~' + Math.round(c.hz) + " Hz</div>";
+      el.innerHTML = '<div class="fr">' + c.fr + "</div>";
       $pencils.appendChild(el);
 
       const bar = document.createElement("div");
@@ -1241,9 +1453,7 @@
     paintEl(el, c);
     const nameEl = el.querySelector(".name");
     if (nameEl) nameEl.textContent = c.fr + octaveOf(midi);
-    $hzLive.textContent =
-      c.fr + octaveOf(midi) + " / " + pcOf(midi) + octaveOf(midi) +
-      " · " + c.pencil + " · ~" + Math.round(midiToHz(midi)) + " Hz";
+    $hzLive.textContent = String(Math.round(midiToHz(midi)));
     setTimeout(function () {
       if (mode === "idle") {
         el.classList.remove("on");
@@ -1387,25 +1597,116 @@
   function fmtTime(s) {
     const t = Math.max(0, s || 0);
     const m = Math.floor(t / 60);
-    const sec = t - m * 60;
-    const whole = Math.floor(sec);
-    const tenth = Math.floor((sec - whole) * 10);
-    return m + ":" + String(whole).padStart(2, "0") + "." + tenth;
+    const sec = Math.floor(t - m * 60);
+    return m + ":" + String(sec).padStart(2, "0");
+  }
+
+  function playheadRatio() {
+    const dur = sampleDuration || 0;
+    const t = scrubbing ? sampleOffset : sampleNow();
+    return dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
+  }
+
+  function seekFromClientX(clientX) {
+    const rect = $arrangeLane.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)));
+    const dur = sampleDuration || 0;
+    sampleOffset = dur * x;
+    updateScrubUi();
+    if (mode === "replay" && sampleBuffer) startBufferAt(sampleOffset);
+  }
+
+  function drawRuler() {
+    const dur = sampleDuration || 0;
+    $ruler.innerHTML = "";
+    if (dur <= 0) return;
+    const step = dur > 60 ? 15 : 10;
+    for (let s = 0; s <= dur + 0.01; s += step) {
+      const el = document.createElement("span");
+      el.textContent = fmtTime(s);
+      el.style.left = (100 * s / dur) + "%";
+      $ruler.appendChild(el);
+    }
+  }
+
+  function drawWave() {
+    const canvas = $wave;
+    const lane = $arrangeLane;
+    const cssW = Math.max(1, lane.clientWidth || 320);
+    const cssH = 64;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const stealth = document.documentElement.classList.contains("stealth");
+    ctx.fillStyle = stealth ? "#16161a" : "#ebe4d8";
+    ctx.fillRect(0, 0, cssW, cssH);
+    ctx.fillStyle = stealth ? "rgba(255,255,255,0.04)" : "rgba(40,32,24,0.06)";
+    ctx.fillRect(0, cssH / 2 - 0.5, cssW, 1);
+    if (!wavePeaks || !wavePeaks.length) return;
+    const mid = cssH / 2;
+    const amp = cssH * 0.42;
+    const replay = getComputedStyle(document.documentElement).getPropertyValue("--replay").trim() || "rgb(72, 72, 153)";
+    ctx.fillStyle = replay;
+    for (let x = 0; x < cssW; x++) {
+      const i = Math.min(wavePeaks.length - 1, Math.floor(x / cssW * wavePeaks.length));
+      const h = Math.max(1, wavePeaks[i] * amp);
+      ctx.fillRect(x, mid - h, 1, h * 2);
+    }
+  }
+
+  function wavPeaks(buf, bins) {
+    const v = new DataView(buf);
+    if (v.byteLength < 44) return null;
+    let o = 12;
+    let dataOff = 44;
+    let dataLen = v.byteLength - 44;
+    let rate = 48000;
+    while (o + 8 <= v.byteLength) {
+      const id = String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3));
+      const sz = v.getUint32(o + 4, true);
+      if (id === "fmt ") rate = v.getUint32(o + 12, true) || rate;
+      if (id === "data") {
+        dataOff = o + 8;
+        dataLen = sz;
+        break;
+      }
+      o += 8 + sz + (sz % 2);
+    }
+    const samples = Math.floor(dataLen / 2);
+    if (samples < 8) return null;
+    if (!sampleDuration) sampleDuration = samples / rate;
+    const peaks = new Float32Array(bins);
+    const step = samples / bins;
+    for (let i = 0; i < bins; i++) {
+      const a = dataOff + Math.floor(i * step) * 2;
+      const b = dataOff + Math.floor((i + 1) * step) * 2;
+      let m = 0;
+      for (let p = a; p < b; p += 2) {
+        if (p + 1 >= dataOff + dataLen) break;
+        const s = Math.abs(v.getInt16(p, true)) / 32768;
+        if (s > m) m = s;
+      }
+      peaks[i] = m;
+    }
+    return peaks;
+  }
+
+  function updateScrubUi() {
+    const t = scrubbing ? sampleOffset : sampleNow();
+    const dur = sampleDuration || 0;
+    const ratio = dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
+    $playhead.style.left = (100 * ratio) + "%";
+    $clock.textContent = fmtTime(t);
+    $arrange.setAttribute("aria-valuemax", String(Math.round(dur)));
+    $arrange.setAttribute("aria-valuenow", String(Math.round(t)));
+    $arrange.setAttribute("aria-valuetext", fmtTime(t));
   }
 
   function sampleNow() {
     if (mode !== "replay" || !bufferSource || !audioCtx) return sampleOffset;
     return Math.min(sampleDuration, sampleOffset + (audioCtx.currentTime - sampleStartCtxTime));
-  }
-
-  function updateScrubUi() {
-    const t = sampleNow();
-    const dur = sampleDuration || 0;
-    if (!scrubbing) {
-      $scrub.max = "1000";
-      $scrub.value = String(dur > 0 ? Math.round(1000 * t / dur) : 0);
-    }
-    $clock.textContent = fmtTime(t) + " / " + fmtTime(dur);
   }
 
   function stopBufferSource() {
@@ -1431,9 +1732,8 @@
     cancelAnimationFrame(raf);
     stopTracks();
     $btn.classList.remove("live");
-    $btn.textContent = "Écouter / Start listening";
-    $micLine.textContent = "Micro OS / OS mic: (appuie sur Écouter) · ou rejoue hier";
-    $hint.textContent = "Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons";
+    $btn.setAttribute("aria-label", "Écouter");
+    resetHeard();
     clearLights();
     resetTune();
   }
@@ -1446,11 +1746,10 @@
     stopBufferSource();
     if (mode === "replay") mode = "idle";
     cancelAnimationFrame(raf);
-    $replay.classList.remove("playing");
-    $replay.textContent = "Rejouer l’échantillon / Replay yesterday";
+    $replay.classList.remove("playing", "loading");
+    $replay.setAttribute("aria-label", "Rejouer");
     if (mode === "idle") {
-      $micLine.textContent = SAMPLE_STATUS + " — stop";
-      $hint.textContent = "Écouter = micro OS · Rejouer = Shannon d’hier (visuel, muet) · Same FFT crayons";
+      resetHeard();
       clearLights();
       resetTune();
       if (!keepScrub) {
@@ -1500,7 +1799,6 @@
     deviceChangeTimer = setTimeout(function () {
       acquireStream().then(function () {
         if (mode !== "live") return;
-        $hint.textContent = "Nouveau micro OS / OS input changed — suivi automatique";
       }).catch(function (e) {
         showErr("Micro: " + (e && e.message ? e.message : String(e)));
       });
@@ -1530,8 +1828,7 @@
       if (id !== actionId || mode !== "live" || !stream) return;
       bindDeviceChange();
       $btn.classList.add("live");
-      $btn.textContent = "Stop / Arrêter";
-      $hint.textContent = LIVE_HINT;
+      $btn.setAttribute("aria-label", "Stop");
       loop();
     } catch (e) {
       if (id !== actionId) return;
@@ -1560,16 +1857,25 @@
     if (sampleBuffer) return sampleBuffer;
     if (sampleLoad) return sampleLoad;
     sampleLoad = (async function () {
-      const res = await fetch(SAMPLE_URL);
-      if (!res.ok) {
-        throw new Error(
-          "WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL +
-          " — from repo root: cp captures/final_song.wav web/samples/final_song.wav"
-        );
+      let arr = waveBuf;
+      if (!arr) {
+        const res = await fetch(SAMPLE_URL);
+        if (!res.ok) {
+          throw new Error(
+            "WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL +
+            " — from repo root: cp captures/final_song.wav web/samples/final_song.wav"
+          );
+        }
+        arr = await res.arrayBuffer();
+        waveBuf = arr;
       }
-      const arr = await res.arrayBuffer();
+      if (!wavePeaks) {
+        wavePeaks = wavPeaks(arr, 900);
+        drawRuler();
+        drawWave();
+      }
       ensureAnalyser();
-      sampleBuffer = await audioCtx.decodeAudioData(arr);
+      sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
       sampleDuration = sampleBuffer.duration;
       updateScrubUi();
       return sampleBuffer;
@@ -1607,7 +1913,8 @@
     const id = beginAction();
     replayLoading = true;
     try {
-      $replay.textContent = "Chargement… / Loading…";
+      $replay.classList.add("loading");
+      $replay.setAttribute("aria-label", "…");
       if (mode === "live") haltLive();
       await loadSample();
       if (id !== actionId) return;
@@ -1621,17 +1928,16 @@
       replayLoading = false;
       if (sampleOffset >= sampleDuration - 0.05) sampleOffset = 0;
       startBufferAt(sampleOffset);
+      $replay.classList.remove("loading");
       $replay.classList.add("playing");
-      $replay.textContent = "Stop échantillon / Stop sample";
-      $micLine.textContent = SAMPLE_STATUS;
-      $hint.textContent = REPLAY_HINT;
+      $replay.setAttribute("aria-label", "Stop");
       loop();
     } catch (e) {
       if (id !== actionId) return;
       replayLoading = false;
       mode = "idle";
-      $replay.classList.remove("playing");
-      $replay.textContent = "Rejouer l’échantillon / Replay yesterday";
+      $replay.classList.remove("playing", "loading");
+      $replay.setAttribute("aria-label", "Rejouer");
       var msg = e && e.message ? e.message : String(e);
       if (location.protocol === "file:") {
         msg += " — sers web/ : python3 -m http.server 4173 --directory web";
@@ -1665,15 +1971,40 @@
     applyScene($stealth.checked);
   });
 
-  $scrub.addEventListener("pointerdown", function () { scrubbing = true; });
-  $scrub.addEventListener("pointerup", function () { scrubbing = false; });
-  $scrub.addEventListener("input", function () {
+  function onArrangePointer(ev) {
+    if (ev.pointerType === "mouse" && ev.buttons !== 1 && ev.type !== "pointerdown") return;
+    seekFromClientX(ev.clientX);
+  }
+  $arrangeLane.addEventListener("pointerdown", function (ev) {
+    scrubbing = true;
+    $arrangeLane.setPointerCapture(ev.pointerId);
+    onArrangePointer(ev);
+  });
+  $arrangeLane.addEventListener("pointermove", function (ev) {
+    if (!scrubbing) return;
+    onArrangePointer(ev);
+  });
+  $arrangeLane.addEventListener("pointerup", function () { scrubbing = false; });
+  $arrangeLane.addEventListener("pointercancel", function () { scrubbing = false; });
+  $arrange.addEventListener("keydown", function (ev) {
     const dur = sampleDuration || 0;
-    sampleOffset = dur * (Number($scrub.value) / 1000);
-    $clock.textContent = fmtTime(sampleOffset) + " / " + fmtTime(dur);
+    if (!dur) return;
+    const step = ev.shiftKey ? 5 : 1;
+    if (ev.key === "ArrowLeft") {
+      sampleOffset = Math.max(0, sampleNow() - step);
+    } else if (ev.key === "ArrowRight") {
+      sampleOffset = Math.min(dur, sampleNow() + step);
+    } else if (ev.key === "Home") {
+      sampleOffset = 0;
+    } else if (ev.key === "End") {
+      sampleOffset = dur;
+    } else {
+      return;
+    }
+    ev.preventDefault();
+    updateScrubUi();
     if (mode === "replay" && sampleBuffer) startBufferAt(sampleOffset);
   });
-  $scrub.addEventListener("change", function () { scrubbing = false; });
 
   $micAlt.addEventListener("change", function () {
     micOverrideId = $micAlt.value === "os" ? null : $micAlt.value;
@@ -1684,9 +2015,13 @@
     }
   });
 
-  window.addEventListener("resize", layoutBlackKeys);
+  function onResize() {
+    layoutBlackKeys();
+    drawWave();
+  }
+  window.addEventListener("resize", onResize);
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", layoutBlackKeys);
+    window.visualViewport.addEventListener("resize", onResize);
   }
 
   let lastConstell = "";
@@ -1733,7 +2068,7 @@
     });
     $chips.innerHTML = "";
     $chips.appendChild($hzLive);
-    $hzLive.textContent = "Chante ou joue · Sing or play";
+    $hzLive.textContent = "";
     lastChipKey = "";
     renderConstellation([]);
   }
@@ -1744,10 +2079,12 @@
     analyser.getFloatFrequencyData(spec);
     const binHz = audioCtx.sampleRate / analyser.fftSize;
     updateConcertPitch(spec, binHz);
+    detectHeard(spec, binHz);
     const mixed = isTous();
-    const bands = mixed
-      ? [{ lo: MIXED_LO_HZ, hi: MIXED_HI_HZ }]
-      : activeMusicians();
+    const heardBands = activeMusicians();
+    const bands = heardBands.length
+      ? heardBands
+      : [{ lo: MIXED_LO_HZ, hi: MIXED_HI_HZ }];
     let scanLo = MIXED_HI_HZ;
     let scanHi = MIXED_LO_HZ;
     bands.forEach(function (t) {
@@ -1799,9 +2136,9 @@
       if (smooth[i] > loudest) loudest = smooth[i];
     }
 
-    const sens = Number($sens.value) / 100;
-    const absGate = -48 - sens * 36;
-    const relDb = 10 + sens * 18;
+    const noise = bandNoiseFloor(spec, i0, i1);
+    const absGate = Math.max(-78, noise + 12);
+    const relDb = 16;
     const gate = Math.max(absGate, loudest - relDb);
     const maxN = $chords.checked ? 8 : 1;
 
@@ -1885,7 +2222,7 @@
           chip.className = "chip";
           chip.dataset.pc = pcOf(c.midi);
           paintEl(chip, info);
-          chip.textContent = info.fr + octaveOf(c.midi) + " · " + pcOf(c.midi) + octaveOf(c.midi);
+          chip.textContent = info.fr + octaveOf(c.midi);
           $chips.appendChild(chip);
         });
       }
@@ -1895,9 +2232,9 @@
       const top = lit[0];
       const info = crayonOf(top.midi);
       const hz = top.freq;
-      $hzLive.textContent = info.pencil + " · " + Math.round(hz) + " Hz";
+      $hzLive.textContent = String(Math.round(hz));
     } else {
-      $hzLive.textContent = "Silence / Quiet";
+      $hzLive.textContent = "";
     }
     renderConstellation(lit);
 
@@ -1910,7 +2247,23 @@
   buildKeyboard();
   buildTracks();
   syncTuneUi();
-  requestAnimationFrame(layoutBlackKeys);
+  requestAnimationFrame(function () {
+    layoutBlackKeys();
+    drawWave();
+  });
+  fetch(SAMPLE_URL).then(function (res) {
+    if (!res.ok) return null;
+    return res.arrayBuffer();
+  }).then(function (arr) {
+    if (!arr) return;
+    waveBuf = arr;
+    if (!wavePeaks) {
+      wavePeaks = wavPeaks(arr, 900);
+      drawRuler();
+      drawWave();
+      updateScrubUi();
+    }
+  }).catch(function () {});
 })();
   </script>
 </body>
