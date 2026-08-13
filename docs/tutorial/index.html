@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>60-second live listen — Symphony Instrument Analysis</title>
+  <meta name="description" content="Silent live-listen: this page does not play music. It draws whatever this phone or computer is already playing.">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <p class="crumb">
+      <a href="https://thebonhomme.com/">thebonhomme.com</a>
+      ·
+      <a href="../">Symphony</a>
+      ·
+      <a href="../how-to.html">ELI5</a>
+    </p>
+    <header class="hero">
+      <div>
+        <div class="badge">Live listen · we stay silent · works on 5G</div>
+        <h1>See what this device is playing</h1>
+        <p>
+          This tutorial does not play music. Whatever is already happening on
+          the device — a piano, a speaker, a video — gets drawn as wiggles,
+          Hertz, sandwich layers, and piano keys.
+        </p>
+      </div>
+      <div class="controls">
+        <button class="primary" id="btnMic" type="button">Listen with the mic</button>
+        <button class="secondary share-only" id="btnShare" type="button">Listen to tab/window audio</button>
+        <button class="ghost" id="btnStop" type="button">Stop</button>
+      </div>
+    </header>
+
+    <section class="tour" aria-live="polite">
+      <div class="tour-step" id="tourStep">1</div>
+      <div>
+        <h2 id="tourTitle">We will not play a song over yours</h2>
+        <p id="tourBody">Play anything already on this device. This page only draws the air that is wiggling right now.</p>
+        <div class="progress" aria-hidden="true"><span id="tourFill"></span></div>
+      </div>
+      <button class="ghost" id="btnNext" type="button">Next idea</button>
+    </section>
+
+    <main class="stage">
+      <section class="panel">
+        <h3>Right now on this device</h3>
+        <canvas id="wave" height="160"></canvas>
+        <div class="note-row">
+          <div class="note-card">
+            <span>Closest piano name</span>
+            <strong id="note">—</strong>
+          </div>
+          <div class="note-card">
+            <span>Wiggles per second</span>
+            <strong id="hz">waiting</strong>
+          </div>
+        </div>
+        <p class="silent" id="quiet">Nothing loud yet. Play a song, a video, or a piano key on this device.</p>
+        <div class="piano" id="piano" aria-label="Piano keys that light up from live sound"></div>
+        <canvas id="spec" height="150" style="margin-top:12px"></canvas>
+      </section>
+
+      <aside class="panel">
+        <h3>Sandwich layers</h3>
+        <div class="meters">
+          <div>
+            <label>Boom / left hand <span id="bassPct">0%</span></label>
+            <div class="bar"><span id="bassBar" class="bass"></span></div>
+          </div>
+          <div>
+            <label>Tune you can hum <span id="tunePct">0%</span></label>
+            <div class="bar"><span id="tuneBar" class="tune"></span></div>
+          </div>
+          <div>
+            <label>Sparkle / air <span id="sparklePct">0%</span></label>
+            <div class="bar"><span id="sparkleBar" class="sparkle"></span></div>
+          </div>
+        </div>
+        <h3 style="margin-top:18px">Competing pitches</h3>
+        <div class="peaks" id="peaks">Waiting for live sound…</div>
+        <div class="hard-flag" id="hard">
+          Live naming is hard because the picture keeps moving. Watch how many pitches show up at once.
+        </div>
+      </aside>
+    </main>
+
+    <p class="footer" id="status">
+      Tip: for a song already playing in a browser tab, use “Listen to tab/window audio”
+      and tick share audio. For a real piano, use the mic.
+      Grown-up tool: <code>python3 scripts/analyze_instruments.py</code>
+    </p>
+  </div>
+
+  <video id="shareVideo" autoplay muted playsinline hidden></video>
+
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <h2>One minute. Your sound, not ours.</h2>
+      <p>
+        Press listen, then play whatever is already on this device.
+        We will not put music underneath it. We only draw the wiggles
+        so a kid can see Hz, why live guessing is messy, and which
+        piano key matches the loudest pitch.
+      </p>
+      <div class="controls" style="margin-top:16px">
+        <button class="primary" id="btnMicGate" type="button">Listen with the mic</button>
+        <button class="secondary share-only" id="btnShareGate" type="button">Listen to tab audio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

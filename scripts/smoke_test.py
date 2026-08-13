@@ -79,9 +79,32 @@ def check_capture_scripts() -> None:
         print(f"{name}: exit {proc.returncode} ({NO_DEVICES_MESSAGE})")
 
 
+def check_public_site() -> None:
+    docs = SCRIPTS.parent / "docs"
+    required = [
+        docs / "index.html",
+        docs / "how-to.html",
+        docs / "howto-eli5.png",
+        docs / "tutorial" / "index.html",
+        docs / "tutorial" / "app.js",
+        docs / "tutorial" / "styles.css",
+        docs / ".nojekyll",
+    ]
+    missing = [str(path) for path in required if not path.is_file()]
+    if missing:
+        raise SystemExit(f"public site files missing: {missing}")
+    tutorial = (docs / "tutorial" / "index.html").read_text(encoding="utf-8")
+    if "Listen with the mic" not in tutorial:
+        raise SystemExit("tutorial is missing the mic listen control")
+    if "does not play music" not in tutorial.lower():
+        raise SystemExit("tutorial must stay silent")
+    print("public site files: OK")
+
+
 def main() -> None:
     check_ffmpeg()
     check_capture_scripts()
+    check_public_site()
     with tempfile.TemporaryDirectory() as td:
         out_dir = Path(td)
         wav = out_dir / "smoke_tones.wav"

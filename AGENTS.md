@@ -1,6 +1,20 @@
 # Agent notes
 
-Python CLI for mic capture + spectral instrument analysis. There is no web server.
+Python CLI for mic capture + spectral instrument analysis. Public silent tutorial is static files under `docs/` (GitHub Pages). Local `scripts/serve_tutorial.py` is localhost-only.
+
+ELI5 how-to and figure: `docs/HOW_TO_ELI5.md` (figure: `docs/howto-eli5.png`).
+
+Silent live tutorial (visualizes the device’s current audio, does not play music).
+
+Public HTTPS (phone on 5G): `https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/`
+
+Local-only:
+
+```bash
+python3 scripts/serve_tutorial.py
+```
+
+Do not set this repo’s Pages custom domain to `thebonhomme.com` (that domain belongs to `lebonhommepharma.github.io`).
 
 ## Setup
 

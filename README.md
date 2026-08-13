@@ -7,6 +7,82 @@ Records from the best available macOS mic, denoises, then estimates:
 - likely instrument families (vocals/lyrics de-emphasized)
 - note sequences with frequencies in Hz
 
+## Public live listen (phone on 5G, any network)
+
+The tutorial is a static HTTPS page. Open it **on the device that is making sound**. It uses that device’s microphone. It does not play music. `127.0.0.1` and LAN IPs are not reachable on cellular.
+
+**Canonical URL** (GitHub Pages project site under the existing `thebonhomme.com` custom domain — do **not** attach a CNAME of `thebonhomme.com` to this repo, or the homepage would be stolen):
+
+- Hub: https://thebonhomme.com/SymphonyInstrumentAnalysis/
+- Live listen: https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
+- ELI5: https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html
+
+If Pages is still warming up, same files on this branch:
+
+- https://cdn.jsdelivr.net/gh/LeBonhommePharma/SymphonyInstrumentAnalysis@cursor/public-https-tutorial-cfbd/docs/tutorial/index.html
+
+On an iPhone, tap **Listen with the mic** and allow Microphone. Tab/window capture is a desktop feature.
+
+Local-only fallback (this computer, not 5G):
+
+```bash
+python3 scripts/serve_tutorial.py
+```
+
+## How-to (ELI5)
+
+Sound is air wiggling. We count the wiggles per second (**Hz**), then name the instruments and notes.
+
+![Figure 1. Play a song, the mic listens, look at the wiggles, name the sounds.](docs/howto-eli5.png)
+
+Full walkthrough: [docs/HOW_TO_ELI5.md](docs/HOW_TO_ELI5.md) or [docs/how-to.html](docs/how-to.html). Live page: [docs/tutorial/index.html](docs/tutorial/index.html).
+
+### Homepage card (layout-safe)
+
+This bot cannot push `lebonhommepharma.github.io`. Add **one object** to the existing `footerLinks` and `products` arrays in the bundled `index.html` (same card grid, no header/nav/CSS changes). Point at the Pages URL above, or at `/symphony/` if you copy `docs/` into that folder on the homepage repo.
+
+`footerLinks` (after Shannon):
+
+```js
+{ name: "Symphony", role: "live listen", glyph: "Hz", c: "var(--cyan)", href: "https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/", target: "", rel: "" },
+```
+
+`products` (after Shannon):
+
+```js
+{ name: "Symphony", kind: "Instrument Analysis", glyph: "Hz", c: "var(--cyan)", href: "https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/", cta: "Live listen", desc: "Silent live-listen: see the Hertz of whatever this device is already playing. No background music." },
+```
+
+### GoDaddy DNS (`thebonhomme.com`)
+
+Registrar **and** nameservers are GoDaddy (`ns41.domaincontrol.com` / `ns42.domaincontrol.com`). Apex **A** records already match GitHub Pages; `https://thebonhomme.com` works. This agent has no GoDaddy API key, so these still need to be applied in the GoDaddy DNS panel:
+
+Keep:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| existing TXT / MX / SPF / Apple / Microsoft 365 | | do not delete |
+
+Change / add:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| CNAME | `www` | `lebonhommepharma.github.io` (not `thebonhomme.com`) |
+| AAAA | `@` | `2606:50c0:8000::153` |
+| AAAA | `@` | `2606:50c0:8001::153` |
+| AAAA | `@` | `2606:50c0:8002::153` |
+| AAAA | `@` | `2606:50c0:8003::153` |
+
+Then in the homepage repo Pages settings, add `www.thebonhomme.com` as a custom domain so GitHub can issue a cert that includes `www`. Today `https://www.thebonhomme.com` presents `*.github.io` (name mismatch). HTTP `www` already 301s to the working apex.
+
+Do **not** add a `_github-pages-challenge-…` TXT until GitHub shows the token (Pages → Custom domain → Verify). Domain state is currently `unverified`.
+
+If GitHub Pages is not on for this repo yet: **Settings → Pages → Source: GitHub Actions**. The workflow is `.github/workflows/pages.yml`.
+
 ## Setup
 
 Debian/Ubuntu (install OS packages first; `python3-venv` matches the default `python3`):

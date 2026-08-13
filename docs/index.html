@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Symphony Instrument Analysis — see the Hertz of this device</title>
+  <meta name="description" content="Silent live-listen for whatever this phone or computer is already playing. No background music. Works on 5G over HTTPS.">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/">
+  <link rel="stylesheet" href="tutorial/styles.css">
+  <style>
+    .hub-hero { max-width: 42rem; }
+    .hub-hero h1 { font-size: clamp(1.7rem, 5vw, 2.4rem); }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+    .figure-wrap img { width: 100%; height: auto; border-radius: 18px; display: block; }
+    .kid-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .kid-grid article { background: #fff; border-radius: 18px; padding: 16px; box-shadow: var(--shadow); }
+    .kid-grid h2 { margin: 0 0 6px; font-size: 1.05rem; }
+    .kid-grid p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .home-link { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    .home-link:hover { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <p><a class="home-link" href="https://thebonhomme.com/">thebonhomme.com</a></p>
+    <header class="hero">
+      <div class="hub-hero">
+        <div class="badge">HTTPS · phone · 5G · silent</div>
+        <h1>See what this device is playing</h1>
+        <p>
+          Open this on the phone or laptop that is making sound — even on cellular.
+          The page stays quiet. It only draws the air that is wiggling right now.
+        </p>
+        <div class="cta-row">
+          <a class="primary" style="text-decoration:none;display:inline-block" href="tutorial/">Open the 60-second live listen</a>
+          <a class="ghost" style="text-decoration:none;display:inline-block" href="how-to.html">How it works (ELI5)</a>
+        </div>
+      </div>
+    </header>
+
+    <section class="figure-wrap panel">
+      <img src="howto-eli5.png" width="1600" height="900" alt="Four-step how-to: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz.">
+    </section>
+
+    <section class="kid-grid">
+      <article>
+        <h2>Useful</h2>
+        <p>A song is a sandwich: boom / tune / sparkle. Practice one layer instead of drowning in the whole mix.</p>
+      </article>
+      <article>
+        <h2>Why live is hard</h2>
+        <p>Notes stack, pianos ring extra high copies, and the picture keeps moving. The grown-up tool records, then looks.</p>
+      </article>
+      <article>
+        <h2>Piano superpower</h2>
+        <p>If the loudest wiggle is 440 Hz, that is the A key. Find it. Play it. Match it.</p>
+      </article>
+    </section>
+
+    <p class="footer">
+      Grown-up CLI stays on a Mac: <code>python3 scripts/analyze_instruments.py</code>.
+      Source:
+      <a href="https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis">GitHub</a>.
+    </p>
+  </div>
+</body>
+</html>
