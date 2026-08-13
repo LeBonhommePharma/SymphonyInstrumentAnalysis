@@ -79,6 +79,19 @@ def check_capture_scripts() -> None:
         print(f"{name}: exit {proc.returncode} ({NO_DEVICES_MESSAGE})")
 
 
+def check_crayon_piano() -> None:
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPTS / "crayon_piano.py"), "--self-test"],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(
+            f"crayon_piano.py --self-test failed:\n{proc.stdout}\n{proc.stderr}"
+        )
+    print("crayon_piano.py --self-test: OK")
+
+
 def main() -> None:
     check_ffmpeg()
     check_capture_scripts()
@@ -119,6 +132,7 @@ def main() -> None:
     if missing:
         raise SystemExit(f"analyzer missed expected notes: {missing}; found {sorted(notes)}")
     print("SMOKE OK: recovered E2, A4, and C5")
+    check_crayon_piano()
 
 
 if __name__ == "__main__":
