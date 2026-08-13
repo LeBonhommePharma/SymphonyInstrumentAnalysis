@@ -7,6 +7,14 @@ Records from the best available macOS mic, denoises, then estimates:
 - likely instrument families (vocals/lyrics de-emphasized)
 - note sequences with frequencies in Hz
 
+## How-to (ELI5)
+
+Sound is air wiggling. We count the wiggles per second (**Hz**), then name the instruments and notes.
+
+![Figure 1. Play a song, the mic listens, look at the wiggles, name the sounds.](docs/howto-eli5.png)
+
+Full walkthrough: [docs/HOW_TO_ELI5.md](docs/HOW_TO_ELI5.md).
+
 ## Setup
 
 Debian/Ubuntu (install OS packages first; `python3-venv` matches the default `python3`):
