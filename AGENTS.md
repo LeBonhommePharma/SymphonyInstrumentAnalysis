@@ -1,75 +1,28 @@
 # Symphony Instrument Analysis
 
-Standalone Python spectral-analysis toolkit plus a static "crayon piano" web viewer.
-See [`README.md`](README.md) and [`web/README.md`](web/README.md) for the full usage docs.
+Standalone Python spectral-analysis toolkit plus a crayon piano (native iOS/iPadOS/Mac app, a static web viewer, and a terminal UI).
+See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README.md`](web/README.md).
 
+- **iOS/iPadOS/Mac app** (`ios/CrayonPiano.swiftpm`): SwiftUI + AVAudioEngine, packaged as a
+  Swift Playgrounds App (`.iOSApplication`). Tap keys, live mic, built-in demo, scrolling
+  waveform. **No HTTP server, no ports.** Runs on iPadOS 27 in Swift Playgrounds (no Mac) or on
+  macOS 27 via Xcode / Swift Playgrounds — open the `.swiftpm` directly (there is no `.xcodeproj`).
 - **CLI pipeline** (`scripts/*.py`): numpy/scipy FFT analysis of recorded audio → instrument
   families + note sequences, chord visualizations (matplotlib), and resynthesis.
-- **Web viewer** (`web/keyboard.html`): a self-contained Web Audio API page that lights up a
-  color-coded visual piano from either the live mic or a replayed WAV sample.
+- **Web viewer** (`web/keyboard.html`): self-contained Web Audio page. Open the file directly
+  (`file://`) — replay synthesizes a demo if the WAV is missing. Live mic on iPhone still
+  needs the native app (Safari will not grant `getUserMedia` to `file://`).
+- **Terminal piano** (`scripts/crayon_piano.py`): Textual TUI matching the HTML layout
+  (`piano/ui_contract.json`). `.venv/bin/python scripts/crayon_piano.py` or `--self-test`.
+- **Public silent tutorial** (`docs/`): GitHub Pages. Live listen of the device’s current audio.
+  Canonical URL: `https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/`.
 
 There is no database, backend service, build step, or test/lint framework configured.
 
-## Cursor Cloud specific instructions
-
-Dependencies are installed to the Python **user site** (`pip install --user`) by the update
-script, so scripts run with plain `python3` — no venv to activate (the README's venv flow is
-optional and needs the `python3.12-venv` apt package, which is not installed here).
-
-- **Extra dependency:** several scripts import `matplotlib`
-  (`visualize_chords.py`, `visualize_chord_layers.py`, `chord_pitch_colors.py`,
-  `resynth_from_chords.py`) but it is **not** listed in `requirements.txt`. The update script
-  installs it alongside `requirements.txt`.
-- **matplotlib is headless here:** run visualization scripts with `MPLBACKEND=Agg` (they
-  `savefig` PNGs into `analysis_out/`; there is no display).
-
-### Input data is not committed
-`captures/*.wav` and `web/samples/*.wav` are gitignored and **absent on a fresh checkout**, so
-you must supply audio before most things do anything useful:
-
-- `scripts/analyze_instruments.py <file.wav>` requires a **16-bit PCM mono/stereo WAV**.
-- `scripts/visualize_chords.py` and `scripts/visualize_chord_layers.py` hardcode
-  `captures/final_song.wav` (plus the committed `analysis_out/final_song_chords.json`).
-- The web replay button loads `web/samples/final_song.wav` (a copy of `captures/final_song.wav`).
-
-If no real capture is available, generate a synthetic 16-bit PCM WAV with `wave` + `numpy` to
-exercise the pipeline end-to-end.
-
-### Web viewer
-Serve the `web/` directory and open `keyboard.html`; use the replay sample for a headless demo:
-
-```bash
-cd web && python3 -m http.server 4173   # then http://localhost:4173/keyboard.html
-```
-
-- Use port **4173**. Per the READMEs, avoid **8765/8766** (Claude Science) and **8787** (Cursor).
-- **Live mic does not work on this Linux VM** (the page shows "Requested device not found").
-  The mic scripts (`list_mics.py`, `probe_mics.py`, `record_mic.py`) are macOS/AVFoundation-only
-  and are effectively non-functional here even though `ffmpeg` is on PATH. Use the **Replay
-  sample** button (or the CLI against a WAV) to demonstrate functionality.
-# Agent notes
-
-Python CLI for mic capture + spectral instrument analysis. Public silent tutorial is static files under `docs/` (GitHub Pages). Local `scripts/serve_tutorial.py` is localhost-only.
-
-ELI5 how-to and figure: `docs/HOW_TO_ELI5.md` (figure: `docs/howto-eli5.png`).
-
-Silent live tutorial (visualizes the device’s current audio, does not play music).
-
-Public HTTPS (phone on 5G): `https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/`
-
-The page draws this device’s live sound only (mic / shared tab). It does not read Apple’s Now Playing API. If there is no melody it still draws noise/voices. Time is Logic-style waveform tracks, not a slider.
-
-Local-only:
-
-```bash
-python3 scripts/serve_tutorial.py
-```
-
-Do not set this repo’s Pages custom domain to `thebonhomme.com` (that domain belongs to `lebonhommepharma.github.io`).
-
 ## Setup
 
-Debian/Ubuntu — install OS packages before creating the venv (`python3-venv` matches default `python3`):
+Debian/Ubuntu — install OS packages first (`python3-venv` matches the default `python3`), then
+create the venv:
 
 ```bash
 sudo apt-get update
@@ -79,7 +32,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Or run `bash .cursor/install.sh` (same commands as the Cloud Agent install script).
+Or run `bash .cursor/install.sh` — the same commands as the Cloud Agent install script that
+`.cursor/environment.json` invokes.
 
 ## Verify the environment
 
@@ -88,11 +42,49 @@ Or run `bash .cursor/install.sh` (same commands as the Cloud Agent install scrip
 .venv/bin/python scripts/analyze_instruments.py --help
 ```
 
-The smoke test checks ffmpeg, synthesizes E2/A4/C5 for `analyze_instruments.py`, and confirms the capture scripts exit cleanly when no AVFoundation devices exist.
+The smoke test checks ffmpeg, synthesizes tones for `analyze_instruments.py`, confirms the
+capture scripts exit cleanly when no AVFoundation devices exist, checks public tutorial files,
+and runs `crayon_piano.py --self-test`.
 
 ## Cursor Cloud specific instructions
 
-- Use `.venv` created by `.cursor/install.sh` before running Python.
-- `scripts/list_mics.py`, `scripts/probe_mics.py`, and `scripts/record_mic.py` use macOS AVFoundation via ffmpeg. On Linux they exit 1 with `No AVFoundation audio devices found.` That is expected.
-- On cloud agents, demonstrate the working path with `scripts/smoke_test.py` or by analyzing a 16-bit PCM WAV with `scripts/analyze_instruments.py`.
-- Do not treat mic-capture failure on Linux as an environment setup failure.
+- The repo-managed `.cursor/environment.json` runs `bash .cursor/install.sh`, which creates
+  `.venv` and installs `requirements.txt`. Use `.venv` before running Python (activate it or
+  call `.venv/bin/python`).
+- **matplotlib** is required by `scripts/visualize_chords.py`, `visualize_chord_layers.py`,
+  `chord_pitch_colors.py`, and `resynth_from_chords.py`. It is pinned in `requirements.txt`, so
+  the venv install covers it.
+- **matplotlib is headless here:** run visualization scripts with `MPLBACKEND=Agg` (they
+  `savefig` PNGs into `analysis_out/`; there is no display).
+- `scripts/list_mics.py`, `scripts/probe_mics.py`, and `scripts/record_mic.py` use macOS
+  AVFoundation via ffmpeg. On Linux they exit 1 with `No AVFoundation audio devices found.` —
+  that is expected; do not treat it as a setup failure. Demonstrate the working path with
+  `scripts/smoke_test.py` or by analyzing a 16-bit PCM WAV with `scripts/analyze_instruments.py`.
+- **iOS app cannot be built on this Linux VM** (no Xcode/Swift toolchain). Edit Swift under
+  `ios/CrayonPiano.swiftpm/` and verify the shared logic through the web piano at
+  `file:///workspace/web/keyboard.html` (it mirrors the same crayon map, FFT peak-picker, and
+  waveform transform).
+- Public tutorial: `python3 scripts/serve_tutorial.py` locally. Do not set this repo’s Pages
+  custom domain to `thebonhomme.com` (that domain belongs to `lebonhommepharma.github.io`).
+
+### Input data is not committed
+`captures/*.wav` and `web/samples/*.wav` are gitignored and **absent on a fresh checkout**.
+The web replay button, the iOS **Rejouer** control, and the TUI all fall back to a built-in
+8 s synth demo, so you do **not** need a WAV or a local server to demonstrate the piano.
+
+- `scripts/analyze_instruments.py <file.wav>` requires a **16-bit PCM** WAV.
+- `scripts/visualize_chords.py` and `scripts/visualize_chord_layers.py` hardcode
+  `captures/final_song.wav` (plus the committed `analysis_out/final_song_chords.json`).
+
+If no real capture is available, generate a synthetic 16-bit PCM WAV with `wave` + `numpy` to
+exercise the Python pipeline.
+
+### Web viewer (no port)
+Open the file directly (no server):
+
+```bash
+xdg-open web/keyboard.html   # or in Chrome/Safari: file:///workspace/web/keyboard.html
+```
+
+Hold piano keys to play notes. **Rejouer** runs the built-in demo.
+Do not start `python3 -m http.server` unless you are specifically testing a WAV fetch.
