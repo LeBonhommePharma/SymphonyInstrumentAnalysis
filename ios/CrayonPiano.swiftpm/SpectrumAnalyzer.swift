@@ -58,7 +58,7 @@ final class SpectrumAnalyzer {
     ) -> PeakPickResult {
         let n = min(samples.count, fftSize)
         guard n > 16 else {
-            return PeakPickResult(lit: [], harmonics: [], chroma: [:], loudest: -120)
+            return PeakPickResult(lit: [], harmonics: [], chroma: [:], loudest: -120, mixPeaks: [])
         }
 
         var windowed = [Float](repeating: 0, count: fftSize)
@@ -86,6 +86,37 @@ final class SpectrumAnalyzer {
         let binHz = sampleRate / Double(fftSize)
         if config.autotune {
             updateConcertPitch(binHz: binHz, now: now)
+        }
+
+        var mixPeaks: [SpecPeak] = []
+        let mix0 = max(2, Int(40.0 / binHz))
+        let mix1 = min(dbSpectrum.count - 2, Int(ceil(5000.0 / binHz)))
+        if mix1 > mix0 {
+            var floorSamples: [Float] = []
+            let step = max(1, (mix1 - mix0) / 72)
+            var fi = mix0
+            while fi <= mix1 {
+                floorSamples.append(dbSpectrum[fi])
+                fi += step
+            }
+            floorSamples.sort()
+            let floor = floorSamples.isEmpty ? Float(-90) : floorSamples[floorSamples.count / 2]
+            let minDb = max(Float(-78), floor + 10)
+            for i in mix0...mix1 {
+                let db = dbSpectrum[i]
+                if db < minDb { continue }
+                if db > dbSpectrum[i - 1] && db >= dbSpectrum[i + 1]
+                    && db > dbSpectrum[i - 2] && db >= dbSpectrum[i + 2] {
+                    let denom = dbSpectrum[i - 1] - 2 * db + dbSpectrum[i + 1]
+                    let delta: Float = denom != 0 ? 0.5 * (dbSpectrum[i - 1] - dbSpectrum[i + 1]) / denom : 0
+                    let pf = (Double(i) + Double(delta)) * binHz
+                    if pf >= 40 && pf <= 5000 {
+                        mixPeaks.append(SpecPeak(f: pf, db: db))
+                    }
+                }
+            }
+            mixPeaks.sort { $0.db > $1.db }
+            if mixPeaks.count > 36 { mixPeaks = Array(mixPeaks.prefix(36)) }
         }
 
         let a = config.autotune ? concertA : config.concertA
@@ -173,7 +204,7 @@ final class SpectrumAnalyzer {
             chroma[name] = max(chroma[name] ?? -120, smooth[i])
         }
 
-        return PeakPickResult(lit: lit, harmonics: harmonics, chroma: chroma, loudest: loudest)
+        return PeakPickResult(lit: lit, harmonics: harmonics, chroma: chroma, loudest: loudest, mixPeaks: mixPeaks)
     }
 
     private func updateConcertPitch(binHz: Double, now: Double) {

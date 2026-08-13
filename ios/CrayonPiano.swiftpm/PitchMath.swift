@@ -66,4 +66,5 @@ struct PeakPickResult {
     var harmonics: Set<Int>
     var chroma: [NoteName: Float]
     var loudest: Float
+    var mixPeaks: [SpecPeak]
 }

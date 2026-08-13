@@ -108,23 +108,6 @@ enum NoteName: String, CaseIterable, Hashable {
     }
 }
 
-struct MusicianTrack: Identifiable, Hashable {
-    let id: String
-    let french: String
-    let english: String
-    let loHz: Double
-    let hiHz: Double
-    let color: Color
-
-    static let all: [MusicianTrack] = [
-        MusicianTrack(id: "bass", french: "Contrebasse", english: "Bass", loHz: 40, hiHz: 180, color: NoteName.cSharp.color),
-        MusicianTrack(id: "cello", french: "Violoncelle", english: "Cello", loHz: 130, hiHz: 400, color: NoteName.d.color),
-        MusicianTrack(id: "guitarA", french: "Guitare A", english: "Guitar A", loHz: 200, hiHz: 520, color: NoteName.f.color),
-        MusicianTrack(id: "guitarB", french: "Guitare B", english: "Guitar B", loHz: 480, hiHz: 900, color: NoteName.gSharp.color),
-        MusicianTrack(id: "nylon", french: "Nylon / aigu", english: "Nylon / high", loHz: 600, hiHz: 2500, color: NoteName.aSharp.color)
-    ]
-}
-
 enum SceneStyle {
     case stealth
     case studio
