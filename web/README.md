@@ -19,7 +19,9 @@ Safari can also open [`keyboard.html`](keyboard.html) via `file://` as a fallbac
 
 ## Prepare yesterday’s sample
 
-`*.wav` files are gitignored, so a clean checkout has no audio. Replay loads `web/samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s):
+`*.wav` files are gitignored, so a clean checkout has no audio. Replay loads `web/samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s).
+
+From the **repository root** (if you already `cd web`, run `cd ..` first):
 
 ```bash
 mkdir -p web/samples

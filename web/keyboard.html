@@ -1562,7 +1562,7 @@
       if (!res.ok) {
         throw new Error(
           "WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL +
-          " — cp captures/final_song.wav web/samples/final_song.wav"
+          " — from repo root: cp captures/final_song.wav web/samples/final_song.wav"
         );
       }
       const arr = await res.arrayBuffer();
@@ -1625,8 +1625,8 @@
       $hint.textContent = REPLAY_HINT;
       loop();
     } catch (e) {
-      replayLoading = false;
       if (id !== actionId) return;
+      replayLoading = false;
       mode = "idle";
       $replay.classList.remove("playing");
       $replay.textContent = "Rejouer l’échantillon / Replay yesterday";
