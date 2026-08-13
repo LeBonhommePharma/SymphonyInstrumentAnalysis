@@ -3,7 +3,10 @@
 Standalone Python spectral-analysis toolkit plus a crayon piano (native iOS app and a static web viewer).
 See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README.md`](web/README.md).
 
-- **iOS app** (`ios/CrayonPiano`): SwiftUI + AVAudioEngine. Tap keys, live mic, built-in demo. **No HTTP server, no ports.** Open the Xcode project on a Mac.
+- **iOS/iPadOS/Mac app** (`ios/CrayonPiano.swiftpm`): SwiftUI + AVAudioEngine, packaged as a
+  Swift Playgrounds App (`.iOSApplication`). Tap keys, live mic, built-in demo, scrolling
+  waveform. **No HTTP server, no ports.** Runs on iPadOS 27 in Swift Playgrounds (no Mac) or on
+  macOS 27 via Xcode / Swift Playgrounds — open the `.swiftpm` directly (there is no `.xcodeproj`).
 - **CLI pipeline** (`scripts/*.py`): numpy/scipy FFT analysis of recorded audio → instrument
   families + note sequences, chord visualizations (matplotlib), and resynthesis.
 - **Web viewer** (`web/keyboard.html`): self-contained Web Audio page. Open the file directly
@@ -24,9 +27,10 @@ optional and needs the `python3.12-venv` apt package, which is not installed her
   installs it alongside `requirements.txt`.
 - **matplotlib is headless here:** run visualization scripts with `MPLBACKEND=Agg` (they
   `savefig` PNGs into `analysis_out/`; there is no display).
-- **iOS project cannot be built on this Linux VM** (no Xcode). Edit Swift under `ios/` and
-  verify the web piano via `file:///workspace/web/keyboard.html` instead of starting
-  `http.server`.
+- **iOS app cannot be built on this Linux VM** (no Xcode/Swift toolchain). Edit Swift under
+  `ios/CrayonPiano.swiftpm/` and verify the shared logic through the web piano at
+  `file:///workspace/web/keyboard.html` (it mirrors the same crayon map, FFT peak-picker, and
+  waveform transform). The `.swiftpm` opens/runs in Swift Playgrounds (iPadOS/macOS) or Xcode.
 
 ### Input data is not committed
 `captures/*.wav` and `web/samples/*.wav` are gitignored and **absent on a fresh checkout**.
