@@ -3,9 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>How this works (explained like you are 5) — Symphony</title>
-  <meta name="description" content="Sound is air wiggling. We count Hertz, then name notes. Live listen stays silent.">
+  <title data-i18n-title="howTitle">How this works (explained like you are 5) — Symphony</title>
+  <meta name="description" content="Sound is air wiggling. We count Hertz, then name notes. Live listen stays silent. English and French.">
   <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html">
+  <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html?lang=en">
+  <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html?lang=fr">
   <link rel="stylesheet" href="tutorial/styles.css">
   <style>
     .prose { background: #fff; border-radius: 22px; padding: 22px; box-shadow: var(--shadow); max-width: 46rem; }
@@ -20,49 +22,64 @@
 </head>
 <body>
   <div class="app">
-    <p><a class="home-link" href="./">Symphony</a> · <a class="home-link" href="https://thebonhomme.com/">thebonhomme.com</a></p>
+    <p class="crumb">
+      <span>
+        <a class="home-link" href="./" data-i18n="howBackHub">Symphony</a>
+        ·
+        <a class="home-link" href="https://thebonhomme.com/">thebonhomme.com</a>
+      </span>
+      <span class="lang-switch" role="group" aria-label="English / Français">
+        <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+      </span>
+    </p>
     <article class="prose">
-      <h1>How this works (explained like you are 5)</h1>
-      <p>Sound is air wiggling. Slow wiggles are low notes. Fast wiggles are high notes. We count the wiggles in one second. That count is <strong>Hertz (Hz)</strong>.</p>
-      <p>A piano <strong>A</strong> is about <strong>440 Hz</strong>. A low bass note can be near <strong>110 Hz</strong>.</p>
-      <p>Open this <strong>on the device that is already making sound</strong>, including a phone on 5G. The page stays silent. It draws the live sound of this device (speaker, Now Playing through the speaker, room). Time is Logic-style waveform tracks, not a slider. No melody? It still draws voices and noise. It never fakes a tune.</p>
-      <p><a class="primary" style="text-decoration:none;display:inline-block;margin:8px 0 16px" href="tutorial/">Open the silent live tutorial</a></p>
-      <p><img src="howto-eli5.png" width="1600" height="900" alt="Four-step how-to: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz."></p>
+      <h1 data-i18n="howH1">How this works (explained like you are 5)</h1>
+      <p data-i18n="howP1">Sound is air wiggling. Slow wiggles are low notes. Fast wiggles are high notes. We count the wiggles in one second. That count is Hertz (Hz).</p>
+      <p data-i18n="howP2">A piano A is about 440 Hz. A low bass note can be near 110 Hz.</p>
+      <p data-i18n="howP3">Open this on the device that is already making sound, including a phone on 5G. The page stays silent. It draws the live sound of this device (speaker, Now Playing through the speaker, room). Each instrument we can tell apart gets its own waveform track (up to 6). No melody? It still draws voices and noise. It never fakes a tune.</p>
+      <p><a class="primary" style="text-decoration:none;display:inline-block;margin:8px 0 16px" href="tutorial/" data-i18n="howOpenTutorial">Open the silent live tutorial</a></p>
+      <p><img src="howto-eli5.png" width="1600" height="900" data-i18n-alt="howImgAlt" alt="Four-step how-to: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz."></p>
 
-      <h2>Useful</h2>
-      <p>A song is a sandwich, not a blob:</p>
+      <h2 data-i18n="howH2Useful">Useful</h2>
+      <p data-i18n="howSandwichIntro">A song is a sandwich, not a blob:</p>
       <ul>
-        <li><strong>Boom</strong> on the bottom = left hand / bass</li>
-        <li><strong>Tune</strong> in the middle = the part you can hum</li>
-        <li><strong>Sparkle</strong> on top = extra shine</li>
+        <li data-i18n="howBoom">Boom on the bottom = left hand / bass</li>
+        <li data-i18n="howTune">Tune in the middle = the part you can hum</li>
+        <li data-i18n="howSparkle">Sparkle on top = extra shine</li>
       </ul>
-      <p>The tool writes that recipe in Hertz. Then you can practice one layer at a time.</p>
+      <p data-i18n="howSandwichOut">The tool writes that recipe in Hertz. Then you can practice one layer at a time.</p>
 
-      <h2>Why doing it live is hard</h2>
-      <p>Naming notes <em>while</em> the song is still happening is like reading a page someone is still flipping:</p>
+      <h2 data-i18n="howH2Hard">Why doing it live is hard</h2>
+      <p data-i18n="howHardIntro">Naming notes while the song is still happening is like reading a page someone is still flipping:</p>
       <ul>
-        <li>Many notes stack (chords)</li>
-        <li>Piano keys ring extra high copies called <strong>overtones</strong></li>
-        <li>The computer needs a little bite of sound before it can guess</li>
+        <li data-i18n="howHardLi1">Many notes stack (chords)</li>
+        <li data-i18n="howHardLi2">Piano keys ring extra high copies called overtones</li>
+        <li data-i18n="howHardLi3">The computer needs a little bite of sound before it can guess</li>
       </ul>
-      <p>So the grown-up tool <strong>records, then looks</strong>. Tiny delay, better answer. The live page shows the messy moving picture so the delay makes sense.</p>
+      <p data-i18n="howHardOut">So the grown-up tool records, then looks. Tiny delay, better answer. The live page shows the messy moving picture so the delay makes sense.</p>
 
-      <h2>Piano superpower</h2>
-      <p>If the loudest wiggle is <strong>440 Hz</strong>, that is the <strong>A</strong> key. Find it. Play it. Match it. That is ear training: hearing a map, not a blur.</p>
+      <h2 data-i18n="howH2Piano">Piano superpower</h2>
+      <p data-i18n="howPianoP">If the loudest wiggle is 440 Hz, that is the A key. Find it. Play it. Match it. That is ear training: hearing a map, not a blur.</p>
 
-      <h2>Kid words vs Hertz</h2>
+      <h2 data-i18n="howH2Table">Kid words vs Hertz</h2>
       <table>
         <thead>
-          <tr><th>Kid words</th><th>Grown-up words</th><th>Typical Hz</th></tr>
+          <tr>
+            <th data-i18n="howThKid">Kid words</th>
+            <th data-i18n="howThGrown">Grown-up words</th>
+            <th data-i18n="howThHz">Typical Hz</th>
+          </tr>
         </thead>
         <tbody>
-          <tr><td>Boom / rumble</td><td>Bass foundation</td><td>40–250</td></tr>
-          <tr><td>Warm body</td><td>Low-mid</td><td>250–500</td></tr>
-          <tr><td>Tune you can hum</td><td>Mid melody</td><td>500–2000</td></tr>
-          <tr><td>Sparkle / air</td><td>High color</td><td>2000–5000</td></tr>
+          <tr><td data-i18n="howRowBoomKid">Boom / rumble</td><td data-i18n="howRowBoomGrown">Bass foundation</td><td>40–250</td></tr>
+          <tr><td data-i18n="howRowBodyKid">Warm body</td><td data-i18n="howRowBodyGrown">Low-mid</td><td>250–500</td></tr>
+          <tr><td data-i18n="howRowTuneKid">Tune you can hum</td><td data-i18n="howRowTuneGrown">Mid melody</td><td>500–2000</td></tr>
+          <tr><td data-i18n="howRowAirKid">Sparkle / air</td><td data-i18n="howRowAirGrown">High color</td><td>2000–5000</td></tr>
         </tbody>
       </table>
     </article>
   </div>
+  <script src="i18n.js"></script>
 </body>
 </html>

@@ -10,7 +10,9 @@ Open this **on the device that is already making sound**, including a phone on 5
 
 - https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
 
-The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, or Now Playing if that song is coming out of the speaker. Time is shown as Logic-style waveform tracks (not a slider). If there is no melody (voices, noise), it still draws that live signal. It never invents a tune.
+The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, or Now Playing if that song is coming out of the speaker. **One Logic-style track per instrument** we can tell apart (up to 6; bass at the bottom). If there is no melody (voices, noise), it still draws that live signal on a noise track. It never invents a tune.
+
+Public pages are **English and French** first (EN / FR toggle, or `?lang=en` / `?lang=fr`).
 
 Local-only fallback:
 

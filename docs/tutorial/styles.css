@@ -22,9 +22,36 @@ body {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .crumb a { color: var(--muted); }
 .crumb a:hover { color: var(--ink); }
+
+.lang-switch {
+  display: inline-flex;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #ead9c8;
+}
+.lang-switch button {
+  border-radius: 0;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--muted);
+  min-height: 36px;
+  box-shadow: none;
+}
+.lang-switch button[aria-pressed="true"] {
+  background: #1f2937;
+  color: #fff;
+}
 
 .app {
   max-width: 1180px;
@@ -133,7 +160,7 @@ canvas {
   border-radius: 16px;
   background: #141820;
 }
-#tracks { height: 320px; border-radius: 12px; }
+#tracks { height: 160px; min-height: 160px; border-radius: 12px; }
 #spec { height: 150px; }
 .daw-panel h3 { margin-bottom: 8px; }
 

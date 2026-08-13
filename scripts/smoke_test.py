@@ -8,6 +8,7 @@ and checks that the capture scripts exit cleanly when no devices exist.
 from __future__ import annotations
 
 import math
+import re
 import subprocess
 import sys
 import tempfile
@@ -79,12 +80,49 @@ def check_capture_scripts() -> None:
         print(f"{name}: exit {proc.returncode} ({NO_DEVICES_MESSAGE})")
 
 
+def _i18n_keys(pack_src: str) -> set[str]:
+    return set(re.findall(r"^\s{6}(\w+):", pack_src, flags=re.M))
+
+
+def check_i18n(docs: Path) -> None:
+    i18n = (docs / "i18n.js").read_text(encoding="utf-8")
+    if "en:" not in i18n or "fr:" not in i18n:
+        raise SystemExit("i18n.js must define English and French packs")
+    en_start = i18n.find("en: {")
+    fr_start = i18n.find("fr: {")
+    if en_start < 0 or fr_start < 0 or fr_start < en_start:
+        raise SystemExit("i18n.js English/French packs are not in the expected order")
+    en_keys = _i18n_keys(i18n[en_start:fr_start])
+    strings_end = i18n.find("\n  };", fr_start)
+    fr_keys = _i18n_keys(i18n[fr_start: strings_end if strings_end > 0 else None])
+    missing_fr = sorted(en_keys - fr_keys)
+    missing_en = sorted(fr_keys - en_keys)
+    if missing_fr or missing_en:
+        raise SystemExit(f"i18n key mismatch en vs fr: missing_fr={missing_fr} missing_en={missing_en}")
+    for key in ("btnMic", "tutH1", "hubH1", "howH1", "familyBass", "nInstrument0", "nInstruments"):
+        if key not in en_keys:
+            raise SystemExit(f"i18n.js missing required key {key}")
+    used: set[str] = set()
+    for html_path in (docs / "index.html", docs / "how-to.html", docs / "tutorial" / "index.html"):
+        html = html_path.read_text(encoding="utf-8")
+        if 'data-lang-switch="en"' not in html or 'data-lang-switch="fr"' not in html:
+            raise SystemExit(f"{html_path.name} is missing EN/FR language switch")
+        if "i18n.js" not in html:
+            raise SystemExit(f"{html_path.name} does not load i18n.js")
+        used.update(re.findall(r'data-i18n(?:-title|-alt|-html)?="(\w+)"', html))
+    missing_used = sorted(used - en_keys)
+    if missing_used:
+        raise SystemExit(f"HTML i18n keys missing from i18n.js: {missing_used}")
+    print(f"i18n: OK ({len(en_keys)} en/fr keys)")
+
+
 def check_public_site() -> None:
     docs = SCRIPTS.parent / "docs"
     required = [
         docs / "index.html",
         docs / "how-to.html",
         docs / "howto-eli5.png",
+        docs / "i18n.js",
         docs / "tutorial" / "index.html",
         docs / "tutorial" / "app.js",
         docs / "tutorial" / "styles.css",
@@ -94,15 +132,21 @@ def check_public_site() -> None:
     if missing:
         raise SystemExit(f"public site files missing: {missing}")
     tutorial = (docs / "tutorial" / "index.html").read_text(encoding="utf-8")
+    app_js = (docs / "tutorial" / "app.js").read_text(encoding="utf-8")
     if "Listen with the mic" not in tutorial:
         raise SystemExit("tutorial is missing the mic listen control")
-    if "id=\"tracks\"" not in tutorial:
+    if 'id="tracks"' not in tutorial:
         raise SystemExit("tutorial is missing Logic-style waveform tracks")
     if "tourFill" in tutorial or 'class="progress"' in tutorial:
         raise SystemExit("tutorial must not use a time slider")
     silent = tutorial.lower()
     if "does not play music" not in silent and "never plays a song" not in silent:
         raise SystemExit("tutorial must stay silent")
+    if "MAX_INSTRUMENTS = 6" not in app_js:
+        raise SystemExit("tutorial must cap live instrument tracks at 6")
+    if "one track per instrument" not in tutorial.lower() and "up to 6" not in tutorial.lower():
+        raise SystemExit("tutorial must say tracks match the instrument count")
+    check_i18n(docs)
     print("public site files: OK")
 
 
