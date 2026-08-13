@@ -10,7 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Piano-crayon">
-  <title>Piano-crayon · Crayon piano</title>
+  <title>Piano-crayon</title>
   <style>
     :root, html.stealth {
       --bg: #121214;
@@ -61,12 +61,6 @@
       font-size: clamp(1.12rem, 2.2vw, 1.48rem);
       font-weight: 650;
       letter-spacing: -0.03em;
-    }
-    .sub {
-      margin: 0 0 12px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      letter-spacing: 0.01em;
     }
     .row {
       display: flex;
@@ -235,13 +229,6 @@
       min-width: 4.8rem;
       padding-bottom: 6px;
     }
-    .status {
-      font-size: 0.88rem;
-      color: var(--ink);
-      line-height: 1.35;
-    }
-    .status .mic { font-weight: 650; }
-    .status .hint { color: var(--muted); font-size: 0.8rem; }
     .tracks {
       display: flex;
       flex-wrap: wrap;
@@ -265,20 +252,6 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: var(--tap);
     }
-    .track-btn .en {
-      display: block;
-      font-size: 0.68rem;
-      font-weight: 600;
-      opacity: 0.88;
-    }
-    .track-btn .hz {
-      display: block;
-      font-size: 0.62rem;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      opacity: 0.78;
-      margin-top: 2px;
-    }
     .track-btn[aria-pressed="true"] {
       opacity: 1;
       background: var(--crayon);
@@ -291,14 +264,6 @@
       outline: 1px solid var(--replay-on);
       outline-offset: 2px;
     }
-    #trackLine {
-      font-weight: 650;
-      font-size: 0.78rem;
-      min-height: 1.1em;
-      margin: 0 0 6px;
-      color: var(--muted);
-    }
-    #trackLine:empty { display: none; }
     .tracks:empty { display: none; }
     .tune-line {
       font-weight: 650;
@@ -366,7 +331,6 @@
       outline: 1px solid var(--replay-on);
       outline-offset: 2px;
     }
-    .status { display: none; }
     .chroma {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -435,47 +399,6 @@
       font-weight: 600;
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1;
-    }
-    .constellation {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      gap: 3px;
-      min-height: 52px;
-      margin: 0 0 10px;
-      padding: 6px 0 4px;
-      background: transparent;
-      border: none;
-      border-radius: 0;
-    }
-    .constellation[hidden] { display: none !important; }
-    .constellation-lab {
-      font-size: 0.68rem;
-      font-weight: 650;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-right: 8px;
-      align-self: center;
-    }
-    .star {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      width: 28px;
-      min-height: 22px;
-      height: calc(16px + (var(--oct, 4) - 1) * 5px);
-      background: var(--crayon);
-      color: var(--lab);
-      border-radius: 2px 2px 0 0;
-      border: 1px solid color-mix(in srgb, var(--ink) 18%, var(--crayon));
-      align-self: flex-end;
-    }
-    .star-name {
-      font-size: 0.55rem;
-      font-weight: 650;
-      padding-bottom: 2px;
-      pointer-events: none;
     }
     .board-well {
       background: #18181c;
@@ -592,8 +515,6 @@
       text-transform: uppercase;
       color: var(--muted);
     }
-    .pencil .en, .pencil .hz { display: none; }
-    .legend .tip { display: none; }
     .pencils {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -609,19 +530,6 @@
       min-height: 52px;
     }
     .pencil .fr { font-weight: 650; font-size: 0.88rem; }
-    .pencil .en { font-size: 0.62rem; font-weight: 600; opacity: 0.92; }
-    .pencil .hz {
-      font-size: 0.62rem;
-      margin-top: 2px;
-      font-variant-numeric: tabular-nums;
-    }
-    .tip {
-      margin: 8px 0 0;
-      font-size: 0.75rem;
-      font-style: italic;
-      color: var(--muted);
-      text-align: center;
-    }
     details.adv {
       margin-top: 12px;
       color: var(--muted);
@@ -661,7 +569,6 @@
         background: var(--crayon-p3, var(--crayon)) !important;
       }
       .chroma .fill,
-      .star,
       .pencil,
       .chip,
       .track-btn[aria-pressed="true"] {
@@ -795,12 +702,6 @@
       border-color: var(--hairline-strong);
       box-shadow: 0 0 6px color-mix(in srgb, var(--crayon) 20%, transparent);
     }
-    html.studio .constellation {
-      background: var(--paper);
-      border: 1px solid var(--hairline);
-      border-radius: 4px;
-      padding: 8px 8px 6px;
-    }
     html.studio .board-well {
       background: color-mix(in srgb, var(--ink) 5%, var(--paper));
       box-shadow: inset 0 1px 2px rgba(40, 32, 24, 0.07);
@@ -847,7 +748,6 @@
 </head>
 <body>
   <h1>Piano-crayon</h1>
-  <p class="sub" hidden>Même couleur = même son</p>
 
   <div class="row">
     <button id="replay" type="button" aria-label="Rejouer">
@@ -878,12 +778,7 @@
         Nuit
       </label>
     </div>
-    <div class="status">
-      <div id="micLine" class="mic"></div>
-      <div id="hint" class="hint"></div>
-    </div>
   </div>
-  <div id="trackLine"></div>
   <div class="tracks" id="tracks" role="group" aria-label="Pistes"></div>
   <div id="tuneLine" class="tune-line">440</div>
   <div class="scrub">
@@ -913,32 +808,28 @@
   </div>
   <div id="err" class="err" hidden></div>
 
-  <div id="chroma" class="chroma" aria-label="Crayons allumés · 12 pitch classes"></div>
+  <div id="chroma" class="chroma" aria-label="Crayons allumés"></div>
   <div class="chips" id="chips">
     <span class="hz-live" id="hzLive"></span>
   </div>
-  <div id="constellation" class="constellation" hidden aria-live="polite"></div>
 
   <div class="board-well">
     <div class="board-wrap">
-      <div id="board" role="group" aria-label="Piano Do2 à Do7 / C2 to C7"></div>
+      <div id="board" role="group" aria-label="Piano Do2 à Do7"></div>
     </div>
   </div>
 
   <section class="legend">
     <h2>Crayons</h2>
     <div id="pencils" class="pencils"></div>
-    <p class="tip">Astuce / Tip: Blueberry = La / A — Auto-accord trouve le La du parc (~427–453 Hz, ±50 cents), pas toujours 440</p>
   </section>
 
   <details class="adv">
-    <summary>Autre micro / Other mic (avancé)</summary>
-    <p>Par défaut on suit le micro choisi dans macOS (Réglages → Son). Change-le là-bas; le piano suit.</p>
-    <p>Default is whatever macOS is using. Switch it in System Settings → Sound; this page follows.</p>
+    <summary>Micro</summary>
     <label>
-      Micro / Mic
+      Micro
       <select id="micAlt">
-        <option value="os">Micro OS (défaut) / OS default</option>
+        <option value="os">OS</option>
       </select>
     </label>
   </details>
@@ -987,9 +878,6 @@
   const BLACK = { 1: true, 3: true, 6: true, 8: true, 10: true };
 
   const SAMPLE_URL = "samples/final_song.wav";
-  const SAMPLE_STATUS = "Échantillon / Sample: final_song.wav (Shannon, hier)";
-  const LIVE_HINT = "Le piano suit le micro de macOS · Follows the OS default input";
-  const REPLAY_HINT = "Même FFT que le micro · Same peak-picker as live · visuel (muet par défaut)";
   const MIXED_LO_HZ = 60;
   const MIXED_HI_HZ = 2500;
   // Approximate musician stems by frequency band (no true stems).
@@ -1012,8 +900,6 @@
   const $playhead = document.getElementById("playhead");
   const $ruler = document.getElementById("ruler");
   const $clock = document.getElementById("clock");
-  const $micLine = document.getElementById("micLine");
-  const $hint = document.getElementById("hint");
   const $err = document.getElementById("err");
   const $chroma = document.getElementById("chroma");
   const $chips = document.getElementById("chips");
@@ -1022,10 +908,8 @@
   const $pencils = document.getElementById("pencils");
   const $micAlt = document.getElementById("micAlt");
   const $tracks = document.getElementById("tracks");
-  const $trackLine = document.getElementById("trackLine");
   const $autotune = document.getElementById("autotune");
   const $tuneLine = document.getElementById("tuneLine");
-  const $constellation = document.getElementById("constellation");
   const $stealth = document.getElementById("stealth");
   const heardTracks = new Set();
   const hearHits = {};
@@ -1092,11 +976,6 @@
     if (theme) theme.setAttribute("content", stealth ? "#121214" : "#efe8dc");
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if (bar) bar.setAttribute("content", stealth ? "black" : "default");
-    const all = document.getElementById("trackAll");
-    if (all) {
-      all.style.setProperty("--crayon", stealth ? "rgb(42, 42, 46)" : "rgb(244, 239, 230)");
-      all.style.setProperty("--lab", stealth ? "#9a9aa2" : "#3a342e");
-    }
     NOTE_NAMES.forEach(function (name) {
       const c = CRAYONS[name];
       document.querySelectorAll('[data-pc="' + name + '"]').forEach(function (el) {
@@ -1112,7 +991,7 @@
         paintEl(el, crayonOf(midi));
       }
     });
-    document.querySelectorAll(".chip, .star").forEach(function (el) {
+    document.querySelectorAll(".chip").forEach(function (el) {
       const pc = el.dataset.pc;
       if (pc && CRAYONS[pc]) paintEl(el, CRAYONS[pc]);
     });
@@ -1136,10 +1015,6 @@
       return MUSICIANS.filter(function (t) { return heardTracks.has(t.id); });
     }
     return MUSICIANS.filter(function (t) { return selectedTracks.has(t.id); });
-  }
-
-  function trackLabel(t) {
-    return t.fr;
   }
 
   function syncTrackUi() {
@@ -1167,7 +1042,6 @@
         btn.setAttribute("aria-pressed", solo && selectedTracks.has(t.id) ? "true" : String(!solo));
       }
     });
-    $trackLine.textContent = heard.map(trackLabel).join(" · ");
   }
 
   function selectAllTracks() {
@@ -1292,18 +1166,6 @@
       if (!harmonic) funds.push(p);
     });
     return funds;
-  }
-
-  function tunePhrase(cents) {
-    const a = Math.abs(cents);
-    if (a < 4) return "pile / in tune";
-    if (cents > 0) return a < 15 ? "un peu trop haut / a bit sharp" : "trop haut / sharp";
-    return a < 15 ? "un peu trop bas / a bit flat" : "trop bas / flat";
-  }
-
-  function signedCents(cents) {
-    const n = Math.round(cents);
-    return (n > 0 ? "+" : "") + n + " cents";
   }
 
   function syncTuneUi() {
@@ -1474,15 +1336,6 @@
       .trim();
   }
 
-  function friendlyMicName(label, deviceId) {
-    if (!label) {
-      if (deviceId === "default") return "Micro OS / OS mic";
-      return "Micro OS / OS mic";
-    }
-    const name = stripDefaultPrefix(label) || label;
-    return "Micro OS / OS mic: " + name;
-  }
-
   async function listInputs() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     return devices.filter(function (d) { return d.kind === "audioinput"; });
@@ -1501,8 +1354,8 @@
     osOpt.value = "os";
     const def = pickOsDefault(inputs);
     osOpt.textContent = def && def.label
-      ? "Micro OS (défaut) / OS default — " + stripDefaultPrefix(def.label)
-      : "Micro OS (défaut) / OS default";
+      ? "OS — " + stripDefaultPrefix(def.label)
+      : "OS";
     $micAlt.appendChild(osOpt);
     inputs.forEach(function (d) {
       if (d.deviceId === "default") return;
@@ -1518,13 +1371,6 @@
   async function updateMicStatus() {
     const inputs = await listInputs();
     fillMicList(inputs);
-    const track = stream && stream.getAudioTracks()[0];
-    const settings = track ? track.getSettings() : {};
-    const id = settings.deviceId;
-    const match = inputs.find(function (d) { return d.deviceId === id; })
-      || pickOsDefault(inputs);
-    const label = (match && match.label) || (track && track.label) || "";
-    $micLine.textContent = friendlyMicName(label, id || "default");
   }
 
   const AUDIO_EXTRAS = {
@@ -2024,35 +1870,11 @@
     window.visualViewport.addEventListener("resize", onResize);
   }
 
-  let lastConstell = "";
   let lastChipKey = "";
 
   function restoreIdleLabel(el) {
     const lab = el.querySelector(".name");
     if (lab && el.dataset.idleName) lab.textContent = el.dataset.idleName;
-  }
-
-  function renderConstellation(lit) {
-    const key = lit.length < 2 ? "" : lit.map(function (c) { return c.midi; }).sort(function (a, b) { return a - b; }).join(",");
-    if (key === lastConstell) return;
-    lastConstell = key;
-    if (!key) {
-      $constellation.hidden = true;
-      $constellation.innerHTML = "";
-      return;
-    }
-    $constellation.hidden = false;
-    $constellation.innerHTML = '<span class="constellation-lab">accord / chord</span>';
-    lit.slice().sort(function (a, b) { return a.midi - b.midi; }).forEach(function (c) {
-      const info = crayonOf(c.midi);
-      const star = document.createElement("span");
-      star.className = "star";
-      star.dataset.pc = pcOf(c.midi);
-      paintEl(star, info);
-      star.style.setProperty("--oct", String(octaveOf(c.midi)));
-      star.innerHTML = '<span class="star-name">' + info.fr + octaveOf(c.midi) + "</span>";
-      $constellation.appendChild(star);
-    });
   }
 
   function clearLights() {
@@ -2070,7 +1892,6 @@
     $chips.appendChild($hzLive);
     $hzLive.textContent = "";
     lastChipKey = "";
-    renderConstellation([]);
   }
 
   function loop() {
@@ -2236,7 +2057,6 @@
     } else {
       $hzLive.textContent = "";
     }
-    renderConstellation(lit);
 
     if (mode === "replay") updateScrubUi();
 

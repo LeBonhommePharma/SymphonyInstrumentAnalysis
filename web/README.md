@@ -36,7 +36,7 @@ The piano does **not** download the WAV until you click **Rejouer l’échantill
 2. Loads `samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s) into Web Audio.
 3. The **same FFT peak-picker** as live mic lights the crayon keys (polyphonic, brightness = dynamics).
 4. Default is **muted** (visual only). Check **Entendre / Unmute sample** to hear it quietly.
-5. Scrub **Temps / Time** from 0 to the end.
+5. Drag the waveform playhead to scrub time.
 
 Status line: `Échantillon / Sample: final_song.wav (Shannon, hier)`.
 
