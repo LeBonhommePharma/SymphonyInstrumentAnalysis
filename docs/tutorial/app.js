@@ -2,51 +2,53 @@ const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", 
 const TOUR = [
   {
     title: "We will not play a song over yours",
-    body: "Play anything already on this device: a piano key, a video, a speaker. This page only draws the air that is wiggling right now.",
+    body: "Whatever this device is already making — Now Playing through the speaker, a piano, voices, noise — gets drawn. We never put a demo song under it.",
     seconds: 10,
   },
   {
-    title: "Those wiggles have a speed",
-    body: "Hertz (Hz) is how many wiggles happen in one second. Piano A is 440 Hz. If a number lights up, that is your sound, not a fake demo.",
+    title: "Time is a waveform track, like Logic",
+    body: "Each lane is a layer scrolling left. The white line on the right is now. There is no time slider. The wiggles are the clock.",
     seconds: 12,
   },
   {
-    title: "A song is a sandwich. That is the useful part.",
-    body: "Boom on the bottom is left-hand / bass. The middle is the tune you can hum. The top is sparkle. The real tool writes that recipe so you can practice one layer at a time instead of a blur.",
+    title: "No tune? We still draw the live sound",
+    body: "Random noise and voices are still this device, right now. We do not invent a melody. If Now Playing is on, turn the speaker up so the mic can hear it.",
     seconds: 14,
   },
   {
-    title: "Live guessing is the hard part",
-    body: "Notes stack. Piano keys also ring extra high copies (overtones). The computer needs a little bite of sound before it can guess — like reading a page that is still being flipped. So the grown-up tool records, then looks. Better answers, tiny delay.",
-    seconds: 14,
+    title: "A song is a sandwich. That is the useful part.",
+    body: "Boom on the bottom is left-hand / bass. The middle is the tune you can hum. The top is sparkle. Practice one layer at a time.",
+    seconds: 12,
   },
   {
     title: "Piano superpower",
-    body: "If the loudest wiggle is 440, that is the A key. Find it. Play it. Match it. That is ear training: hearing a map, not a blob. Keep playing. Watch the keys light up.",
+    body: "If a clear pitch appears, 440 Hz is the A key. Find it. Play it. Match it. Live guessing stays hard when many pitches stack.",
     seconds: 12,
   },
 ];
 
-const waveCanvas = document.getElementById("wave");
+const TRACK_DEFS = [
+  { id: "mix", label: "Mix", color: "#fdba74" },
+  { id: "boom", label: "Boom", color: "#f97316" },
+  { id: "tune", label: "Tune", color: "#2dd4bf" },
+  { id: "sparkle", label: "Sparkle", color: "#c4b5fd" },
+];
+const WINDOW_SEC = 20;
+const HEADER_W = 76;
+
+const tracksCanvas = document.getElementById("tracks");
 const specCanvas = document.getElementById("spec");
-const waveCtx = waveCanvas.getContext("2d");
+const tracksCtx = tracksCanvas.getContext("2d");
 const specCtx = specCanvas.getContext("2d");
 const noteEl = document.getElementById("note");
 const hzEl = document.getElementById("hz");
 const quietEl = document.getElementById("quiet");
 const peaksEl = document.getElementById("peaks");
 const hardEl = document.getElementById("hard");
-const bassBar = document.getElementById("bassBar");
-const tuneBar = document.getElementById("tuneBar");
-const sparkleBar = document.getElementById("sparkleBar");
-const bassPct = document.getElementById("bassPct");
-const tunePct = document.getElementById("tunePct");
-const sparklePct = document.getElementById("sparklePct");
 const pianoEl = document.getElementById("piano");
 const tourStepEl = document.getElementById("tourStep");
 const tourTitleEl = document.getElementById("tourTitle");
 const tourBodyEl = document.getElementById("tourBody");
-const tourFill = document.getElementById("tourFill");
 const statusEl = document.getElementById("status");
 const gate = document.getElementById("gate");
 
@@ -60,6 +62,11 @@ let time = new Uint8Array(2048);
 let tourIndex = 0;
 let tourStartedAt = 0;
 let heardSound = false;
+let colCount = 480;
+let history = TRACK_DEFS.map(() => new Float32Array(colCount));
+let writeCol = 0;
+let colAccum = [0, 0, 0, 0];
+let colStart = 0;
 const shareVideo = document.getElementById("shareVideo");
 
 function hzToNote(f) {
@@ -67,13 +74,26 @@ function hzToNote(f) {
   return NOTE_NAMES[((midi % 12) + 12) % 12] + String(Math.floor(midi / 12) - 1);
 }
 
+function resetHistory() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const header = HEADER_W * dpr;
+  colCount = Math.max(240, Math.floor(tracksCanvas.width - header));
+  history = TRACK_DEFS.map(() => new Float32Array(colCount));
+  writeCol = 0;
+  colAccum = [0, 0, 0, 0];
+  colStart = performance.now();
+}
+
 function resizeCanvases() {
-  for (const canvas of [waveCanvas, specCanvas]) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  for (const canvas of [tracksCanvas, specCanvas]) {
     const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const fallbackH = canvas === tracksCanvas ? 320 : 150;
     canvas.width = Math.max(320, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(120, Math.floor(rect.height * dpr || 160 * dpr));
+    canvas.height = Math.max(120, Math.floor((rect.height || fallbackH) * dpr));
   }
+  resetHistory();
+  drawTracks(0);
 }
 
 function buildPiano() {
@@ -109,34 +129,15 @@ function lightPiano(midi) {
   });
 }
 
-function drawWave() {
-  const { width, height } = waveCanvas;
-  waveCtx.fillStyle = "#111827";
-  waveCtx.fillRect(0, 0, width, height);
-  waveCtx.strokeStyle = "#fdba74";
-  waveCtx.lineWidth = 2;
-  waveCtx.beginPath();
-  const slice = width / time.length;
-  for (let i = 0; i < time.length; i += 1) {
-    const v = time[i] / 128 - 1;
-    const x = i * slice;
-    const y = height / 2 + v * (height * 0.42);
-    if (i === 0) waveCtx.moveTo(x, y);
-    else waveCtx.lineTo(x, y);
-  }
-  waveCtx.stroke();
-}
-
 function analyzeFrame(sampleRate) {
   const n = freq.length;
   const nyquist = sampleRate / 2;
-  const binHz = nyquist / n;
   let bass = 0;
   let tune = 0;
   let sparkle = 0;
   const peaks = [];
   for (let i = 2; i < n - 2; i += 1) {
-    const f = i * binHz;
+    const f = i * (nyquist / n);
     if (f < 40 || f > 5000) continue;
     const mag = freq[i];
     if (mag > freq[i - 1] && mag > freq[i + 1] && mag >= freq[i - 2] && mag >= freq[i + 2] && mag > 18) {
@@ -152,7 +153,108 @@ function analyzeFrame(sampleRate) {
     return !peaks.slice(0, idx).some((q) => Math.abs(Math.log2(p.f / q.f)) < 1 / 12);
   }).slice(0, 6);
   const tot = bass + tune + sparkle || 1;
-  return { bass, tune, sparkle, tot, top, binHz };
+  return { bass, tune, sparkle, tot, top };
+}
+
+function rmsOfTime() {
+  let s = 0;
+  for (let i = 0; i < time.length; i += 1) {
+    const v = time[i] / 128 - 1;
+    s += v * v;
+  }
+  return Math.sqrt(s / time.length);
+}
+
+function liveKind(rms, info) {
+  if (rms < 0.012) return "quiet";
+  if (!info.top[0] || info.top[0].mag < 24) return "noise";
+  return "pitch";
+}
+
+function pushColumn(mix, boom, tune, sparkle) {
+  const values = [mix, boom, tune, sparkle];
+  for (let i = 0; i < 4; i += 1) {
+    colAccum[i] = Math.max(colAccum[i], values[i]);
+  }
+  const elapsed = (performance.now() - colStart) / 1000;
+  const colDur = WINDOW_SEC / colCount;
+  if (elapsed < colDur) return;
+  for (let i = 0; i < 4; i += 1) {
+    history[i][writeCol] = Math.min(1, colAccum[i]);
+    colAccum[i] = 0;
+  }
+  writeCol = (writeCol + 1) % colCount;
+  history.forEach((lane) => {
+    lane[writeCol] = 0;
+  });
+  colStart = performance.now();
+}
+
+function drawTracks(elapsedSec) {
+  const { width, height } = tracksCanvas;
+  const ctx = tracksCtx;
+  ctx.fillStyle = "#141820";
+  ctx.fillRect(0, 0, width, height);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const header = HEADER_W * dpr;
+  const rulerH = 26 * dpr;
+  const laneH = (height - rulerH) / TRACK_DEFS.length;
+  const laneW = width - header;
+
+  ctx.fillStyle = "#0f131a";
+  ctx.fillRect(0, 0, width, rulerH);
+  ctx.fillStyle = "#9ca3af";
+  ctx.font = `${11 * dpr}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+  ctx.textBaseline = "middle";
+  const secStep = WINDOW_SEC <= 20 ? 2 : 5;
+  for (let s = 0; s <= WINDOW_SEC; s += secStep) {
+    const x = header + (s / WINDOW_SEC) * laneW;
+    ctx.fillStyle = "#2a3140";
+    ctx.fillRect(x, rulerH, Math.max(1, dpr), height - rulerH);
+    ctx.fillStyle = "#9ca3af";
+    const label = s === WINDOW_SEC ? "now" : `-${WINDOW_SEC - s}s`;
+    ctx.fillText(label, x - (s === WINDOW_SEC ? 28 * dpr : 10 * dpr), rulerH / 2);
+  }
+
+  TRACK_DEFS.forEach((track, lane) => {
+    const y0 = rulerH + lane * laneH;
+    const mid = y0 + laneH / 2;
+    ctx.fillStyle = lane % 2 === 0 ? "#171c24" : "#141820";
+    ctx.fillRect(0, y0, width, laneH);
+    ctx.fillStyle = "#11151c";
+    ctx.fillRect(0, y0, header, laneH);
+    ctx.fillStyle = track.color;
+    ctx.font = `600 ${11 * dpr}px ui-sans-serif, system-ui, sans-serif`;
+    ctx.fillText(track.label, 10 * dpr, mid);
+    ctx.strokeStyle = "#2a3140";
+    ctx.beginPath();
+    ctx.moveTo(header, y0);
+    ctx.lineTo(width, y0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.moveTo(header, mid);
+    ctx.lineTo(width, mid);
+    ctx.stroke();
+
+    const ampScale = laneH * 0.42;
+    ctx.fillStyle = track.color;
+    for (let x = 0; x < laneW; x += 1) {
+      const age = laneW - 1 - x;
+      const idx = (writeCol - 1 - age + colCount * 4) % colCount;
+      const amp = history[lane][idx] || 0;
+      if (amp < 0.01) continue;
+      const h = Math.max(dpr, amp * ampScale);
+      ctx.fillRect(header + x, mid - h, 1, h * 2);
+    }
+  });
+
+  const playX = width - 3 * dpr;
+  ctx.fillStyle = "#f9fafb";
+  ctx.fillRect(playX, rulerH, Math.max(2, dpr), height - rulerH);
+  ctx.fillStyle = "#6b7280";
+  ctx.font = `${10 * dpr}px ui-monospace, Menlo, monospace`;
+  ctx.fillText(`${elapsedSec.toFixed(0)}s live`, 10 * dpr, rulerH / 2);
 }
 
 function drawSpec(top, sampleRate) {
@@ -178,42 +280,30 @@ function drawSpec(top, sampleRate) {
   }
 }
 
-function rmsOfTime() {
-  let s = 0;
-  for (let i = 0; i < time.length; i += 1) {
-    const v = time[i] / 128 - 1;
-    s += v * v;
-  }
-  return Math.sqrt(s / time.length);
-}
-
 function tick() {
   if (!analyser || !audioCtx) return;
   analyser.getByteFrequencyData(freq);
   analyser.getByteTimeDomainData(time);
   const rms = rmsOfTime();
   const info = analyzeFrame(audioCtx.sampleRate);
-  drawWave();
+  const tot = info.tot;
+  const mix = Math.min(1, rms * 6);
+  const boom = Math.min(1, mix * (info.bass / tot) * 2.2);
+  const tune = Math.min(1, mix * (info.tune / tot) * 2.2);
+  const sparkle = Math.min(1, mix * (info.sparkle / tot) * 2.2);
+  pushColumn(mix, boom, tune, sparkle);
+  const elapsed = (performance.now() - tourStartedAt) / 1000;
+  drawTracks(elapsed);
   drawSpec(info.top, audioCtx.sampleRate);
 
-  const b = (100 * info.bass) / info.tot;
-  const t = (100 * info.tune) / info.tot;
-  const s = (100 * info.sparkle) / info.tot;
-  bassBar.style.width = `${b}%`;
-  tuneBar.style.width = `${t}%`;
-  sparkleBar.style.width = `${s}%`;
-  bassPct.textContent = `${b.toFixed(0)}%`;
-  tunePct.textContent = `${t.toFixed(0)}%`;
-  sparklePct.textContent = `${s.toFixed(0)}%`;
-
-  if (rms > 0.02 && info.top[0]) {
-    heardSound = true;
-    quietEl.textContent = "Hearing this device right now.";
+  const kind = liveKind(rms, info);
+  if (kind !== "quiet") heardSound = true;
+  if (kind === "pitch") {
+    quietEl.textContent = "Hearing this device right now (live sound, including Now Playing if it is coming out of the speaker).";
     const f = info.top[0].f;
     noteEl.textContent = hzToNote(f);
     hzEl.textContent = `${f.toFixed(1)} Hz`;
-    const midi = Math.round(69 + 12 * Math.log2(f / 440));
-    lightPiano(midi);
+    lightPiano(Math.round(69 + 12 * Math.log2(f / 440)));
     peaksEl.textContent = info.top
       .map((p) => `${hzToNote(p.f).padEnd(4, " ")}  ${p.f.toFixed(1)} Hz`)
       .join("\n");
@@ -227,20 +317,24 @@ function tick() {
     } else {
       hardEl.textContent = "One clear pitch is the easy case. Songs are rarely this tidy.";
     }
+  } else if (kind === "noise") {
+    quietEl.textContent = "No clear melody. Still drawing the live sound (voices, noise, room). We will not fake a tune.";
+    noteEl.textContent = "—";
+    hzEl.textContent = "no clear pitch";
+    lightPiano(-1);
+    peaksEl.textContent = "Energy without a hummable pitch — that is still this device, right now.";
+    hardEl.textContent = "Live naming is hard when there is no tune. The tracks keep rolling anyway.";
   } else {
     quietEl.textContent = heardSound
-      ? "Quiet now. Play again on the device."
-      : "Nothing loud yet. Play a song, a video, or a piano key on this device.";
+      ? "Quiet now. If Now Playing is on, turn this device’s speaker up — we cannot tap Apple’s Now Playing bus from a web page."
+      : "Nothing loud yet. Play Now Playing out loud on this device, or a piano, or a video.";
     noteEl.textContent = "—";
     hzEl.textContent = "waiting for this device";
     lightPiano(-1);
   }
 
-  const elapsed = (performance.now() - tourStartedAt) / 1000;
   const scene = TOUR[tourIndex];
   const local = elapsed - TOUR.slice(0, tourIndex).reduce((a, x) => a + x.seconds, 0);
-  const total = TOUR.reduce((a, x) => a + x.seconds, 0);
-  tourFill.style.width = `${Math.min(100, (elapsed / total) * 100)}%`;
   if (scene && local >= scene.seconds && tourIndex < TOUR.length - 1) {
     showTour(tourIndex + 1);
   }
@@ -301,11 +395,11 @@ async function startFromStream(mediaStream, label) {
   time = new Uint8Array(analyser.fftSize);
   sourceNode = audioCtx.createMediaStreamSource(mediaStream);
   sourceNode.connect(analyser);
-  // Do not connect to destination: we visualize only, we never play over the device.
   statusEl.textContent = label;
   gate.classList.add("hidden");
   tourStartedAt = performance.now();
   showTour(0);
+  resetHistory();
   cancelAnimationFrame(raf);
   tick();
 }
@@ -334,7 +428,7 @@ async function listenMic() {
   });
   await startFromStream(
     mediaStream,
-    "Listening with the mic (piano, speakers, the room). Nothing is played back."
+    "Mic on this device. Now Playing / speakers / room are the input. Nothing is played back."
   );
 }
 
@@ -359,7 +453,7 @@ async function listenDevice() {
   shareVideo.srcObject = mediaStream;
   await startFromStream(
     mediaStream,
-    "Listening to shared tab/window audio from this device. This page stays silent."
+    "Shared tab/window audio from this device. This page stays silent."
   );
 }
 

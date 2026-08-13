@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>60-second live listen — Symphony Instrument Analysis</title>
-  <meta name="description" content="Silent live-listen: this page does not play music. It draws whatever this phone or computer is already playing.">
+  <meta name="description" content="Silent live-listen: this page does not play music. It draws whatever this device is already making — speakers, Now Playing through the speaker, or the room.">
   <meta name="theme-color" content="#1f2937">
   <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/">
   <link rel="stylesheet" href="styles.css">
@@ -23,9 +23,11 @@
         <div class="badge">Live listen · we stay silent · works on 5G</div>
         <h1>See what this device is playing</h1>
         <p>
-          This tutorial does not play music. Whatever is already happening on
-          the device — a piano, a speaker, a video — gets drawn as wiggles,
-          Hertz, sandwich layers, and piano keys.
+          This page never plays a song. It draws the live sound of
+          <strong>this</strong> device: speaker, piano, room, or Now Playing
+          if that song is coming out of the speaker. Same rule on iPhone,
+          iPad, and Mac. If there is no tune — only voices or noise — we
+          still draw that live signal. We do not invent a melody.
         </p>
       </div>
       <div class="controls">
@@ -40,15 +42,15 @@
       <div>
         <h2 id="tourTitle">We will not play a song over yours</h2>
         <p id="tourBody">Play anything already on this device. This page only draws the air that is wiggling right now.</p>
-        <div class="progress" aria-hidden="true"><span id="tourFill"></span></div>
       </div>
       <button class="ghost" id="btnNext" type="button">Next idea</button>
     </section>
 
     <main class="stage">
-      <section class="panel">
-        <h3>Right now on this device</h3>
-        <canvas id="wave" height="160"></canvas>
+      <section class="panel daw-panel">
+        <h3>Live tracks · time is the waveform, not a slider</h3>
+        <canvas id="tracks" height="320" aria-label="Logic-style waveform tracks of live sound"></canvas>
+        <p class="silent" id="quiet">Nothing loud yet. Play Now Playing out loud on this device, or a piano, or a video.</p>
         <div class="note-row">
           <div class="note-card">
             <span>Closest piano name</span>
@@ -59,28 +61,12 @@
             <strong id="hz">waiting</strong>
           </div>
         </div>
-        <p class="silent" id="quiet">Nothing loud yet. Play a song, a video, or a piano key on this device.</p>
         <div class="piano" id="piano" aria-label="Piano keys that light up from live sound"></div>
-        <canvas id="spec" height="150" style="margin-top:12px"></canvas>
       </section>
 
       <aside class="panel">
-        <h3>Sandwich layers</h3>
-        <div class="meters">
-          <div>
-            <label>Boom / left hand <span id="bassPct">0%</span></label>
-            <div class="bar"><span id="bassBar" class="bass"></span></div>
-          </div>
-          <div>
-            <label>Tune you can hum <span id="tunePct">0%</span></label>
-            <div class="bar"><span id="tuneBar" class="tune"></span></div>
-          </div>
-          <div>
-            <label>Sparkle / air <span id="sparklePct">0%</span></label>
-            <div class="bar"><span id="sparkleBar" class="sparkle"></span></div>
-          </div>
-        </div>
-        <h3 style="margin-top:18px">Competing pitches</h3>
+        <h3>Competing pitches</h3>
+        <canvas id="spec" height="150"></canvas>
         <div class="peaks" id="peaks">Waiting for live sound…</div>
         <div class="hard-flag" id="hard">
           Live naming is hard because the picture keeps moving. Watch how many pitches show up at once.
@@ -89,9 +75,10 @@
     </main>
 
     <p class="footer" id="status">
-      Tip: for a song already playing in a browser tab, use “Listen to tab/window audio”
-      and tick share audio. For a real piano, use the mic.
-      Grown-up tool: <code>python3 scripts/analyze_instruments.py</code>
+      iPhone / iPad / Mac: Now Playing only reaches this page if it is coming
+      out of this device’s speaker (or a shared tab on a computer). Apple Watch
+      Now Playing is the same song — open this page on the iPhone that is
+      playing it. Grown-up tool: <code>python3 scripts/analyze_instruments.py</code>
     </p>
   </div>
 
@@ -101,10 +88,10 @@
     <div class="gate-card">
       <h2>One minute. Your sound, not ours.</h2>
       <p>
-        Press listen, then play whatever is already on this device.
-        We will not put music underneath it. We only draw the wiggles
-        so a kid can see Hz, why live guessing is messy, and which
-        piano key matches the loudest pitch.
+        Press listen. We will not put music underneath you.
+        If Music / Now Playing is on this phone, turn the speaker on —
+        that live audio is the input. No melody? We still draw the
+        noise and voices. We never fake a tune.
       </p>
       <div class="controls" style="margin-top:16px">
         <button class="primary" id="btnMicGate" type="button">Listen with the mic</button>

@@ -97,19 +97,6 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .tour h2 { margin: 0 0 4px; font-size: 1.15rem; }
 .tour p { margin: 0; color: var(--muted); line-height: 1.4; }
-.progress {
-  height: 8px;
-  background: #f1e4d5;
-  border-radius: 99px;
-  overflow: hidden;
-  margin-top: 10px;
-}
-.progress > span {
-  display: block;
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--orange), var(--purple));
-}
 
 .stage {
   display: grid;
@@ -142,12 +129,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 canvas {
   width: 100%;
-  height: 160px;
   display: block;
   border-radius: 16px;
-  background: #1f2937;
+  background: #141820;
 }
+#tracks { height: 320px; border-radius: 12px; }
 #spec { height: 150px; }
+.daw-panel h3 { margin-bottom: 8px; }
 
 .note-row {
   display: flex;
@@ -165,24 +153,6 @@ canvas {
 }
 .note-card strong { display: block; font-size: 1.8rem; }
 .note-card span { color: var(--muted); font-size: 0.9rem; }
-
-.meters { display: grid; gap: 10px; }
-.meter label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
-  margin-bottom: 4px;
-}
-.bar {
-  height: 14px;
-  background: #f1e4d5;
-  border-radius: 99px;
-  overflow: hidden;
-}
-.bar > span { display: block; height: 100%; width: 0%; }
-.bass { background: var(--orange); }
-.tune { background: var(--teal); }
-.sparkle { background: var(--purple); }
 
 .peaks {
   margin: 12px 0 0;

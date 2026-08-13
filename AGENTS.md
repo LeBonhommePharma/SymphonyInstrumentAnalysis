@@ -8,6 +8,8 @@ Silent live tutorial (visualizes the device’s current audio, does not play mus
 
 Public HTTPS (phone on 5G): `https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/`
 
+The page draws this device’s live sound only (mic / shared tab). It does not read Apple’s Now Playing API. If there is no melody it still draws noise/voices. Time is Logic-style waveform tracks, not a slider.
+
 Local-only:
 
 ```bash

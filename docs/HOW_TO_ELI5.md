@@ -10,7 +10,7 @@ Open this **on the device that is already making sound**, including a phone on 5
 
 - https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
 
-The page stays silent. It only draws **whatever is playing now**. Browsers will not give the microphone to a LAN IP from cellular; it has to be HTTPS.
+The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, or Now Playing if that song is coming out of the speaker. Time is shown as Logic-style waveform tracks (not a slider). If there is no melody (voices, noise), it still draws that live signal. It never invents a tune.
 
 Local-only fallback:
 

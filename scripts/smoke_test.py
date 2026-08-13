@@ -96,7 +96,12 @@ def check_public_site() -> None:
     tutorial = (docs / "tutorial" / "index.html").read_text(encoding="utf-8")
     if "Listen with the mic" not in tutorial:
         raise SystemExit("tutorial is missing the mic listen control")
-    if "does not play music" not in tutorial.lower():
+    if "id=\"tracks\"" not in tutorial:
+        raise SystemExit("tutorial is missing Logic-style waveform tracks")
+    if "tourFill" in tutorial or 'class="progress"' in tutorial:
+        raise SystemExit("tutorial must not use a time slider")
+    silent = tutorial.lower()
+    if "does not play music" not in silent and "never plays a song" not in silent:
         raise SystemExit("tutorial must stay silent")
     print("public site files: OK")
 
