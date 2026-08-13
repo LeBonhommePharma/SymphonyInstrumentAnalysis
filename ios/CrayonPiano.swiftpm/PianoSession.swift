@@ -26,7 +26,9 @@ final class PianoSession: ObservableObject {
     /// Symmetric amplitude peaks for the DAW-style waveform track.
     private(set) var wavePeaks: [Float] = []
     let peaksPerSec: Double = 240
-    @Published var isStealth = true
+    @Published var sceneChoice: SceneStyle = SceneStyle.preferred() {
+        didSet { UserDefaults.standard.set(sceneChoice.rawValue, forKey: "crayon-theme") }
+    }
     @Published var chordsOn = true
     @Published var unmute = false
     @Published var autotune = true
@@ -34,8 +36,11 @@ final class PianoSession: ObservableObject {
     @Published var selectedTrackId: Int?
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
+    @Published var specDb: [Float] = []
+    @Published var specBinHz: Double = 0
+    @Published var specClusters: [SpectralCluster] = []
 
-    var scene: SceneStyle { isStealth ? .stealth : .studio }
+    var scene: SceneStyle { sceneChoice }
 
     var isTous: Bool { selectedTrackId == nil || liveTracks.isEmpty }
 
@@ -339,7 +344,11 @@ final class PianoSession: ObservableObject {
             foldOctaves: !tous
         )
         let result = analyzer.analyze(samples: samples, sampleRate: sampleRate, now: now, config: config)
-        syncClusters(DensityCluster.cluster(peaks: result.mixPeaks), now: now)
+        let clustered = DensityCluster.cluster(peaks: result.mixPeaks)
+        syncClusters(clustered, now: now)
+        specDb = analyzer.lastDb
+        specBinHz = analyzer.lastBinHz
+        specClusters = clustered
         lit = result.lit
         harmonics = result.harmonics
         chroma = result.chroma
@@ -429,6 +438,9 @@ final class PianoSession: ObservableObject {
         concertA = PitchMath.a4Ref
         liveTracks = []
         selectedTrackId = nil
+        specDb = []
+        specBinHz = 0
+        specClusters = []
         analyzer.reset()
     }
 

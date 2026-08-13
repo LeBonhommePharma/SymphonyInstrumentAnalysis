@@ -1,12 +1,12 @@
 import Foundation
 
 enum PitchMath {
-    static let midiLo = 36 // C2
-    static let midiHi = 96 // C7
+    static let midiLo = 21 // A0, first key of an 88-key piano
+    static let midiHi = 108 // C8, last key of an 88-key piano
     static let a4Ref = 440.0
     static let a4Min = 415.0
     static let a4Max = 466.0
-    static let mixedLoHz = 60.0
+    static let mixedLoHz = 27.5
     static let mixedHiHz = 2500.0
 
     static let blackPitchClasses: Set<Int> = [1, 3, 6, 8, 10]

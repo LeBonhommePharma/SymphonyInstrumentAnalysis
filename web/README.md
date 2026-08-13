@@ -8,4 +8,6 @@ Open [`keyboard.html`](keyboard.html) in Safari or Chrome. Prefer `python3 -m ht
 
 **Pistes** — empty until a band is heard. Click a chip to follow that musician; empty selection snaps back to the mix.
 
-**Time** — one Logic-style waveform lane with a playhead. Drag to seek; ← / → skip ±1 s. Sensitivity is automatic from the noise floor.
+**Look** — Day, Light, Dark, Night, and Stealth (dim stage). The five swatches sit next to the title.
+
+**Keyboard** — full 88 keys, La0 to Do8. On a phone, swipe sideways; it opens on Do4.

@@ -8,16 +8,53 @@ struct PianoKeyboardView: UIViewRepresentable {
     var scene: SceneStyle
     var onPressed: (Set<Int>) -> Void
 
-    func makeUIView(context: Context) -> PianoBoardView {
-        let view = PianoBoardView()
-        view.onPressed = onPressed
-        view.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
+    func makeUIView(context: Context) -> PianoScrollView {
+        let view = PianoScrollView()
+        view.board.onPressed = onPressed
+        view.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
         return view
     }
 
-    func updateUIView(_ uiView: PianoBoardView, context: Context) {
-        uiView.onPressed = onPressed
-        uiView.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
+    func updateUIView(_ uiView: PianoScrollView, context: Context) {
+        uiView.board.onPressed = onPressed
+        uiView.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
+    }
+}
+
+final class PianoScrollView: UIScrollView {
+    let board = PianoBoardView()
+    private var didCenter = false
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        showsVerticalScrollIndicator = false
+        showsHorizontalScrollIndicator = true
+        alwaysBounceHorizontal = true
+        delaysContentTouches = false
+        canCancelContentTouches = true
+        addSubview(board)
+        accessibilityLabel = "Piano 88 touches, La0 à Do8 / A0 to C8"
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        addSubview(board)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let whites = CGFloat(max(1, PitchMath.whiteKeyCount()))
+        let minWhite: CGFloat = 22
+        let width = max(bounds.width, whites * minWhite)
+        board.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+        contentSize = board.frame.size
+        if !didCenter, width > bounds.width + 1 {
+            didCenter = true
+            // Middle C (Do4, MIDI 60) sits near the visual center of an 88-key piano.
+            let midC = CGFloat(60 - PitchMath.midiLo) / CGFloat(max(1, PitchMath.midiHi - PitchMath.midiLo))
+            let x = midC * width - bounds.width / 2
+            contentOffset = CGPoint(x: max(0, min(width - bounds.width, x)), y: 0)
+        }
     }
 }
 
@@ -37,7 +74,7 @@ final class PianoBoardView: UIView {
         isMultipleTouchEnabled = true
         backgroundColor = .clear
         isOpaque = false
-        accessibilityLabel = "Piano Do2 à Do7 / C2 to C7"
+        accessibilityLabel = "Piano 88 touches, La0 à Do8 / A0 to C8"
     }
 
     required init?(coder: NSCoder) {

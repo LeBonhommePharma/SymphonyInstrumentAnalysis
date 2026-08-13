@@ -15,6 +15,8 @@ final class SpectrumAnalyzer {
     private var centsWindow: [(t: Double, cents: Double)] = []
     private(set) var concertA: Double = PitchMath.a4Ref
     private(set) var tuneReady = false
+    private(set) var lastDb: [Float] = []
+    private(set) var lastBinHz: Double = 0
 
     init(fftSize: Int = 4096) {
         self.fftSize = fftSize
@@ -42,6 +44,8 @@ final class SpectrumAnalyzer {
         centsWindow.removeAll()
         concertA = PitchMath.a4Ref
         tuneReady = false
+        lastDb = [Float](repeating: -120, count: fftSize / 2)
+        lastBinHz = 0
     }
 
     func lockConcertA(_ locked: Bool) {
@@ -58,6 +62,8 @@ final class SpectrumAnalyzer {
     ) -> PeakPickResult {
         let n = min(samples.count, fftSize)
         guard n > 16 else {
+            lastDb = [Float](repeating: -120, count: fftSize / 2)
+            lastBinHz = sampleRate / Double(max(fftSize, 1))
             return PeakPickResult(lit: [], harmonics: [], chroma: [:], loudest: -120, mixPeaks: [])
         }
 
@@ -82,14 +88,16 @@ final class SpectrumAnalyzer {
         vDSP_vsmul(magnitudes, 1, &nyquistScale, &magnitudes, 1, vDSP_Length(fftSize / 2))
         var minMag: Float = 1e-12
         vDSP_vdbcon(magnitudes, 1, &minMag, &dbSpectrum, 1, vDSP_Length(fftSize / 2), 1)
+        lastDb = dbSpectrum
+        lastBinHz = sampleRate / Double(fftSize)
 
-        let binHz = sampleRate / Double(fftSize)
+        let binHz = lastBinHz
         if config.autotune {
             updateConcertPitch(binHz: binHz, now: now)
         }
 
         var mixPeaks: [SpecPeak] = []
-        let mix0 = max(2, Int(40.0 / binHz))
+        let mix0 = max(2, Int(27.5 / binHz))
         let mix1 = min(dbSpectrum.count - 2, Int(ceil(5000.0 / binHz)))
         if mix1 > mix0 {
             var floorSamples: [Float] = []
@@ -110,7 +118,7 @@ final class SpectrumAnalyzer {
                     let denom = dbSpectrum[i - 1] - 2 * db + dbSpectrum[i + 1]
                     let delta: Float = denom != 0 ? 0.5 * (dbSpectrum[i - 1] - dbSpectrum[i + 1]) / denom : 0
                     let pf = (Double(i) + Double(delta)) * binHz
-                    if pf >= 40 && pf <= 5000 {
+                    if pf >= 27.5 && pf <= 5000 {
                         mixPeaks.append(SpecPeak(f: pf, db: db))
                     }
                 }

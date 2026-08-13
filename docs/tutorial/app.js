@@ -16,6 +16,34 @@
     "#fbbf24", "#34d399", "#fb7185", "#38bdf8", "#c084fc",
     "#facc15", "#4ade80", "#e879f9", "#22d3ee", "#fdba74", "#94a3b8",
   ];
+  const CRAYONS = {
+    C:  { fr: "Do",  rgb: [251, 2, 7] },
+    "C#": { fr: "Do♯", rgb: [198, 64, 42] },
+    D:  { fr: "Ré",  rgb: [253, 128, 8] },
+    "D#": { fr: "Ré♯", rgb: [255, 255, 10] },
+    E:  { fr: "Mi",  rgb: [128, 255, 8] },
+    F:  { fr: "Fa",  rgb: [33, 255, 6] },
+    "F#": { fr: "Fa♯", rgb: [52, 168, 88] },
+    G:  { fr: "Sol", rgb: [102, 255, 204] },
+    "G#": { fr: "Sol♯", rgb: [102, 204, 255] },
+    A:  { fr: "La",  rgb: [0, 0, 255] },
+    "A#": { fr: "La♯", rgb: [128, 0, 255] },
+    B:  { fr: "Si",  rgb: [251, 2, 255] },
+  };
+
+  function crayonOf(midi) {
+    return CRAYONS[NOTE_NAMES[((midi % 12) + 12) % 12]];
+  }
+
+  function crayonVars(midi) {
+    const c = crayonOf(midi);
+    const lum = (0.2126 * c.rgb[0] + 0.7152 * c.rgb[1] + 0.0722 * c.rgb[2]) / 255;
+    return {
+      crayon: "rgb(" + c.rgb.join(",") + ")",
+      lab: lum < 0.48 ? "#f4efe6" : "#3a342e",
+      fr: c.fr,
+    };
+  }
 
   const tracksCanvas = document.getElementById("tracks");
   const specCanvas = document.getElementById("spec");
@@ -173,9 +201,10 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const specRect = specCanvas.getBoundingClientRect();
     specCanvas.width = Math.max(320, Math.floor(specRect.width * dpr));
-    specCanvas.height = Math.max(120, Math.floor((specRect.height || 180) * dpr));
+    specCanvas.height = Math.max(220, Math.floor((specRect.height || 300) * dpr));
     updateTracksHeading();
     drawTracks(lastElapsed);
+    drawSpec(lastClusters, audioCtx ? audioCtx.sampleRate : 44100);
   }
 
   function resetHistory() {
@@ -191,31 +220,54 @@
     updateTracksHeading();
   }
 
+  function paintKey(el, midi) {
+    const vars = crayonVars(midi);
+    el.style.setProperty("--crayon", vars.crayon);
+    el.style.setProperty("--lab", vars.lab);
+  }
+
   function buildPiano() {
     pianoEl.innerHTML = "";
-    const start = 48;
-    const end = 72;
+    const start = 21;
+    const end = 108;
     const whites = [];
     for (let midi = start; midi <= end; midi += 1) {
       if (!NOTE_NAMES[midi % 12].includes("#")) whites.push(midi);
     }
-    whites.forEach(function (midi) {
+    const n = whites.length;
+    whites.forEach(function (midi, i) {
       const key = document.createElement("div");
       key.className = "white-key";
       key.dataset.midi = String(midi);
+      key.style.left = (i / n) * 100 + "%";
+      key.style.width = (1 / n) * 100 + "%";
+      paintKey(key, midi);
+      const pc = midi % 12;
+      if (pc === 0) {
+        const lab = document.createElement("span");
+        lab.className = "name";
+        lab.textContent = crayonOf(midi).fr + (Math.floor(midi / 12) - 1);
+        key.appendChild(lab);
+      }
       pianoEl.appendChild(key);
     });
-    const n = whites.length;
     whites.forEach(function (midi, i) {
       const sharp = midi + 1;
       if (sharp > end || !NOTE_NAMES[sharp % 12].includes("#")) return;
       const key = document.createElement("div");
       key.className = "black-key";
       key.dataset.midi = String(sharp);
-      key.style.left = ((i + 0.7) / n) * 100 + "%";
-      key.style.width = (0.58 / n) * 100 + "%";
+      key.style.left = ((i + 1) / n) * 100 - (0.32 / n) * 100 + "%";
+      key.style.width = (0.62 / n) * 100 + "%";
+      paintKey(key, sharp);
       pianoEl.appendChild(key);
     });
+    const wrap = pianoEl.parentElement;
+    if (wrap && wrap.scrollWidth > wrap.clientWidth) {
+      const midC = whites.indexOf(60);
+      const frac = midC >= 0 ? midC / n : 0.45;
+      wrap.scrollLeft = Math.max(0, frac * wrap.scrollWidth - wrap.clientWidth / 2);
+    }
   }
 
   function lightPiano(midiSet) {
@@ -257,7 +309,7 @@
     let energy = 0;
     for (let i = 2; i < n - 2; i += 1) {
       const f = i * (nyquist / n);
-      if (f < 35 || f > 6000) continue;
+      if (f < 27.5 || f > 6000) continue;
       const mag = Math.min(255, freq[i] * gain);
       energy += mag;
       if (
@@ -284,88 +336,152 @@
     return { peaks: uniq.slice(0, 48), energy: energy };
   }
 
-  /**
-   * Density-based clustering in log-frequency (cents).
-   * Bandwidth adapts from local peak density — lane count is discovered, not fixed.
-   */
-  function densityCluster(peaks) {
-    if (!peaks.length) return [];
-    const pts = peaks
-      .map(function (p) {
-        return { f: p.f, mag: p.mag, x: 1200 * Math.log2(p.f / 440) };
-      })
-      .sort(function (a, b) {
-        return a.x - b.x;
-      });
-
-    // Adaptive bandwidth from median nearest-neighbor gap in cents.
-    const gaps = [];
-    for (let i = 1; i < pts.length; i += 1) {
-      gaps.push(pts[i].x - pts[i - 1].x);
-    }
-    gaps.sort(function (a, b) {
-      return a - b;
-    });
-    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : CLUSTER_CENTS;
-    const bandwidth = Math.max(55, Math.min(140, medianGap * 1.35 || CLUSTER_CENTS));
-
-    const assigned = new Array(pts.length).fill(-1);
-    const clusters = [];
-    for (let i = 0; i < pts.length; i += 1) {
-      if (assigned[i] >= 0) continue;
-      const seed = pts[i];
-      if (seed.mag < 12) continue;
-      // Core: neighbors within bandwidth that are also dense relative to seed.
-      const members = [i];
-      assigned[i] = clusters.length;
-      for (let j = 0; j < pts.length; j += 1) {
-        if (assigned[j] >= 0) continue;
-        if (Math.abs(pts[j].x - seed.x) <= bandwidth && pts[j].mag > seed.mag * 0.22) {
-          assigned[j] = clusters.length;
-          members.push(j);
+  function groupHarmonicFunds(peaks) {
+    const funds = [];
+    peaks.forEach(function (p) {
+      let attached = false;
+      for (let k = 0; k < funds.length; k++) {
+        const f0 = funds[k].f0;
+        const n = Math.round(p.f / f0);
+        if (n < 2 || n > 8) continue;
+        const cents = 1200 * Math.log2(p.f / (n * f0));
+        if (Math.abs(cents) < 35) {
+          funds[k].members.push(p);
+          if (p.db > funds[k].db) funds[k].db = p.db;
+          attached = true;
+          break;
         }
       }
-      // Expand once more from members (simple DBSCAN-ish).
-      for (let m = 0; m < members.length; m += 1) {
-        const mid = members[m];
-        for (let j = 0; j < pts.length; j += 1) {
-          if (assigned[j] >= 0) continue;
-          if (Math.abs(pts[j].x - pts[mid].x) <= bandwidth * 0.85 && pts[j].mag > 11) {
-            assigned[j] = clusters.length;
-            members.push(j);
+      if (!attached) funds.push({ f0: p.f, db: p.db, members: [p] });
+    });
+    funds.forEach(function (g) {
+      let w = 0;
+      let fSum = 0;
+      g.members.forEach(function (m) {
+        const mag = Math.pow(10, m.db / 20);
+        w += mag;
+        fSum += m.f * mag;
+      });
+      g.centroid = fSum / (w || 1);
+      g.harm = Math.min(1, (g.members.length - 1) / 5);
+      g.logF = Math.log2(g.f0);
+      g.logC = Math.log2(Math.max(g.centroid, 1));
+    });
+    return funds;
+  }
+
+  function featOf(g) {
+    return [g.logF * 0.42, g.harm * 1.8, g.logC * 0.35];
+  }
+
+  function featDist(a, b) {
+    let s = 0;
+    for (let i = 0; i < a.length; i++) {
+      const d = a[i] - b[i];
+      s += d * d;
+    }
+    return Math.sqrt(s);
+  }
+
+  function densityClusterFunds(funds) {
+    if (!funds.length) return [];
+    const pts = funds.map(function (g) {
+      return { g: g, x: featOf(g) };
+    });
+    const gaps = [];
+    for (let i = 0; i < pts.length; i++) {
+      let best = 1e9;
+      for (let j = 0; j < pts.length; j++) {
+        if (i === j) continue;
+        const d = featDist(pts[i].x, pts[j].x);
+        if (d < best) best = d;
+      }
+      if (best < 1e9) gaps.push(best);
+    }
+    gaps.sort(function (a, b) { return a - b; });
+    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0.55;
+    const eps = Math.max(0.28, Math.min(0.85, (medianGap * 1.35) || 0.55));
+    const n = pts.length;
+    const labels = new Array(n).fill(-1);
+    function neighbors(i) {
+      const out = [];
+      for (let j = 0; j < n; j++) {
+        if (featDist(pts[i].x, pts[j].x) <= eps) out.push(j);
+      }
+      return out;
+    }
+    let cid = 0;
+    for (let i = 0; i < n; i++) {
+      if (labels[i] !== -1) continue;
+      labels[i] = cid;
+      const seed = neighbors(i).slice();
+      let s = 0;
+      while (s < seed.length) {
+        const j = seed[s++];
+        if (labels[j] === -1) {
+          labels[j] = cid;
+          const nb2 = neighbors(j);
+          for (let k = 0; k < nb2.length; k++) {
+            if (seed.indexOf(nb2[k]) < 0) seed.push(nb2[k]);
           }
         }
       }
-      let wSum = 0;
-      let fSum = 0;
-      let magMax = 0;
-      members.forEach(function (idx) {
-        const p = pts[idx];
-        const w = p.mag;
-        wSum += w;
-        fSum += p.f * w;
-        if (p.mag > magMax) magMax = p.mag;
+      cid += 1;
+    }
+    const buckets = [];
+    for (let i = 0; i < n; i++) {
+      const id = labels[i];
+      if (!buckets[id]) buckets[id] = [];
+      buckets[id].push(pts[i].g);
+    }
+    const clusters = [];
+    buckets.forEach(function (members) {
+      if (!members || !members.length) return;
+      members.sort(function (a, b) { return b.db - a.db; });
+      const head = members[0];
+      let db = -120;
+      let harm = 0;
+      members.forEach(function (g) {
+        if (g.db > db) db = g.db;
+        harm += g.harm;
       });
       clusters.push({
-        f: fSum / (wSum || 1),
-        mag: magMax,
-        n: members.length,
-        density: members.length / Math.max(1, bandwidth),
+        f0: head.f0,
+        db: db,
+        harm: harm / members.length,
+        centroid: head.centroid,
       });
-    }
-
-    clusters.sort(function (a, b) {
-      return b.mag * (1 + b.density) - a.mag * (1 + a.density);
     });
-
-    // Keep clusters that clear a relative density floor; soft UI cap only.
+    clusters.sort(function (a, b) { return b.db - a.db; });
     if (!clusters.length) return [];
-    const topScore = clusters[0].mag * (1 + clusters[0].density);
-    return clusters
-      .filter(function (c) {
-        return c.mag >= 11 && c.mag * (1 + c.density) >= topScore * 0.16;
-      })
-      .slice(0, PRACTICAL_LANE_SOFT_MAX);
+    const top = clusters[0].db;
+    return clusters.filter(function (c) {
+      return c.db > top - 22 && c.db > -72;
+    }).slice(0, PRACTICAL_LANE_SOFT_MAX);
+  }
+
+  /**
+   * Harmonic series collapse, then density clustering.
+   * One sung/played note with overtones is one source, not a stack of Hz lanes.
+   */
+  function densityCluster(peaks) {
+    if (!peaks.length) return [];
+    const withDb = peaks.map(function (p) {
+      return {
+        f: p.f,
+        mag: p.mag,
+        db: 20 * Math.log10((p.mag + 1) / 256),
+        logF: p.logF,
+      };
+    });
+    return densityClusterFunds(groupHarmonicFunds(withDb)).map(function (c) {
+      return {
+        f: c.f0,
+        mag: Math.min(255, Math.max(12, Math.pow(10, c.db / 20) * 255)),
+        db: c.db,
+        harm: c.harm,
+      };
+    });
   }
 
   function liveKind(rms, clusters) {
@@ -604,39 +720,137 @@
     ctx.fillText(t("liveElapsed", { n: elapsedSec.toFixed(0) }), 10 * dpr, rulerH / 2);
   }
 
+  function specBed() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--panel-dark").trim();
+    return raw || "#0c1017";
+  }
+
   function drawSpec(clusters, sampleRate) {
     const { width, height } = specCanvas;
-    specCtx.fillStyle = "#0c1017";
-    specCtx.fillRect(0, 0, width, height);
+    const ctx = specCtx;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.fillStyle = specBed();
+    ctx.fillRect(0, 0, width, height);
+    const padL = 46 * dpr;
+    const padR = 22 * dpr;
+    const padT = 36 * dpr;
+    const padB = 36 * dpr;
+    const plotW = Math.max(8, width - padL - padR);
+    const plotH = Math.max(8, height - padT - padB);
+    const fLo = 27.5;
+    const fHi = 4186;
+    function xOf(f) {
+      const t = (Math.log2(Math.max(f, fLo)) - Math.log2(fLo)) / (Math.log2(fHi) - Math.log2(fLo));
+      return padL + Math.max(0, Math.min(1, t)) * plotW;
+    }
+    function yOfMag(mag) {
+      if (mag < 1.5) return padT + plotH;
+      const db = 20 * Math.log10((Math.max(mag, 1) * softGain) / 256);
+      const t = (db + 80) / 80;
+      return padT + plotH - Math.max(0, Math.min(1, t)) * plotH;
+    }
+
+    ctx.strokeStyle = "rgba(148,163,184,0.18)";
+    ctx.lineWidth = Math.max(1, dpr * 0.5);
+    ctx.font = 10 * dpr + "px ui-monospace, SFMono-Regular, Menlo, monospace";
+    ctx.fillStyle = "#94a3b8";
+    ctx.textBaseline = "middle";
+    [-60, -40, -20, 0].forEach(function (db) {
+      const t = (db + 80) / 80;
+      const y = padT + plotH - t * plotH;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.textAlign = "right";
+      ctx.fillText(String(db), padL - 6 * dpr, y);
+    });
+    ctx.textAlign = "center";
+    ctx.fillText(t("specAxisDb"), 14 * dpr, padT - 10 * dpr);
+    [
+      ["A0", 27.5],
+      ["A1", 55],
+      ["A2", 110],
+      ["A3", 220],
+      ["C4", 261.63],
+      ["A4", 440],
+      ["A5", 880],
+      ["A6", 1760],
+      ["C8", 4186],
+    ].forEach(function (row) {
+      const x = xOf(row[1]);
+      ctx.beginPath();
+      ctx.strokeStyle = (row[0] === "A4" || row[0] === "C4") ? "rgba(248,250,252,0.28)" : "rgba(148,163,184,0.14)";
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+      ctx.fillStyle = (row[0] === "A4" || row[0] === "C4") ? "#e2e8f0" : "#94a3b8";
+      ctx.textBaseline = "top";
+      ctx.fillText(row[0], x, padT + plotH + 6 * dpr);
+    });
+    ctx.fillStyle = "#94a3b8";
+    ctx.textAlign = "right";
+    ctx.fillText(t("specAxisHz"), width - 8 * dpr, padT + plotH + 6 * dpr);
+
     const n = freq.length;
     const nyquist = sampleRate / 2;
-    const maxBin = Math.min(n, Math.floor((6000 / nyquist) * n));
-    const barW = width / maxBin;
-    for (let i = 0; i < maxBin; i += 1) {
-      const f = (i / n) * nyquist;
-      const h = Math.min(height, ((freq[i] * softGain) / 255) * height);
-      if (f < 250) specCtx.fillStyle = "#f97316";
-      else if (f < 2000) specCtx.fillStyle = "#2dd4bf";
-      else specCtx.fillStyle = "#a78bfa";
-      specCtx.globalAlpha = 0.9;
-      specCtx.fillRect(i * barW, height - h, Math.max(barW, 1), h);
+    const steps = 160;
+    const pts = [];
+    let peakMag = 0;
+    for (let i = 0; i < steps; i += 1) {
+      const u = i / (steps - 1);
+      const f = fLo * Math.pow(2, u * (Math.log2(fHi) - Math.log2(fLo)));
+      const bin = Math.min(n - 1, Math.max(1, Math.round((f / nyquist) * n)));
+      const lo = Math.max(1, Math.round((f * 0.97 / nyquist) * n));
+      const hi = Math.min(n - 1, Math.round((f * 1.03 / nyquist) * n));
+      let mag = freq[bin] || 0;
+      for (let k = lo; k <= hi; k += 1) if (freq[k] > mag) mag = freq[k];
+      if (mag > peakMag) peakMag = mag;
+      pts.push({ x: xOf(f), y: yOfMag(mag) });
     }
-    specCtx.globalAlpha = 1;
-    clusters.slice(0, 8).forEach(function (c) {
-      const x = (c.f / 6000) * width;
-      specCtx.strokeStyle = "rgba(248,250,252,0.55)";
-      specCtx.beginPath();
-      specCtx.moveTo(x, 0);
-      specCtx.lineTo(x, height);
-      specCtx.stroke();
+    if (peakMag >= 8 && pts.length) {
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, padT + plotH);
+      pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
+      ctx.lineTo(pts[pts.length - 1].x, padT + plotH);
+      ctx.closePath();
+      ctx.fillStyle = "rgba(45, 212, 191, 0.28)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
+      ctx.strokeStyle = "rgba(45, 212, 191, 0.9)";
+      ctx.lineWidth = Math.max(1.2, dpr);
+      ctx.stroke();
+    }
+
+    clusters.slice(0, 8).forEach(function (c, i) {
+      const x = xOf(c.f);
+      const y = yOfMag(c.mag);
+      const r = (i === 0 ? 6 : 4.5) * dpr;
+      ctx.fillStyle = LANE_COLORS[i % LANE_COLORS.length];
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(248,250,252,0.75)";
+      ctx.lineWidth = Math.max(1, dpr * 0.7);
+      ctx.stroke();
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "600 " + 11 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(hzToNote(c.f), x, y - 8 * dpr);
     });
+
     if (clusters[0]) {
-      specCtx.fillStyle = "#f8fafc";
-      specCtx.font = Math.max(12, Math.floor(height / 10)) + "px ui-sans-serif";
-      specCtx.fillText(
-        hzToNote(clusters[0].f) + "  " + clusters[0].f.toFixed(1) + " Hz · " + clusters.length + " src",
-        12,
-        20
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "600 " + 12 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        hzToNote(clusters[0].f) + "  " + clusters[0].f.toFixed(0) + " Hz · " + clusters.length,
+        padL + 8 * dpr,
+        8 * dpr
       );
     }
   }
@@ -980,7 +1194,16 @@
     buildPiano();
     resizeCanvases();
     window.addEventListener("resize", resizeCanvases);
-    window.onSymphonyLangChange = refreshI18n;
+    const prevLang = window.onSymphonyLangChange;
+    window.onSymphonyLangChange = function (lang) {
+      refreshI18n(lang);
+      if (typeof prevLang === "function") prevLang(lang);
+    };
+    window.onSymphonyThemeChange = function () {
+      const sr = audioCtx ? audioCtx.sampleRate : 44100;
+      drawSpec(lastClusters, sr);
+      drawTracks(lastElapsed);
+    };
     document.querySelectorAll("[data-action='mic']").forEach(function (btn) {
       btn.addEventListener("click", function () {
         listenSmart().catch(function (err) {
@@ -1009,6 +1232,7 @@
     hzEl.textContent = t("hzWaiting");
     updateTracksHeading();
     setListeningUi(false);
+    lightPiano(new Set([60, 64, 67]));
     if (new URLSearchParams(window.location.search).has("demo")) {
       fillExampleTracks();
     }

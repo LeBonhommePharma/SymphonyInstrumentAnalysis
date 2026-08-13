@@ -1,8 +1,26 @@
 <!DOCTYPE html>
-<html lang="fr" class="stealth">
+<html lang="fr" data-theme="stealth" data-scheme="dark">
 <head>
   <meta charset="utf-8">
   <style>html,body{background:#121214;color-scheme:dark}</style>
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem("crayon-theme");
+      var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
+      if (!t || !ok[t]) {
+        t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "day" : "night";
+      }
+      var light = t === "day" || t === "light";
+      var bg = { day: "#f6ead4", light: "#eef1f5", dark: "#1c1e24", night: "#0d1220", stealth: "#121214" }[t];
+      document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.setAttribute("data-scheme", light ? "light" : "dark");
+      document.documentElement.style.colorScheme = light ? "light" : "dark";
+      document.documentElement.style.background = bg;
+      document.documentElement.style.backgroundColor = bg;
+    } catch (e) {}
+  })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#121214">
   <meta name="color-scheme" content="dark">
@@ -12,7 +30,8 @@
   <meta name="apple-mobile-web-app-title" content="Piano-crayon">
   <title>Piano-crayon</title>
   <style>
-    :root, html.stealth {
+    :root,
+    html[data-theme="stealth"] {
       --bg: #121214;
       --ink: #9a9aa2;
       --muted: #6e6e76;
@@ -31,11 +50,102 @@
       --tap: color-mix(in srgb, #9a9aa2 18%, transparent);
       --ease: cubic-bezier(0.22, 1, 0.36, 1);
       --dt: 150ms;
-      --glow: 36%;
+      --glow: 28%;
+      --wave-bed: #16161a;
+      --wave-grid: rgba(255,255,255,0.04);
+      --btn-face: #1c1c20;
       --safe-t: env(safe-area-inset-top, 0px);
       --safe-r: env(safe-area-inset-right, 0px);
       --safe-b: env(safe-area-inset-bottom, 0px);
       --safe-l: env(safe-area-inset-left, 0px);
+    }
+    html[data-theme="day"] {
+      --bg: #f6ead4;
+      --ink: #2a2218;
+      --muted: #6a5e50;
+      --paper: #fff6e8;
+      --paper-ink: #2a2218;
+      --hairline: #e2d4bc;
+      --hairline-strong: #c9b89a;
+      --key-white: #fffaf0;
+      --key-white-edge: #e2d4bc;
+      --key-black: #3f3328;
+      --key-black-edge: #2c241c;
+      --live: rgb(121, 176, 69);
+      --stop: rgb(196, 59, 61);
+      --replay: rgb(69, 69, 186);
+      --replay-on: rgb(76, 151, 189);
+      --tap: color-mix(in srgb, var(--ink) 14%, transparent);
+      --glow: 32%;
+      --wave-bed: #ebe0cc;
+      --wave-grid: rgba(40,32,24,0.08);
+      --btn-face: #fff6e8;
+    }
+    html[data-theme="light"] {
+      --bg: #eef1f5;
+      --ink: #1a2028;
+      --muted: #5c6672;
+      --paper: #ffffff;
+      --paper-ink: #1a2028;
+      --hairline: #d5dbe3;
+      --hairline-strong: #b7c0cc;
+      --key-white: #f7f8fa;
+      --key-white-edge: #d5dbe3;
+      --key-black: #2c3340;
+      --key-black-edge: #1c222c;
+      --live: rgb(52, 168, 88);
+      --stop: rgb(196, 59, 61);
+      --replay: rgb(69, 69, 186);
+      --replay-on: rgb(56, 140, 184);
+      --tap: color-mix(in srgb, var(--ink) 12%, transparent);
+      --glow: 28%;
+      --wave-bed: #e4e9f0;
+      --wave-grid: rgba(28,34,44,0.08);
+      --btn-face: #ffffff;
+    }
+    html[data-theme="dark"] {
+      --bg: #1c1e24;
+      --ink: #d2d4dc;
+      --muted: #8b8e98;
+      --paper: #262830;
+      --paper-ink: #d2d4dc;
+      --hairline: #3a3c46;
+      --hairline-strong: #4a4d58;
+      --key-white: #343848;
+      --key-white-edge: #3a3c46;
+      --key-black: #161820;
+      --key-black-edge: #101218;
+      --live: rgb(121, 176, 69);
+      --stop: rgb(196, 90, 92);
+      --replay: rgb(110, 110, 196);
+      --replay-on: rgb(86, 160, 196);
+      --tap: color-mix(in srgb, #d2d4dc 16%, transparent);
+      --glow: 34%;
+      --wave-bed: #1a1c22;
+      --wave-grid: rgba(255,255,255,0.05);
+      --btn-face: #262830;
+    }
+    html[data-theme="night"] {
+      --bg: #0d1220;
+      --ink: #c8d0e4;
+      --muted: #7a849c;
+      --paper: #151b2c;
+      --paper-ink: #c8d0e4;
+      --hairline: #2a3348;
+      --hairline-strong: #3a4660;
+      --key-white: #243044;
+      --key-white-edge: #2a3348;
+      --key-black: #0e1422;
+      --key-black-edge: #0a0e18;
+      --live: rgb(121, 176, 69);
+      --stop: rgb(196, 90, 92);
+      --replay: rgb(120, 130, 210);
+      --replay-on: rgb(90, 170, 210);
+      --tap: color-mix(in srgb, #c8d0e4 16%, transparent);
+      --glow: 38%;
+      --wave-bed: #101628;
+      --wave-grid: rgba(200,208,228,0.06);
+      --btn-face: #151b2c;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -44,18 +154,60 @@
       min-height: 100dvh;
       overscroll-behavior: none;
     }
-    html { -webkit-text-size-adjust: 100%; background: #121214; color-scheme: dark; }
-    html.studio { background: #efe8dc; color-scheme: light; }
+    html { -webkit-text-size-adjust: 100%; background: var(--bg); color-scheme: dark; }
+    html[data-scheme="light"] { background: var(--bg); color-scheme: light; }
     body {
       font-family: "SF Pro Text", "SF Pro Display", system-ui, -apple-system, sans-serif;
       font-optical-sizing: auto;
       background: var(--bg);
       color: var(--ink);
+      transition: background-color var(--dt) var(--ease), color var(--dt) var(--ease);
       padding:
         max(14px, var(--safe-t))
         max(16px, var(--safe-r))
-        max(24px, var(--safe-b))
+        max(18px, var(--safe-b))
         max(16px, var(--safe-l));
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .scenes {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px;
+      border-radius: 999px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+    }
+    .scene {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.22);
+      background: var(--swatch);
+    }
+    .scene[data-theme-set="day"] { --swatch: #f6ead4; }
+    .scene[data-theme-set="light"] { --swatch: #eef1f5; }
+    .scene[data-theme-set="dark"] { --swatch: #1c1e24; }
+    .scene[data-theme-set="night"] { --swatch: #0d1220; }
+    .scene[data-theme-set="stealth"] { --swatch: #121214; }
+    .scene[aria-pressed="true"] {
+      box-shadow: 0 0 0 2px var(--ink);
+    }
+    .scene:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 2px;
     }
     h1 {
       margin: 0 0 2px;
@@ -84,7 +236,7 @@
       border-radius: 50%;
       cursor: pointer;
       color: var(--ink);
-      background: #1c1c20;
+      background: var(--btn-face);
       display: grid;
       place-items: center;
       place-content: center;
@@ -210,7 +362,7 @@
       border: 1px solid var(--hairline);
       border-radius: 4px;
       overflow: hidden;
-      background: #16161a;
+      background: var(--wave-bed);
     }
     .arrange-head {
       display: flex;
@@ -218,7 +370,7 @@
       justify-content: center;
       gap: 4px;
       padding: 8px 8px 8px 10px;
-      background: #141418;
+      background: var(--paper);
       border-right: 1px solid var(--hairline);
     }
     .arrange-swatch {
@@ -375,8 +527,8 @@
       cursor: pointer;
       user-select: none;
       border: 1px solid var(--hairline-strong);
-      border-radius: 6px;
-      background: #1c1c20;
+      border-radius: 10px;
+      background: var(--btn-face);
       touch-action: manipulation;
       -webkit-tap-highlight-color: var(--tap);
       position: relative;
@@ -446,7 +598,7 @@
       border-radius: 50%;
       border: 2px solid rgb(0, 0, 255);
       background: transparent;
-      box-shadow: inset 0 0 0 5px #1c1c20;
+      box-shadow: inset 0 0 0 5px var(--paper);
     }
     .tog-la input:checked + .face {
       background: rgb(0, 0, 255);
@@ -536,11 +688,11 @@
       font-feature-settings: "tnum" 1;
     }
     .board-well {
-      background: #18181c;
+      background: var(--paper);
       border: 1px solid var(--hairline);
-      border-radius: 4px;
-      padding: 8px 8px 10px;
-      box-shadow: none;
+      border-radius: 12px;
+      padding: 10px 10px 12px;
+      box-shadow: 0 18px 40px color-mix(in srgb, var(--ink) 12%, transparent);
     }
     .board-wrap {
       position: relative;
@@ -552,8 +704,8 @@
     }
     #board {
       position: relative;
-      height: clamp(168px, 28vw, 236px);
-      min-width: 640px;
+      height: clamp(200px, 30vw, 280px);
+      min-width: 1180px;
       width: 100%;
       user-select: none;
       touch-action: pan-x;
@@ -720,10 +872,10 @@
       .chroma { height: 72px; }
     }
     @media (min-width: 768px) {
-      #board { height: 220px; }
+      #board { height: 240px; }
     }
-    @media (min-width: 1024px) {
-      #board { height: 240px; min-width: 0; }
+    @media (min-width: 1180px) {
+      #board { height: 268px; min-width: 0; }
     }
     @media (prefers-reduced-motion: reduce) {
       .chroma .fill,
@@ -741,14 +893,14 @@
       .chroma .bar.on .fill { box-shadow: none; }
     }
     @media (prefers-contrast: more) {
-      html.stealth {
+      html[data-scheme="dark"] {
         --ink: #a8a8b0;
         --hairline: #3e3e46;
         --hairline-strong: #4a4a54;
         --muted: #7a7a82;
         --glow: 40%;
       }
-      html.studio {
+      html[data-scheme="light"] {
         --ink: #1c1916;
         --hairline: #8a8276;
         --hairline-strong: #5c564c;
@@ -756,147 +908,137 @@
       }
       .key.on { box-shadow: inset 0 0 0 1px var(--ink); }
     }
-    html.studio {
-      --bg: #efe8dc;
-      --ink: #3a342e;
-      --muted: #6e675e;
-      --paper: #f7f1e8;
-      --paper-ink: #3a342e;
-      --hairline: #d4cdc2;
-      --hairline-strong: #b7aea0;
-      --key-white: #f4efe6;
-      --key-white-edge: #cfc6b8;
-      --key-black: #3f3a34;
-      --key-black-edge: #2c2824;
-      --tap: color-mix(in srgb, var(--ink) 14%, transparent);
-      --glow: 32%;
-      --live: rgb(121, 176, 69);
-      --stop: rgb(196, 59, 61);
-      --replay: rgb(69, 69, 186);
-      --replay-on: rgb(76, 151, 189);
-    }
-    html.studio .arrange-row {
+    html[data-scheme="light"] .arrange-row {
       background: color-mix(in srgb, var(--ink) 6%, var(--paper));
     }
-    html.studio .arrange-head { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); }
-    html.studio .playhead { background: var(--ink); }
-    html.studio .playhead::before {
+    html[data-scheme="light"] .arrange-head { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); }
+    html[data-scheme="light"] .playhead { background: var(--ink); }
+    html[data-scheme="light"] .playhead::before {
       background: transparent;
       border-top-color: var(--ink);
     }
-    html.studio #replay {
+    html[data-scheme="light"] #replay {
       color: var(--ink);
       background: var(--replay);
     }
-    html.studio #replay .icon {
+    html[data-scheme="light"] #replay .icon {
       border-color: transparent transparent transparent #f7f1e8;
     }
-    html.studio #replay.playing .icon,
-    html.studio #replay.loading .icon { background: #f7f1e8; }
+    html[data-scheme="light"] #replay.playing .icon,
+    html[data-scheme="light"] #replay.loading .icon { background: #f7f1e8; }
     /* Idle start action is green; while listening the button is the stop control (red). */
-    html.studio #btn {
+    html[data-scheme="light"] #btn {
       background: var(--live);
       color: var(--ink);
       border-color: var(--hairline-strong);
     }
-    html.studio #btn .icon {
+    html[data-scheme="light"] #btn .icon {
       border-color: var(--ink);
       box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 18%, transparent);
     }
-    html.studio #btn.phones:not(.live) .icon::before,
-    html.studio #btn.phones:not(.live) .icon::after {
+    html[data-scheme="light"] #btn.phones:not(.live) .icon::before,
+    html[data-scheme="light"] #btn.phones:not(.live) .icon::after {
       border-color: var(--ink);
       background: color-mix(in srgb, var(--ink) 22%, transparent);
     }
-    html.studio #btn.mic:not(.live) .icon {
+    html[data-scheme="light"] #btn.mic:not(.live) .icon {
       box-shadow: 0 0 0 5px color-mix(in srgb, var(--ink) 18%, transparent);
     }
-    html.studio #btn.live {
+    html[data-scheme="light"] #btn.live {
       background: var(--stop);
       color: #f7f1e8;
       border-color: var(--hairline-strong);
     }
-    html.studio #btn.live .icon { background: #f7f1e8; }
-    html.studio #replay { background: var(--replay); border-color: var(--hairline-strong); }
-    html.studio #replay.playing {
+    html[data-scheme="light"] #btn.live .icon { background: #f7f1e8; }
+    html[data-scheme="light"] #replay { background: var(--replay); border-color: var(--hairline-strong); }
+    html[data-scheme="light"] #replay.playing {
       background: var(--replay-on);
       color: var(--ink);
       border-color: var(--hairline-strong);
     }
-    html.studio .tog {
+    html[data-scheme="light"] .tog {
       background: var(--paper);
       border-color: var(--hairline-strong);
     }
-    html.studio .tog-la .face { box-shadow: inset 0 0 0 5px var(--paper); }
-    html.studio .tog-la input:checked + .face { box-shadow: none; }
-    html.studio .track-btn {
+    html[data-scheme="light"] .tog-la .face { box-shadow: inset 0 0 0 5px var(--paper); }
+    html[data-scheme="light"] .tog-la input:checked + .face { box-shadow: none; }
+    html[data-scheme="light"] .track-btn {
       color: var(--lab, var(--ink));
       background: color-mix(in srgb, var(--crayon, var(--paper)) 22%, var(--paper));
       border-color: var(--hairline-strong);
       opacity: 0.4;
     }
-    html.studio .track-btn.hot {
+    html[data-scheme="light"] .track-btn.hot {
       opacity: 1;
       box-shadow: 0 0 10px color-mix(in srgb, var(--crayon) var(--glow), transparent);
     }
-    html.studio .track-btn[aria-pressed="true"] {
+    html[data-scheme="light"] .track-btn[aria-pressed="true"] {
       outline: 1px solid var(--ink);
       outline-offset: 1px;
     }
-    html.studio .tune-line { color: rgb(76, 151, 189); }
-    html.studio .chroma .bar.on .lab { color: var(--lab); }
-    html.studio .chip {
+    html[data-scheme="light"] .tune-line { color: rgb(76, 151, 189); }
+    html[data-scheme="light"] .chroma .bar.on .lab { color: var(--lab); }
+    html[data-scheme="light"] .chip {
       background: var(--crayon);
       color: var(--lab);
       border-color: var(--hairline-strong);
       box-shadow: 0 0 6px color-mix(in srgb, var(--crayon) 20%, transparent);
     }
-    html.studio .board-well {
+    html[data-scheme="light"] .board-well {
       background: color-mix(in srgb, var(--ink) 5%, var(--paper));
       box-shadow: inset 0 1px 2px rgba(40, 32, 24, 0.07);
     }
-    html.studio .white {
+    html[data-scheme="light"] .white {
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.7),
         inset 0 -10px 14px rgba(40, 32, 24, 0.06);
     }
-    html.studio .white .name { color: var(--ink); opacity: 0.42; }
-    html.studio .key.on .name { color: var(--lab); opacity: 1; }
-    html.studio .black .name { color: #efe8dc; opacity: 0.4; }
-    html.studio .key.on {
+    html[data-scheme="light"] .white .name { color: var(--ink); opacity: 0.42; }
+    html[data-scheme="light"] .key.on .name { color: var(--lab); opacity: 1; }
+    html[data-scheme="light"] .black .name { color: #efe8dc; opacity: 0.4; }
+    html[data-scheme="light"] .key.on {
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
     }
-    html.studio .legend {
+    html[data-scheme="light"] .legend {
       background: var(--paper);
       border: 1px solid var(--hairline);
       border-radius: 4px;
       padding: 12px 12px 10px;
     }
-    html.studio .pencil {
+    html[data-scheme="light"] .pencil {
       min-height: 88px;
       padding: 8px 4px 6px;
       background: var(--crayon);
       color: var(--lab);
       border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
     }
-    html.studio .err { color: rgb(159, 56, 57); }
-    html.studio details.adv select {
+    html[data-scheme="light"] .err { color: rgb(159, 56, 57); }
+    html[data-scheme="light"] details.adv select {
       background: var(--paper);
       color: var(--ink);
     }
     @supports (color: color(display-p3 1 0 0)) {
-      html.studio .pencil,
-      html.studio .chip,
-      html.studio .track-btn {
+      html[data-scheme="light"] .pencil,
+      html[data-scheme="light"] .chip,
+      html[data-scheme="light"] .track-btn {
         background: var(--crayon-p3, var(--crayon));
       }
     }
   </style>
 </head>
 <body>
-  <h1>Piano-crayon</h1>
+  <div class="top">
+    <h1>Piano-crayon</h1>
+    <div class="scenes" role="radiogroup" aria-label="Ambiance">
+      <button type="button" class="scene" data-theme-set="day" aria-label="Jour" title="Jour"></button>
+      <button type="button" class="scene" data-theme-set="light" aria-label="Clair" title="Clair"></button>
+      <button type="button" class="scene" data-theme-set="dark" aria-label="Sombre" title="Sombre"></button>
+      <button type="button" class="scene" data-theme-set="night" aria-label="Soir" title="Soir"></button>
+      <button type="button" class="scene" data-theme-set="stealth" aria-label="Scène" title="Scène"></button>
+    </div>
+  </div>
 
   <div class="row">
     <button id="replay" type="button" aria-label="Rejouer">
@@ -916,10 +1058,6 @@
       </label>
       <label class="tog tog-la" title="La" aria-label="La">
         <input id="autotune" type="checkbox" checked>
-        <span class="face" aria-hidden="true"></span>
-      </label>
-      <label class="tog tog-scene" title="Scène" aria-label="Scène">
-        <input id="stealth" type="checkbox" checked>
         <span class="face" aria-hidden="true"></span>
       </label>
     </div>
@@ -960,7 +1098,7 @@
 
   <div class="board-well">
     <div class="board-wrap">
-      <div id="board" role="group" aria-label="Piano Do2 à Do7"></div>
+      <div id="board" role="group" aria-label="Piano entier, La0 à Do8"></div>
     </div>
   </div>
 
@@ -1012,8 +1150,8 @@
     "A#": { fr: "La♯", pencil: "Grape",       rgb: [128, 0, 255],   p3: [0.458, 0.080, 0.961], hz: 466.16 },
     B:  { fr: "Si",  pencil: "Magenta",    rgb: [251, 2, 255],   p3: [0.903, 0.198, 0.967], hz: 493.88 }
   };
-  const MIDI_LO = 36; // C2
-  const MIDI_HI = 96; // C7
+  const MIDI_LO = 21; // A0
+  const MIDI_HI = 108; // C8
   const A4_REF = 440;
   const A4_MIN = 427; // ≈ −50 cents; beyond that, nearest-note votes wrap a semitone
   const A4_MAX = 453; // ≈ +50 cents
@@ -1023,7 +1161,7 @@
   const BLACK = { 1: true, 3: true, 6: true, 8: true, 10: true };
 
   const SAMPLE_URL = "samples/final_song.wav";
-  const MIXED_LO_HZ = 40;
+  const MIXED_LO_HZ = 27.5;
   const MIXED_HI_HZ = 5000;
   const CLUSTER_DROP_MS = 1400;
   const CLUSTER_SOFT_MAX = 8;
@@ -1050,7 +1188,6 @@
   const $tracks = document.getElementById("tracks");
   const $autotune = document.getElementById("autotune");
   const $tuneLine = document.getElementById("tuneLine");
-  const $stealth = document.getElementById("stealth");
   let liveTracks = [];
   let nextTrackId = 1;
   let selectedTrackId = null;
@@ -1123,18 +1260,40 @@
     else el.style.removeProperty("--crayon-p3");
     el.style.setProperty("--lab", labColor(rgb));
   }
-  function applyScene(stealth) {
-    document.documentElement.classList.toggle("stealth", stealth);
-    document.documentElement.classList.toggle("studio", !stealth);
-    document.documentElement.style.colorScheme = stealth ? "dark" : "light";
-    document.documentElement.style.background = stealth ? "#121214" : "#efe8dc";
+  const THEMES = {
+    day: { scheme: "light", bg: "#f6ead4", bar: "default" },
+    light: { scheme: "light", bg: "#eef1f5", bar: "default" },
+    dark: { scheme: "dark", bg: "#1c1e24", bar: "black" },
+    night: { scheme: "dark", bg: "#0d1220", bar: "black" },
+    stealth: { scheme: "dark", bg: "#121214", bar: "black" }
+  };
+  const THEME_KEY = "crayon-theme";
+  function preferredTheme() {
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved && THEMES[saved]) return saved;
+    } catch (e) { /* ignore */ }
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) return "day";
+    return "night";
+  }
+  function applyTheme(name) {
+    const id = THEMES[name] ? name : "night";
+    const spec = THEMES[id];
+    document.documentElement.setAttribute("data-theme", id);
+    document.documentElement.setAttribute("data-scheme", spec.scheme);
+    document.documentElement.style.colorScheme = spec.scheme;
+    document.documentElement.style.background = spec.bg;
     const theme = document.querySelector('meta[name="theme-color"]');
-    if (theme) theme.setAttribute("content", stealth ? "#121214" : "#efe8dc");
+    if (theme) theme.setAttribute("content", spec.bg);
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (bar) bar.setAttribute("content", stealth ? "black" : "default");
-    NOTE_NAMES.forEach(function (name) {
-      const c = CRAYONS[name];
-      document.querySelectorAll('[data-pc="' + name + '"]').forEach(function (el) {
+    if (bar) bar.setAttribute("content", spec.bar);
+    try { localStorage.setItem(THEME_KEY, id); } catch (e) { /* ignore */ }
+    document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", btn.getAttribute("data-theme-set") === id ? "true" : "false");
+    });
+    NOTE_NAMES.forEach(function (n) {
+      const c = CRAYONS[n];
+      document.querySelectorAll('[data-pc="' + n + '"]').forEach(function (el) {
         paintEl(el, c);
       });
     });
@@ -1977,8 +2136,9 @@
     const cssW = Math.max(1, Math.floor(lane.clientWidth || 320));
     const cssH = 64;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const stealth = document.documentElement.classList.contains("stealth");
-    const key = cssW + "x" + cssH + "x" + dpr + (stealth ? "s" : "l") + ":" + (wavePeaks ? wavePeaks.length : 0);
+    const scheme = document.documentElement.getAttribute("data-scheme") || "dark";
+    const themeName = document.documentElement.getAttribute("data-theme") || "stealth";
+    const key = cssW + "x" + cssH + "x" + dpr + themeName + ":" + (wavePeaks ? wavePeaks.length : 0);
     waveCssW = cssW;
     if (!force && key === waveDrawnKey) {
       paintPlayhead(true);
@@ -1991,9 +2151,9 @@
     if (canvas.height !== pxH) canvas.height = pxH;
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = stealth ? "#16161a" : "#ebe4d8";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--wave-bed").trim() || (scheme === "dark" ? "#16161a" : "#ebe4d8");
     ctx.fillRect(0, 0, cssW, cssH);
-    ctx.fillStyle = stealth ? "rgba(255,255,255,0.04)" : "rgba(40,32,24,0.06)";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--wave-grid").trim() || "rgba(255,255,255,0.04)";
     ctx.fillRect(0, cssH / 2 - 0.5, cssW, 1);
     if (wavePeaks && wavePeaks.length) {
       const mid = cssH / 2;
@@ -2435,8 +2595,10 @@
     syncTuneUi();
   });
 
-  $stealth.addEventListener("change", function () {
-    applyScene($stealth.checked);
+  document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      applyTheme(btn.getAttribute("data-theme-set"));
+    });
   });
 
   function onArrangePointer(ev, restart) {
@@ -2715,12 +2877,23 @@
   buildLegend();
   buildKeyboard();
   buildTracks();
+  applyTheme(preferredTheme());
   setCaptureKind(canShareTabAudio() ? "phones" : "mic");
   probeFm();
   syncTuneUi();
   requestAnimationFrame(function () {
     layoutBlackKeys();
     drawWave(true);
+    const wrap = $board.parentElement;
+    if (wrap && wrap.scrollWidth > wrap.clientWidth) {
+      const whites = $board.querySelectorAll(".white");
+      const mid = Array.prototype.find.call(whites, function (el) {
+        return Number(el.dataset.midi) === 60;
+      });
+      if (mid) {
+        wrap.scrollLeft = Math.max(0, mid.offsetLeft - wrap.clientWidth / 2 + mid.offsetWidth / 2);
+      }
+    }
   });
 })();
   </script>
