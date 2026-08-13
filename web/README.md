@@ -17,6 +17,17 @@ Then visit http://localhost:4173/keyboard.html
 
 Safari can also open [`keyboard.html`](keyboard.html) via `file://` as a fallback (Chrome often blocks the mic **and** sample fetch on `file://`).
 
+## Prepare yesterday’s sample
+
+`*.wav` files are gitignored, so a clean checkout has no audio. Replay loads `web/samples/final_song.wav` (copy of `captures/final_song.wav`, Shannon, ~75 s):
+
+```bash
+mkdir -p web/samples
+cp captures/final_song.wav web/samples/final_song.wav
+```
+
+The piano does **not** download the WAV until you click **Rejouer l’échantillon / Replay yesterday**. If the file is missing, that click shows an error; live mic still works.
+
 ## Replay yesterday (Parc Roland Beaudin)
 
 1. Click **Rejouer l’échantillon / Replay yesterday**.
