@@ -125,7 +125,8 @@
         "Quiet now — soft gain is still listening. Headphone bleed and room tone still count. We cannot read Apple’s Now Playing list from the web.",
       peaksNoise: "Energy without a hummable pitch — that is still this device, right now.",
       hardDefault: "Lane count is density-clustered on the fly. Quiet is still drawn — we never invent a tune.",
-      hardMany: "Density found {n} sources. Lane count follows the clusters.",
+      hardMany:
+        "Density found {n} independent sources after folding harmonics together. A psytrance session can have 40-80 DAW tracks; this picture counts pitched clusters, not mixer channels.",
       hardOvertones: "Overtones are ringing with the fundamental — clustering keeps them from inventing extra instruments when they lock.",
       hardClear: "One clear cluster — easy case. Songs rarely stay this tidy.",
       hardNoise: "No clear pitch cluster. The room/noise lane keeps rolling anyway.",
@@ -147,6 +148,15 @@
       tour4Title: "Piano superpower",
       tour4Body:
         "If a clear pitch appears, 440 Hz is the A key. Find it. Play it. Match it. Live guessing stays hard when many pitches stack.",
+      themeGroup: "Look",
+      themeDay: "Day",
+      themeLight: "Light",
+      themeDark: "Dark",
+      themeNight: "Night",
+      themeStealth: "Stealth",
+      specAxisHz: "Hz",
+      specAxisDb: "dB",
+      pianoFull: "Full piano · A0 to C8",
     },
     fr: {
       langName: "Français",
@@ -267,7 +277,8 @@
         "C’est calme. Si En cours de lecture est allumé, monte le haut-parleur — une page web n’a pas accès à la liste Apple En cours de lecture.",
       peaksNoise: "De l’énergie sans hauteur fredonnable — c’est quand même cet appareil, maintenant.",
       hardDefault: "Le nombre de pistes vient d’un clustering par densité. Le calme est quand même dessiné — on n’invente pas d’air.",
-      hardMany: "Densité : {n} sources. Le nombre de pistes suit les grappes.",
+      hardMany:
+        "Densité : {n} sources indépendantes, harmoniques repliées. Un projet psytrance peut avoir 40-80 pistes dans le DAW ; ici on compte les grappes de hauteur, pas les canaux de mixage.",
       hardOvertones: "Le direct est dur : cette note fait des copies aiguës (harmoniques), comme un piano.",
       hardClear: "Une hauteur claire, c’est le cas facile. Les chansons sont rarement si rangées.",
       hardNoise: "Nommer en direct est dur s’il n’y a pas d’air. Les pistes défilent quand même.",
@@ -289,6 +300,15 @@
       tour4Title: "Le superpouvoir du piano",
       tour4Body:
         "Si une hauteur claire apparaît, 440 Hz c’est la touche la. Trouve-la. Joue-la. Imite-la. Deviner en direct reste dur quand beaucoup de hauteurs s’empilent.",
+      themeGroup: "Ambiance",
+      themeDay: "Jour",
+      themeLight: "Clair",
+      themeDark: "Sombre",
+      themeNight: "Soir",
+      themeStealth: "Scène",
+      specAxisHz: "Hz",
+      specAxisDb: "dB",
+      pianoFull: "Piano entier · La0 à Do8",
     },
   };
 

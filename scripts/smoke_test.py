@@ -123,6 +123,7 @@ def check_public_site() -> None:
         docs / "how-to.html",
         docs / "howto-eli5.png",
         docs / "i18n.js",
+        docs / "theme.js",
         docs / "tutorial" / "index.html",
         docs / "tutorial" / "app.js",
         docs / "tutorial" / "styles.css",
@@ -144,6 +145,10 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must stay silent")
     if "densityCluster" not in app_js:
         raise SystemExit("tutorial must density-cluster live sources (no fixed instrument count)")
+    if "groupHarmonicFunds" not in app_js:
+        raise SystemExit("tutorial must fold harmonics before counting tracks")
+    if "theme.js" not in tutorial:
+        raise SystemExit("tutorial must load the shared theme switch")
     if "softGain" not in app_js and "updateAutoGain" not in app_js:
         raise SystemExit("tutorial must soft-auto-gain quiet / headphone bleed")
     if "video: false" not in app_js and "audioOnlyStream" not in app_js:
@@ -173,6 +178,12 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must density-cluster independent tracks")
     if "getDisplayMedia" not in html:
         raise SystemExit("HTML piano must capture tab/system audio for listen")
+    if 'id="stealth"' in html:
+        raise SystemExit("HTML piano must use the 5-scene picker, not a stealth checkbox")
+    if 'data-theme-set="stealth"' not in html or 'data-theme-set="day"' not in html:
+        raise SystemExit("HTML piano must include day/light/dark/night/stealth scenes")
+    if "MIDI_LO = 21" not in html or "MIDI_HI = 108" not in html:
+        raise SystemExit("HTML piano must be the full 88-key range (A0 to C8)")
     if ">Nuit<" in html:
         raise SystemExit("HTML piano must not use the Nuit checkbox label")
     proc = subprocess.run(

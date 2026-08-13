@@ -3,7 +3,7 @@
   "goal": "One minimal surface in HTML and in the terminal. Same layout, same colors, same actions. Every visible control does work. No decoration.",
   "out": [
     "time range slider / thumb / <input type=range> for playback position",
-    "Stealth / Scène theme toggle",
+    "binary Nuit checkbox",
     "subtitle paragraph under the title",
     "duplicate Pistes / Tracks status line",
     "separate hint line",
@@ -14,14 +14,14 @@
     "kid-genius tips"
   ],
   "layout": [
-    "title: Piano-crayon",
+    "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
     "actions: Rejouer | Écouter | clock | La/A readout",
     "toggles: Sensibilité, Accords, Entendre, Auto-accord",
     "tracks: Tous + 5 musician chips",
     "daw: stacked color waveform lanes (one per selected musician)",
     "chroma: 12 pitch-class bars labeled Do..Si",
     "lit: current notes as crayon chips + Hz",
-    "keyboard: Do2–Do7"
+    "keyboard: La0–Do8 (88 keys)"
   ],
   "crayons": {
     "C":  { "fr": "Do",  "pencil": "Maraschino", "rgb": [251, 2, 7] },
@@ -75,7 +75,7 @@
   "actions": {
     "listen": "Écouter / Stop — mic FFT, silent analyser (do not tap speakers)",
     "replay": "Rejouer / Stop — sample or 8s synth demo; muted until Entendre",
-    "keyboard": "Do2–Do7 lights with crayon of pitch class; click/hold to play a tone",
+    "keyboard": "La0–Do8 (88 keys) lights with crayon of pitch class; click/hold to play a tone",
     "chroma": "12 bars are the color key; height follows energy",
     "sensitivity": "gate for lighting keys",
     "chords": "on = up to 8 notes; off = 1",
@@ -95,9 +95,8 @@
     "q": "quit"
   },
   "theme": {
-    "bg": "#121214",
-    "ink": "#9a9aa2",
-    "muted": "#6e6e76",
-    "paper": "#18181c"
+    "scenes": ["day", "light", "dark", "night", "stealth"],
+    "default": "night or day from prefers-color-scheme",
+    "stealth": { "bg": "#121214", "ink": "#9a9aa2", "muted": "#6e6e76", "paper": "#18181c" }
   }
 }

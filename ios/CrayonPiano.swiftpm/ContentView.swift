@@ -6,36 +6,114 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             session.scene.background.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 0) {
                 header
-                controls
-                toggles
-                trackRow
-                Text(session.tuneLine)
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(session.scene.ink)
-                if let err = session.errorMessage {
-                    Text(err)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(red: 0.54, green: 0.29, blue: 0.30))
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(alignment: .center, spacing: 10) {
+                                controls
+                                toggles
+                            }
+                            VStack(alignment: .leading, spacing: 10) {
+                                controls
+                                toggles
+                            }
+                        }
+                        trackRow
+                        if session.mode != .live {
+                            HStack(alignment: .center, spacing: 10) {
+                                WaveformTrackView(session: session)
+                                Text(clock)
+                                    .font(.caption.monospacedDigit().weight(.semibold))
+                                    .foregroundStyle(session.scene.ink)
+                                    .fixedSize()
+                            }
+                            .frame(height: 68)
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Spectre · sources regroupées")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(session.scene.muted)
+                            SpectrumPlotView(session: session)
+                                .frame(height: 280)
+                                .frame(maxWidth: .infinity)
+                        }
+                        if !session.tuneLine.isEmpty {
+                            Text(session.tuneLine)
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .foregroundStyle(session.scene.ink)
+                        }
+                        if let err = session.errorMessage {
+                            Text(err)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color(red: 0.54, green: 0.29, blue: 0.30))
+                        }
+                        chromaRow
+                        chipsRow
+                        legend
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 12)
                 }
-                chromaRow
-                chipsRow
                 piano
-                legend
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
         }
-        .preferredColorScheme(session.isStealth ? .dark : .light)
+        .preferredColorScheme(session.scene.colorScheme)
         .statusBarHidden(false)
+        .animation(.easeInOut(duration: 0.22), value: session.sceneChoice)
     }
 
     private var header: some View {
-        Text("Piano-crayon")
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(session.scene.ink)
+        HStack(alignment: .center, spacing: 12) {
+            Text("Piano-crayon")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(session.scene.ink)
+            Spacer(minLength: 8)
+            scenePicker
+        }
+    }
+
+    private var scenePicker: some View {
+        HStack(spacing: 6) {
+            ForEach(SceneStyle.allCases) { style in
+                Button {
+                    session.sceneChoice = style
+                } label: {
+                    Circle()
+                        .fill(style.swatch)
+                        .overlay(
+                            Circle().stroke(
+                                style.isLight
+                                    ? Color.black.opacity(0.22)
+                                    : Color.white.opacity(0.35),
+                                lineWidth: 1
+                            )
+                        )
+                        .overlay(
+                            Circle().stroke(
+                                session.sceneChoice == style ? session.scene.ink : Color.clear,
+                                lineWidth: 2
+                            )
+                        )
+                        .frame(width: 28, height: 28)
+                        .padding(8)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(style.french)
+                .accessibilityAddTraits(session.sceneChoice == style ? .isSelected : [])
+            }
+        }
+        .padding(.horizontal, 4)
+        .background(session.scene.paper.opacity(0.88), in: Capsule())
+        .overlay(Capsule().stroke(session.scene.muted.opacity(0.35), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Ambiance")
     }
 
     private var controls: some View {
@@ -53,43 +131,28 @@ struct ContentView: View {
     }
 
     private var toggles: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if session.mode != .live {
-                HStack(alignment: .center, spacing: 10) {
-                    WaveformTrackView(session: session)
-                    Text(clock)
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(session.scene.ink)
-                        .fixedSize()
-                }
+        HStack(spacing: 8) {
+            iconToggle(session.chordsOn, label: "Accords") {
+                session.chordsOn.toggle()
+            } glyph: {
+                ChordGlyph(on: session.chordsOn)
             }
-            HStack(spacing: 8) {
-                iconToggle(session.chordsOn, label: "Accords") {
-                    session.chordsOn.toggle()
-                } glyph: {
-                    ChordGlyph(on: session.chordsOn)
-                }
-                iconToggle(session.unmute, label: "Son") {
-                    session.unmute.toggle()
-                    session.applyUnmute()
-                } glyph: {
-                    SpeakerGlyph(on: session.unmute)
-                }
-                iconToggle(session.autotune, label: "La") {
-                    session.autotune.toggle()
-                } glyph: {
-                    LaGlyph(on: session.autotune)
-                }
-                iconToggle(session.isStealth, label: "Scène") {
-                    session.isStealth.toggle()
-                } glyph: {
-                    StageGlyph(on: session.isStealth)
-                }
+            iconToggle(session.unmute, label: "Son") {
+                session.unmute.toggle()
+                session.applyUnmute()
+            } glyph: {
+                SpeakerGlyph(on: session.unmute)
+            }
+            iconToggle(session.autotune, label: "La") {
+                session.autotune.toggle()
+            } glyph: {
+                LaGlyph(on: session.autotune)
             }
             if !session.statusLine.isEmpty {
                 Text(session.statusLine)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(session.scene.ink)
+                    .lineLimit(1)
             }
         }
     }
@@ -103,9 +166,9 @@ struct ContentView: View {
         Button(action: action) {
             glyph()
                 .frame(width: 44, height: 44)
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(session.scene.muted.opacity(0.45), lineWidth: 1)
                 )
         }
@@ -115,14 +178,15 @@ struct ContentView: View {
     }
 
     private var trackRow: some View {
-        HStack(spacing: 6) {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
             Text("\(session.liveTracks.count)")
                 .font(.caption.weight(.semibold).monospacedDigit())
                 .foregroundStyle(session.scene.muted)
                 .frame(width: 28, height: 44)
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             if session.liveTracks.isEmpty {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
                     .frame(width: 44, height: 44)
                     .opacity(0.28)
@@ -135,16 +199,17 @@ struct ContentView: View {
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(track.pitchClass.labelColor)
                             .frame(minWidth: 44, minHeight: 44)
-                            .background(track.pitchClass.color.opacity(track.energy > 0.18 ? 1 : 0.28), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .background(track.pitchClass.color.opacity(track.energy > 0.18 ? 1 : 0.28), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .opacity(track.energy > 0.18 ? 1 : 0.4)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(session.selectedTrackId == track.id || session.isTous ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
                     )
                     .accessibilityLabel("\(track.caption) \(Int(track.f0.rounded())) Hz")
                 }
+            }
             }
         }
     }
@@ -167,11 +232,11 @@ struct ContentView: View {
                         .foregroundStyle(on ? name.labelColor : session.scene.muted)
                         .padding(.bottom, 2)
                 }
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 2))
+                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 4))
             }
         }
         .padding(4)
-        .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 4))
+        .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var chipsRow: some View {
@@ -186,7 +251,7 @@ struct ContentView: View {
                             .foregroundStyle(note.name.labelColor)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(note.name.color, in: RoundedRectangle(cornerRadius: 4))
+                            .background(note.name.color, in: RoundedRectangle(cornerRadius: 6))
                     }
                 }
             }
@@ -202,12 +267,13 @@ struct ContentView: View {
             scene: session.scene,
             onPressed: { session.setPressed($0) }
         )
-        .frame(height: 180)
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .frame(height: 228)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
         )
+        .shadow(color: session.scene.ink.opacity(session.scene.isLight ? 0.08 : 0.28), radius: 18, y: 8)
     }
 
     private var legend: some View {
@@ -230,7 +296,7 @@ struct ContentView: View {
                         }
                         .foregroundStyle(name.labelColor)
                         .frame(maxWidth: .infinity, minHeight: 52)
-                        .background(name.color, in: RoundedRectangle(cornerRadius: 3))
+                        .background(name.color, in: RoundedRectangle(cornerRadius: 8))
                     }
                     .buttonStyle(.plain)
                 }
@@ -266,29 +332,29 @@ private struct CrayonButtonStyle: ButtonStyle {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .foregroundStyle(foreground)
-            .background(background, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(border, lineWidth: 1)
             )
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
     }
 
     private var background: Color {
         switch kind {
         case .live: return Color(red: 0.44, green: 0.60, blue: 0.28).opacity(0.85)
-        case .stop: return Color(red: 0.60, green: 0.28, blue: 0.29).opacity(scene == .studio ? 0.95 : 0.35)
-        case .replay: return Color(red: 0.28, green: 0.28, blue: 0.60).opacity(scene == .studio ? 0.95 : 0.35)
+        case .stop: return Color(red: 0.60, green: 0.28, blue: 0.29).opacity(scene.isLight ? 0.95 : 0.35)
+        case .replay: return Color(red: 0.28, green: 0.28, blue: 0.60).opacity(scene.isLight ? 0.95 : 0.35)
         case .replayOn: return Color(red: 0.28, green: 0.49, blue: 0.60).opacity(0.9)
         }
     }
 
     private var border: Color { background }
     private var foreground: Color {
-        switch scene {
-        case .stealth: return Color(red: 0.604, green: 0.604, blue: 0.635)
-        case .studio: return Color(red: 0.969, green: 0.945, blue: 0.910)
-        }
+        scene.isLight
+            ? Color(red: 0.969, green: 0.945, blue: 0.910)
+            : Color(red: 0.604, green: 0.604, blue: 0.635)
     }
 }
 
@@ -340,19 +406,6 @@ private struct LaGlyph: View {
         Circle()
             .fill(on ? Color(red: 0, green: 0, blue: 1) : Color.clear)
             .overlay(Circle().stroke(Color(red: 0, green: 0, blue: 1), lineWidth: 2))
-            .frame(width: 16, height: 16)
-    }
-}
-
-private struct StageGlyph: View {
-    var on: Bool
-    var body: some View {
-        RoundedRectangle(cornerRadius: 2, style: .continuous)
-            .fill(on ? Color(red: 0.07, green: 0.07, blue: 0.08) : Color(red: 0.94, green: 0.91, blue: 0.86))
-            .overlay(
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .stroke(on ? Color(white: 0.6) : Color(red: 0.23, green: 0.20, blue: 0.18), lineWidth: 2)
-            )
             .frame(width: 16, height: 16)
     }
 }

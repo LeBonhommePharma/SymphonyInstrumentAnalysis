@@ -2,14 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem("crayon-theme");
+      var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
+      if (!t || !ok[t]) {
+        t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "day" : "night";
+      }
+      document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.setAttribute("data-scheme", (t === "day" || t === "light") ? "light" : "dark");
+    } catch (e) {}
+  })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title data-i18n-title="tutTitle">Live listen — Symphony Instrument Analysis</title>
   <meta name="description" content="Silent live audio analysis. Soft auto-gain for quiet rooms and headphone bleed. Density-clustered tracks — lane count follows the sound. English and French.">
   <meta name="theme-color" content="#0c1017">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/">
   <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=en">
   <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=fr">
   <link rel="stylesheet" href="styles.css">
+  <script src="../theme.js"></script>
 </head>
 <body>
   <div class="app">
@@ -21,9 +36,18 @@
         ·
         <a href="../how-to.html" data-i18n="crumbEli5">ELI5</a>
       </span>
-      <span class="lang-switch" role="group" aria-label="English / Français">
-        <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
-        <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+      <span class="crumb-tools">
+        <span class="scenes" role="radiogroup" data-theme-group aria-label="Look">
+          <button type="button" class="scene" data-theme-set="day" aria-label="Day" title="Day"></button>
+          <button type="button" class="scene" data-theme-set="light" aria-label="Light" title="Light"></button>
+          <button type="button" class="scene" data-theme-set="dark" aria-label="Dark" title="Dark"></button>
+          <button type="button" class="scene" data-theme-set="night" aria-label="Night" title="Night"></button>
+          <button type="button" class="scene" data-theme-set="stealth" aria-label="Stealth" title="Stealth"></button>
+        </span>
+        <span class="lang-switch" role="group" aria-label="English / Français">
+          <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+          <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+        </span>
       </span>
     </p>
 
@@ -70,18 +94,24 @@
             <strong id="hz">waiting</strong>
           </div>
         </div>
-        <div class="piano" id="piano" aria-label="Piano keys that light up from live sound"></div>
       </section>
 
-      <aside class="panel">
+      <aside class="panel spec-panel">
         <h3 data-i18n="peaksHeading">Spectrum · clustered sources</h3>
-        <canvas id="spec" height="180"></canvas>
+        <canvas id="spec" height="320"></canvas>
         <div class="peaks" id="peaks">Waiting for live sound…</div>
         <div class="hard-flag" id="hard">
           Lane count is density-clustered on the fly. Quiet is still drawn — we never invent a tune.
         </div>
       </aside>
     </main>
+
+    <section class="panel piano-stage">
+      <h3 data-i18n="pianoFull">Full piano · A0 to C8</h3>
+      <div class="piano-wrap">
+        <div class="piano" id="piano" aria-label="Full piano, A0 to C8"></div>
+      </div>
+    </section>
 
     <p class="footer" id="status">
       Audio only. Mic is the default. On a computer you can share tab audio (video track discarded).
@@ -90,7 +120,7 @@
     </p>
   </div>
 
-  <div class="bootstrap" id="bootstrap">
+  <div class="bootstrap hidden" id="bootstrap" hidden>
     <div class="bootstrap-card">
       <h2 data-i18n="gateTitle">One tap. Mic first.</h2>
       <p data-i18n="gateBody">

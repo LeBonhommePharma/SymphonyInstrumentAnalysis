@@ -53,7 +53,8 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
   Unmute** to hear it.
 - **Waveform track** — DAW-style lane (Logic Pro / GarageBand feel): a fixed playhead with the
   waveform scrolling right→left as it plays. Drag the lane to scrub.
-- Track chips, auto-accord, stealth/studio scene, sensitivity, chords.
+- Track chips, auto-accord, day/light/dark/night/stealth scenes, chords.
+- Full 88-key piano (A0–C8) with a log-frequency clustered spectrum.
 
 ## Files (`CrayonPiano.swiftpm/`)
 
@@ -61,8 +62,9 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
 |------|------|
 | `Package.swift` | Swift Playgrounds app manifest (`.iOSApplication`) |
 | `CrayonPianoApp.swift` | `@main` app entry |
-| `CrayonTheme.swift` | macOS Crayons.clr palette + stealth/studio |
-| `PitchMath.swift` | MIDI ↔ Hz, C2–C7 |
+| `CrayonTheme.swift` | macOS Crayons.clr palette + day/light/dark/night/stealth |
+| `SpectrumPlotView.swift` | log-frequency clustered spectrum (A0–C8) |
+| `PitchMath.swift` | MIDI ↔ Hz, A0–C8 (88 keys) |
 | `SpectrumAnalyzer.swift` | vDSP FFT + the web peak-picker |
 | `PianoSession.swift` | mic, tap tones, built-in demo, waveform peaks |
 | `PianoKeyboardView.swift` | multi-touch keyboard |

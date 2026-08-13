@@ -26,15 +26,15 @@ from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 
 Mode = Literal["idle", "live", "replay"]
 
-MIDI_LO = 36  # C2 / Do2
-MIDI_HI = 96  # C7 / Do7
+MIDI_LO = 21  # A0 / La-1, first key of an 88-key piano
+MIDI_HI = 108  # C8 / Do8, last key of an 88-key piano
 A4_REF = 440.0
 A4_MIN = 415.0
 A4_MAX = 466.0
 TUNE_LO_HZ = 80.0
 TUNE_HI_HZ = 1400.0
 TUNE_WINDOW_S = 2.2
-MIXED_LO_HZ = 60.0
+MIXED_LO_HZ = 27.5
 MIXED_HI_HZ = 2500.0
 FFT_SIZE = 8192
 PEAKS_PER_SEC = 80.0
