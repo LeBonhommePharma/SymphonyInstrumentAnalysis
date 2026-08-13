@@ -5,21 +5,21 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from list_mics import list_audio_devices  # noqa: E402
+from list_mics import require_audio_devices  # noqa: E402
 from probe_mics import record_probe, wav_stats  # noqa: E402
 
 
 def pick_best(seconds: float = 2.0) -> tuple[int, str]:
-    devices = list_audio_devices()
+    devices = require_audio_devices()
     best = (-1.0, devices[0][0], devices[0][1])
-    import tempfile
-
-    import numpy as np
 
     with tempfile.TemporaryDirectory() as td:
         for idx, name in devices:
@@ -42,7 +42,7 @@ def main() -> None:
     ap.add_argument("--probe-seconds", type=float, default=2.0)
     args = ap.parse_args()
 
-    devices = {i: n for i, n in list_audio_devices()}
+    devices = {i: n for i, n in require_audio_devices()}
     if args.device is None:
         print("Auto-selecting lowest-noise / strongest mic...")
         device, name = pick_best(args.probe_seconds)

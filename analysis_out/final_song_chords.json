@@ -1,0 +1,1346 @@
+{
+  "source": "captures/final_song.wav",
+  "duration_sec": 74.866,
+  "progression": [
+    "Aadd9",
+    "F#maj7",
+    "G#maj7",
+    "Gadd9",
+    "D6",
+    "G7",
+    "Dmin6",
+    "Fmaj7",
+    "C6",
+    "A7",
+    "Amaj7",
+    "Gadd9",
+    "Gmaj7",
+    "G7",
+    "Bmin6",
+    "Cmaj7",
+    "Amin7",
+    "Aadd9",
+    "Fmaj7",
+    "D6",
+    "Gadd9",
+    "Gmaj7",
+    "Gadd9",
+    "C6",
+    "Fmaj7",
+    "D6",
+    "D7",
+    "Gmaj7",
+    "Aadd9",
+    "C6",
+    "Aadd9",
+    "Gadd9",
+    "Csus2",
+    "Fmaj7",
+    "Dmin7",
+    "Dmin6",
+    "Fmaj7",
+    "C6",
+    "Cmaj7",
+    "Eadd9",
+    "Cmaj7",
+    "F6",
+    "Aadd9",
+    "C6",
+    "Aadd9",
+    "C6",
+    "Aadd9",
+    "Gadd9",
+    "Eadd9",
+    "Gadd9",
+    "Fmaj7",
+    "Cmaj7",
+    "Gadd9",
+    "Amin7",
+    "Esus4",
+    "Dmin6",
+    "Eadd9",
+    "Emin6",
+    "C6",
+    "C7",
+    "Fadd9",
+    "Fmaj7",
+    "G7",
+    "Dmin7",
+    "Amaj7",
+    "Aadd9",
+    "Amaj7",
+    "Dmin7",
+    "Dadd9",
+    "Dmin7",
+    "Dadd9",
+    "A7",
+    "Fadd9",
+    "A7",
+    "Fmaj7",
+    "Fmin6",
+    "Amin7",
+    "Fadd9",
+    "Fmaj7",
+    "C6",
+    "Fadd9",
+    "Cadd9",
+    "Fadd9",
+    "Gmin6",
+    "Cadd9",
+    "Gadd9",
+    "Gmin7",
+    "Amin7",
+    "Fadd9",
+    "Fmaj7",
+    "F#maj7",
+    "D6",
+    "Dadd9",
+    "A#maj7",
+    "A7",
+    "Amin7",
+    "C6",
+    "Amin6",
+    "Amaj7",
+    "A#maj7"
+  ],
+  "unique_chords": [
+    "A#maj7",
+    "A7",
+    "Aadd9",
+    "Amaj7",
+    "Amin6",
+    "Amin7",
+    "Bmin6",
+    "C6",
+    "C7",
+    "Cadd9",
+    "Cmaj7",
+    "Csus2",
+    "D6",
+    "D7",
+    "Dadd9",
+    "Dmin6",
+    "Dmin7",
+    "Eadd9",
+    "Emin6",
+    "Esus4",
+    "F#maj7",
+    "F6",
+    "Fadd9",
+    "Fmaj7",
+    "Fmin6",
+    "G#maj7",
+    "G7",
+    "Gadd9",
+    "Gmaj7",
+    "Gmin6",
+    "Gmin7"
+  ],
+  "timeline": [
+    {
+      "start": 0.5,
+      "end": 1.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "A",
+        "B",
+        "G",
+        "E",
+        "F"
+      ],
+      "score": 0.32
+    },
+    {
+      "start": 1.5,
+      "end": 2.0,
+      "chord": "F#maj7",
+      "pcs": [
+        "F#",
+        "F",
+        "A",
+        "G",
+        "E"
+      ],
+      "score": 0.452
+    },
+    {
+      "start": 2.0,
+      "end": 2.5,
+      "chord": "G#maj7",
+      "pcs": [
+        "G",
+        "G#",
+        "E"
+      ],
+      "score": 0.688
+    },
+    {
+      "start": 2.5,
+      "end": 3.0,
+      "chord": "Gadd9",
+      "pcs": [
+        "A",
+        "A#",
+        "B",
+        "G",
+        "D"
+      ],
+      "score": 0.292
+    },
+    {
+      "start": 3.0,
+      "end": 3.5,
+      "chord": "D6",
+      "pcs": [
+        "D",
+        "A",
+        "F#",
+        "F",
+        "B"
+      ],
+      "score": 0.37
+    },
+    {
+      "start": 4.5,
+      "end": 5.0,
+      "chord": "G7",
+      "pcs": [
+        "G",
+        "B",
+        "F",
+        "A",
+        "G#"
+      ],
+      "score": 0.322
+    },
+    {
+      "start": 5.0,
+      "end": 6.0,
+      "chord": "Dmin6",
+      "pcs": [
+        "A",
+        "D",
+        "F",
+        "G",
+        "B"
+      ],
+      "score": 0.5
+    },
+    {
+      "start": 6.0,
+      "end": 7.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "E",
+        "F"
+      ],
+      "score": 0.605
+    },
+    {
+      "start": 7.0,
+      "end": 8.0,
+      "chord": "C6",
+      "pcs": [
+        "A",
+        "C",
+        "E",
+        "G"
+      ],
+      "score": 0.599
+    },
+    {
+      "start": 8.0,
+      "end": 8.5,
+      "chord": "A7",
+      "pcs": [
+        "C#",
+        "A",
+        "E",
+        "G",
+        "D"
+      ],
+      "score": 0.258
+    },
+    {
+      "start": 8.5,
+      "end": 9.0,
+      "chord": "Amaj7",
+      "pcs": [
+        "G#",
+        "A",
+        "C",
+        "B",
+        "A#"
+      ],
+      "score": 0.294
+    },
+    {
+      "start": 9.5,
+      "end": 10.0,
+      "chord": "Gadd9",
+      "pcs": [
+        "B",
+        "A",
+        "G#",
+        "D",
+        "G"
+      ],
+      "score": 0.477
+    },
+    {
+      "start": 10.0,
+      "end": 10.5,
+      "chord": "Gmaj7",
+      "pcs": [
+        "G",
+        "B",
+        "F#",
+        "D",
+        "A"
+      ],
+      "score": 0.274
+    },
+    {
+      "start": 10.5,
+      "end": 11.0,
+      "chord": "G7",
+      "pcs": [
+        "B",
+        "G",
+        "F",
+        "F#",
+        "A"
+      ],
+      "score": 0.301
+    },
+    {
+      "start": 11.0,
+      "end": 11.5,
+      "chord": "Bmin6",
+      "pcs": [
+        "B",
+        "D",
+        "A#",
+        "G#",
+        "F#"
+      ],
+      "score": 0.353
+    },
+    {
+      "start": 11.5,
+      "end": 12.0,
+      "chord": "Cmaj7",
+      "pcs": [
+        "B",
+        "C",
+        "G",
+        "A#"
+      ],
+      "score": 0.632
+    },
+    {
+      "start": 12.5,
+      "end": 13.5,
+      "chord": "Amin7",
+      "pcs": [
+        "A",
+        "G",
+        "E",
+        "G#",
+        "F#"
+      ],
+      "score": 0.626
+    },
+    {
+      "start": 13.5,
+      "end": 14.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "E",
+        "A",
+        "B",
+        "F"
+      ],
+      "score": 0.568
+    },
+    {
+      "start": 14.5,
+      "end": 15.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "E",
+        "F",
+        "D#"
+      ],
+      "score": 0.591
+    },
+    {
+      "start": 16.5,
+      "end": 17.0,
+      "chord": "D6",
+      "pcs": [
+        "B",
+        "A",
+        "F#",
+        "D"
+      ],
+      "score": 0.725
+    },
+    {
+      "start": 17.0,
+      "end": 17.5,
+      "chord": "Gadd9",
+      "pcs": [
+        "B",
+        "D",
+        "G"
+      ],
+      "score": 0.82
+    },
+    {
+      "start": 17.5,
+      "end": 18.0,
+      "chord": "Gmaj7",
+      "pcs": [
+        "B",
+        "G",
+        "F#",
+        "A",
+        "F"
+      ],
+      "score": 0.422
+    },
+    {
+      "start": 18.0,
+      "end": 18.5,
+      "chord": "Gadd9",
+      "pcs": [
+        "A",
+        "B",
+        "G",
+        "E",
+        "F#"
+      ],
+      "score": 0.412
+    },
+    {
+      "start": 18.5,
+      "end": 19.5,
+      "chord": "C6",
+      "pcs": [
+        "C",
+        "G",
+        "A"
+      ],
+      "score": 0.743
+    },
+    {
+      "start": 19.5,
+      "end": 20.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "E",
+        "F",
+        "G",
+        "F#"
+      ],
+      "score": 0.405
+    },
+    {
+      "start": 20.0,
+      "end": 20.5,
+      "chord": "D6",
+      "pcs": [
+        "D",
+        "F#",
+        "A",
+        "B",
+        "G"
+      ],
+      "score": 0.472
+    },
+    {
+      "start": 20.5,
+      "end": 21.0,
+      "chord": "D7",
+      "pcs": [
+        "F#",
+        "A",
+        "C",
+        "G"
+      ],
+      "score": 0.623
+    },
+    {
+      "start": 21.0,
+      "end": 21.5,
+      "chord": "Gmaj7",
+      "pcs": [
+        "B",
+        "G",
+        "F#",
+        "F"
+      ],
+      "score": 0.569
+    },
+    {
+      "start": 21.5,
+      "end": 22.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "B",
+        "C#",
+        "A",
+        "C",
+        "G"
+      ],
+      "score": 0.398
+    },
+    {
+      "start": 22.0,
+      "end": 23.0,
+      "chord": "C6",
+      "pcs": [
+        "C",
+        "A",
+        "E",
+        "G",
+        "B"
+      ],
+      "score": 0.564
+    },
+    {
+      "start": 23.0,
+      "end": 23.5,
+      "chord": "Aadd9",
+      "pcs": [
+        "E",
+        "B",
+        "F",
+        "A"
+      ],
+      "score": 0.526
+    },
+    {
+      "start": 23.5,
+      "end": 24.0,
+      "chord": "Gadd9",
+      "pcs": [
+        "B",
+        "D",
+        "G",
+        "A"
+      ],
+      "score": 0.79
+    },
+    {
+      "start": 24.5,
+      "end": 25.0,
+      "chord": "Csus2",
+      "pcs": [
+        "C",
+        "D",
+        "G"
+      ],
+      "score": 0.753
+    },
+    {
+      "start": 25.0,
+      "end": 26.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "F",
+        "C"
+      ],
+      "score": 0.75
+    },
+    {
+      "start": 27.0,
+      "end": 27.5,
+      "chord": "Dmin7",
+      "pcs": [
+        "D",
+        "F",
+        "A",
+        "G",
+        "C"
+      ],
+      "score": 0.474
+    },
+    {
+      "start": 27.5,
+      "end": 28.0,
+      "chord": "Dmin6",
+      "pcs": [
+        "D",
+        "A",
+        "B",
+        "F",
+        "G"
+      ],
+      "score": 0.462
+    },
+    {
+      "start": 28.0,
+      "end": 28.5,
+      "chord": "Fmaj7",
+      "pcs": [
+        "C",
+        "E",
+        "F"
+      ],
+      "score": 0.714
+    },
+    {
+      "start": 28.5,
+      "end": 29.0,
+      "chord": "C6",
+      "pcs": [
+        "C",
+        "E",
+        "G",
+        "G#"
+      ],
+      "score": 0.646
+    },
+    {
+      "start": 29.0,
+      "end": 29.5,
+      "chord": "Cmaj7",
+      "pcs": [
+        "C",
+        "G",
+        "E",
+        "B"
+      ],
+      "score": 0.679
+    },
+    {
+      "start": 30.0,
+      "end": 30.5,
+      "chord": "Eadd9",
+      "pcs": [
+        "B",
+        "E",
+        "F#"
+      ],
+      "score": 0.736
+    },
+    {
+      "start": 30.5,
+      "end": 31.0,
+      "chord": "Cmaj7",
+      "pcs": [
+        "E",
+        "B",
+        "C",
+        "F",
+        "F#"
+      ],
+      "score": 0.386
+    },
+    {
+      "start": 31.0,
+      "end": 31.5,
+      "chord": "F6",
+      "pcs": [
+        "A",
+        "F",
+        "C",
+        "A#"
+      ],
+      "score": 0.637
+    },
+    {
+      "start": 31.5,
+      "end": 32.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "A",
+        "C#",
+        "A#"
+      ],
+      "score": 0.652
+    },
+    {
+      "start": 32.0,
+      "end": 32.5,
+      "chord": "C6",
+      "pcs": [
+        "A",
+        "A#",
+        "E",
+        "G",
+        "C"
+      ],
+      "score": 0.59
+    },
+    {
+      "start": 34.5,
+      "end": 35.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "A",
+        "E",
+        "B"
+      ],
+      "score": 0.67
+    },
+    {
+      "start": 35.0,
+      "end": 35.5,
+      "chord": "C6",
+      "pcs": [
+        "A",
+        "C",
+        "E",
+        "B"
+      ],
+      "score": 0.519
+    },
+    {
+      "start": 35.5,
+      "end": 36.0,
+      "chord": "Aadd9",
+      "pcs": [
+        "E",
+        "A",
+        "B"
+      ],
+      "score": 0.568
+    },
+    {
+      "start": 36.0,
+      "end": 36.5,
+      "chord": "Gadd9",
+      "pcs": [
+        "B",
+        "A",
+        "G",
+        "D"
+      ],
+      "score": 0.496
+    },
+    {
+      "start": 36.5,
+      "end": 37.0,
+      "chord": "Eadd9",
+      "pcs": [
+        "B",
+        "E",
+        "F#",
+        "A"
+      ],
+      "score": 0.456
+    },
+    {
+      "start": 37.0,
+      "end": 37.5,
+      "chord": "Gadd9",
+      "pcs": [
+        "A",
+        "B",
+        "G",
+        "G#",
+        "D"
+      ],
+      "score": 0.468
+    },
+    {
+      "start": 37.5,
+      "end": 39.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "F",
+        "A",
+        "E",
+        "C"
+      ],
+      "score": 0.739
+    },
+    {
+      "start": 39.0,
+      "end": 39.5,
+      "chord": "Cmaj7",
+      "pcs": [
+        "E"
+      ],
+      "score": 0.591
+    },
+    {
+      "start": 40.0,
+      "end": 40.5,
+      "chord": "Gadd9",
+      "pcs": [
+        "B",
+        "G",
+        "A",
+        "A#"
+      ],
+      "score": 0.717
+    },
+    {
+      "start": 40.5,
+      "end": 41.0,
+      "chord": "Amin7",
+      "pcs": [
+        "A",
+        "E",
+        "G"
+      ],
+      "score": 0.655
+    },
+    {
+      "start": 41.0,
+      "end": 41.5,
+      "chord": "Esus4",
+      "pcs": [
+        "B",
+        "A",
+        "E",
+        "A#"
+      ],
+      "score": 0.593
+    },
+    {
+      "start": 41.5,
+      "end": 42.0,
+      "chord": "Dmin6",
+      "pcs": [
+        "D",
+        "E",
+        "A",
+        "B",
+        "F"
+      ],
+      "score": 0.351
+    },
+    {
+      "start": 42.0,
+      "end": 42.5,
+      "chord": "Eadd9",
+      "pcs": [
+        "E",
+        "B",
+        "F#",
+        "F"
+      ],
+      "score": 0.38
+    },
+    {
+      "start": 42.5,
+      "end": 43.0,
+      "chord": "Emin6",
+      "pcs": [
+        "B",
+        "G",
+        "E",
+        "A"
+      ],
+      "score": 0.479
+    },
+    {
+      "start": 43.0,
+      "end": 43.5,
+      "chord": "C6",
+      "pcs": [
+        "C",
+        "A",
+        "E"
+      ],
+      "score": 0.564
+    },
+    {
+      "start": 43.5,
+      "end": 44.0,
+      "chord": "C7",
+      "pcs": [
+        "C",
+        "A#",
+        "D",
+        "E",
+        "G"
+      ],
+      "score": 0.498
+    },
+    {
+      "start": 44.0,
+      "end": 44.5,
+      "chord": "Fadd9",
+      "pcs": [
+        "A",
+        "C",
+        "G",
+        "A#",
+        "F"
+      ],
+      "score": 0.581
+    },
+    {
+      "start": 44.5,
+      "end": 45.5,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "F",
+        "E",
+        "F#"
+      ],
+      "score": 0.68
+    },
+    {
+      "start": 45.5,
+      "end": 46.0,
+      "chord": "G7",
+      "pcs": [
+        "D",
+        "F",
+        "G",
+        "C#",
+        "A"
+      ],
+      "score": 0.457
+    },
+    {
+      "start": 46.0,
+      "end": 46.5,
+      "chord": "Dmin7",
+      "pcs": [
+        "C",
+        "A",
+        "D",
+        "E",
+        "F"
+      ],
+      "score": 0.302
+    },
+    {
+      "start": 47.0,
+      "end": 48.0,
+      "chord": "Amaj7",
+      "pcs": [
+        "E",
+        "A",
+        "C#"
+      ],
+      "score": 0.687
+    },
+    {
+      "start": 48.0,
+      "end": 48.5,
+      "chord": "Aadd9",
+      "pcs": [
+        "E",
+        "A"
+      ],
+      "score": 0.638
+    },
+    {
+      "start": 49.0,
+      "end": 49.5,
+      "chord": "Amaj7",
+      "pcs": [
+        "A"
+      ],
+      "score": 0.733
+    },
+    {
+      "start": 50.5,
+      "end": 51.5,
+      "chord": "Dmin7",
+      "pcs": [
+        "A",
+        "D",
+        "F",
+        "C",
+        "E"
+      ],
+      "score": 0.52
+    },
+    {
+      "start": 51.5,
+      "end": 52.0,
+      "chord": "Dadd9",
+      "pcs": [
+        "A",
+        "D",
+        "E"
+      ],
+      "score": 0.737
+    },
+    {
+      "start": 52.0,
+      "end": 52.5,
+      "chord": "Dmin7",
+      "pcs": [
+        "A",
+        "C",
+        "D",
+        "F"
+      ],
+      "score": 0.586
+    },
+    {
+      "start": 53.0,
+      "end": 53.5,
+      "chord": "Dadd9",
+      "pcs": [
+        "D",
+        "A",
+        "F#",
+        "E",
+        "C"
+      ],
+      "score": 0.401
+    },
+    {
+      "start": 55.0,
+      "end": 55.5,
+      "chord": "A7",
+      "pcs": [
+        "A",
+        "G"
+      ],
+      "score": 0.681
+    },
+    {
+      "start": 56.0,
+      "end": 56.5,
+      "chord": "Fadd9",
+      "pcs": [
+        "A",
+        "G",
+        "C",
+        "F",
+        "E"
+      ],
+      "score": 0.689
+    },
+    {
+      "start": 56.5,
+      "end": 57.0,
+      "chord": "A7",
+      "pcs": [
+        "A",
+        "G",
+        "E"
+      ],
+      "score": 0.768
+    },
+    {
+      "start": 57.5,
+      "end": 58.5,
+      "chord": "Fmaj7",
+      "pcs": [
+        "E",
+        "F"
+      ],
+      "score": 0.695
+    },
+    {
+      "start": 58.5,
+      "end": 59.0,
+      "chord": "Fmin6",
+      "pcs": [
+        "F",
+        "C",
+        "G#",
+        "G",
+        "B"
+      ],
+      "score": 0.347
+    },
+    {
+      "start": 59.0,
+      "end": 60.0,
+      "chord": "Amin7",
+      "pcs": [
+        "A",
+        "E",
+        "G",
+        "F"
+      ],
+      "score": 0.722
+    },
+    {
+      "start": 60.0,
+      "end": 60.5,
+      "chord": "Fadd9",
+      "pcs": [
+        "F",
+        "C",
+        "G",
+        "A",
+        "E"
+      ],
+      "score": 0.687
+    },
+    {
+      "start": 60.5,
+      "end": 61.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "E",
+        "C",
+        "F"
+      ],
+      "score": 0.641
+    },
+    {
+      "start": 61.0,
+      "end": 61.5,
+      "chord": "C6",
+      "pcs": [
+        "C",
+        "G",
+        "A",
+        "B"
+      ],
+      "score": 0.68
+    },
+    {
+      "start": 61.5,
+      "end": 62.0,
+      "chord": "Fadd9",
+      "pcs": [
+        "A",
+        "C",
+        "F",
+        "G",
+        "E"
+      ],
+      "score": 0.497
+    },
+    {
+      "start": 62.0,
+      "end": 62.5,
+      "chord": "Cadd9",
+      "pcs": [
+        "G",
+        "E",
+        "C"
+      ],
+      "score": 0.762
+    },
+    {
+      "start": 62.5,
+      "end": 63.0,
+      "chord": "Fadd9",
+      "pcs": [
+        "G",
+        "F",
+        "F#",
+        "C",
+        "A"
+      ],
+      "score": 0.452
+    },
+    {
+      "start": 63.0,
+      "end": 63.5,
+      "chord": "Gmin6",
+      "pcs": [
+        "G",
+        "E"
+      ],
+      "score": 0.64
+    },
+    {
+      "start": 63.5,
+      "end": 64.0,
+      "chord": "Cadd9",
+      "pcs": [
+        "E",
+        "G",
+        "C",
+        "D"
+      ],
+      "score": 0.619
+    },
+    {
+      "start": 64.5,
+      "end": 65.0,
+      "chord": "Gadd9",
+      "pcs": [
+        "G",
+        "B",
+        "A",
+        "D"
+      ],
+      "score": 0.74
+    },
+    {
+      "start": 65.0,
+      "end": 65.5,
+      "chord": "Gmin7",
+      "pcs": [
+        "G",
+        "G#",
+        "D",
+        "F"
+      ],
+      "score": 0.514
+    },
+    {
+      "start": 65.5,
+      "end": 66.0,
+      "chord": "Amin7",
+      "pcs": [
+        "A",
+        "G",
+        "E"
+      ],
+      "score": 0.719
+    },
+    {
+      "start": 66.0,
+      "end": 66.5,
+      "chord": "Fadd9",
+      "pcs": [
+        "F",
+        "A",
+        "G",
+        "F#"
+      ],
+      "score": 0.577
+    },
+    {
+      "start": 66.5,
+      "end": 67.0,
+      "chord": "Fmaj7",
+      "pcs": [
+        "A",
+        "F",
+        "F#",
+        "G#",
+        "E"
+      ],
+      "score": 0.433
+    },
+    {
+      "start": 67.0,
+      "end": 67.5,
+      "chord": "F#maj7",
+      "pcs": [
+        "F#",
+        "F",
+        "A"
+      ],
+      "score": 0.392
+    },
+    {
+      "start": 68.0,
+      "end": 68.5,
+      "chord": "D6",
+      "pcs": [
+        "A",
+        "F#",
+        "F",
+        "G#",
+        "D"
+      ],
+      "score": 0.478
+    },
+    {
+      "start": 68.5,
+      "end": 69.0,
+      "chord": "Dadd9",
+      "pcs": [
+        "F#",
+        "A",
+        "F",
+        "E",
+        "D"
+      ],
+      "score": 0.597
+    },
+    {
+      "start": 69.5,
+      "end": 70.0,
+      "chord": "A#maj7",
+      "pcs": [
+        "A",
+        "A#",
+        "G#",
+        "B",
+        "C"
+      ],
+      "score": 0.274
+    },
+    {
+      "start": 70.5,
+      "end": 71.0,
+      "chord": "A7",
+      "pcs": [
+        "A",
+        "E",
+        "G"
+      ],
+      "score": 0.739
+    },
+    {
+      "start": 71.0,
+      "end": 72.5,
+      "chord": "Amin7",
+      "pcs": [
+        "A",
+        "G",
+        "E",
+        "G#"
+      ],
+      "score": 0.806
+    },
+    {
+      "start": 72.5,
+      "end": 73.0,
+      "chord": "C6",
+      "pcs": [
+        "G",
+        "A",
+        "C",
+        "E",
+        "C#"
+      ],
+      "score": 0.425
+    },
+    {
+      "start": 73.0,
+      "end": 73.5,
+      "chord": "Amin6",
+      "pcs": [
+        "A",
+        "E",
+        "F#",
+        "G"
+      ],
+      "score": 0.678
+    },
+    {
+      "start": 73.5,
+      "end": 74.0,
+      "chord": "Amaj7",
+      "pcs": [
+        "A",
+        "G#"
+      ],
+      "score": 0.667
+    },
+    {
+      "start": 74.0,
+      "end": 75.0,
+      "chord": "A#maj7",
+      "pcs": [
+        "F",
+        "A#",
+        "D",
+        "A"
+      ],
+      "score": 0.704
+    }
+  ]
+}

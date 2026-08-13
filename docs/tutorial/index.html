@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n-title="tutTitle">60-second live listen — Symphony Instrument Analysis</title>
+  <meta name="description" content="Silent live-listen: this page does not play music. It draws whatever this device is already making — speakers, Now Playing through the speaker, or the room. English and French.">
+  <meta name="theme-color" content="#1f2937">
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/">
+  <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=en">
+  <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=fr">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <p class="crumb">
+      <span>
+        <a href="https://thebonhomme.com/">thebonhomme.com</a>
+        ·
+        <a href="../">Symphony</a>
+        ·
+        <a href="../how-to.html" data-i18n="crumbEli5">ELI5</a>
+      </span>
+      <span class="lang-switch" role="group" aria-label="English / Français">
+        <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+      </span>
+    </p>
+    <header class="hero">
+      <div>
+        <div class="badge" data-i18n="tutBadge">Live listen · we stay silent · EN / FR · works on 5G</div>
+        <h1 data-i18n="tutH1">See what this device is playing</h1>
+        <p data-i18n="tutLead">
+          This page never plays a song. It draws the live sound of
+          <strong>this</strong> device: speaker, piano, room, or Now Playing
+          if that song is coming out of the speaker. One track per instrument
+          we can hear (up to 6). If there is no tune — only voices or noise — we
+          still draw that live signal. We do not invent a melody.
+        </p>
+      </div>
+      <div class="controls">
+        <button class="primary" id="btnMic" type="button" data-i18n="btnMic">Listen with the mic</button>
+        <button class="secondary share-only" id="btnShare" type="button" data-i18n="btnTab">Listen to tab/window audio</button>
+        <button class="ghost" id="btnStop" type="button" data-i18n="btnStop">Stop</button>
+      </div>
+    </header>
+
+    <section class="tour" aria-live="polite">
+      <div class="tour-step" id="tourStep">1</div>
+      <div>
+        <h2 id="tourTitle">We will not play a song over yours</h2>
+        <p id="tourBody">Play anything already on this device. This page only draws the air that is wiggling right now.</p>
+      </div>
+      <button class="ghost" id="btnNext" type="button" data-i18n="tourNext">Next idea</button>
+    </section>
+
+    <main class="stage">
+      <section class="panel daw-panel">
+        <h3 id="tracksHeading">Live tracks · 0 instruments</h3>
+        <canvas id="tracks" height="160" aria-label="Logic-style waveform tracks, one per instrument"></canvas>
+        <p class="silent" id="quiet">Nothing loud yet. Play Now Playing out loud on this device, or a piano, or a video.</p>
+        <div class="note-row">
+          <div class="note-card">
+            <span data-i18n="labelNote">Closest piano name</span>
+            <strong id="note">—</strong>
+          </div>
+          <div class="note-card">
+            <span data-i18n="labelHz">Wiggles per second</span>
+            <strong id="hz">waiting</strong>
+          </div>
+        </div>
+        <div class="piano" id="piano" aria-label="Piano keys that light up from live sound"></div>
+      </section>
+
+      <aside class="panel">
+        <h3 data-i18n="peaksHeading">Competing pitches</h3>
+        <canvas id="spec" height="150"></canvas>
+        <div class="peaks" id="peaks">Waiting for live sound…</div>
+        <div class="hard-flag" id="hard">
+          Live naming is hard because the picture keeps moving. Watch how many pitches show up at once.
+        </div>
+      </aside>
+    </main>
+
+    <p class="footer" id="status">
+      iPhone / iPad / Mac: Now Playing only reaches this page if it is coming
+      out of this device’s speaker (or a shared tab on a computer). Apple Watch
+      Now Playing is the same song — open this page on the iPhone that is
+      playing it. Grown-up tool: <code>python3 scripts/analyze_instruments.py</code>
+    </p>
+  </div>
+
+  <video id="shareVideo" autoplay muted playsinline hidden></video>
+
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <h2 data-i18n="gateTitle">One minute. Your sound, not ours.</h2>
+      <p data-i18n="gateBody">
+        Press listen. We will not put music underneath you.
+        If Music / Now Playing is on this phone, turn the speaker on —
+        that live audio is the input. No melody? We still draw the
+        noise and voices. We never fake a tune. Each instrument we can
+        separate gets its own track (max 6).
+      </p>
+      <div class="controls" style="margin-top:16px">
+        <button class="primary" id="btnMicGate" type="button" data-i18n="btnMic">Listen with the mic</button>
+        <button class="secondary share-only" id="btnShareGate" type="button" data-i18n="btnTab">Listen to tab audio</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
