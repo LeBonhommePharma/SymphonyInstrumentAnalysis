@@ -21,6 +21,11 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 from analyze_instruments import analyze, load_wav  # noqa: E402
 from list_mics import NO_DEVICES_MESSAGE  # noqa: E402
+from crayon_piano_lib import (  # noqa: E402
+    peak_hz_of_db,
+    rfft_db,
+    spec_x_of,
+)
 
 SR = 48000
 # Analyzer FFT size is 4096, so pick bin-centered tones (bin * sr / 4096).
@@ -206,10 +211,32 @@ def check_crayon_piano() -> None:
     print((proc.stdout or "").strip() or "density_cluster.py: OK")
 
 
+
+def check_spectrum_scale() -> None:
+    sr = 44100
+    n = 4096
+    t = np.arange(n, dtype=np.float64) / sr
+    tone = 0.5 * np.sin(2 * np.pi * 440.0 * t)
+    db, bin_hz = rfft_db(tone, sr, n)
+    peak_f = peak_hz_of_db(db, bin_hz)
+    if abs(peak_f - 440.0) > bin_hz * 1.5:
+        raise SystemExit(f"440 Hz tone peaked at {peak_f:.2f} Hz (bin {bin_hz:.3f} Hz)")
+    x440 = spec_x_of(440.0)
+    x_left = spec_x_of(27.5)
+    x_right = spec_x_of(440.0 * (2.0 ** (39.0 / 12.0)))
+    if abs(x_left) > 1e-12 or abs(x_right - 1) > 1e-9:
+        raise SystemExit(f"log axis ends wrong: A0={x_left} C8={x_right}")
+    # 440 is 4 octaves above 27.5, so it is not the midpoint.
+    if not (0.50 < x440 < 0.60):
+        raise SystemExit(f"440 Hz should sit near 0.55 on a log A0–C8 axis, got {x440:.4f}")
+    print(f"spectrum scale: 440 Hz peak={peak_f:.2f} Hz, log-x={x440:.4f} (440 tick)")
+
+
 def main() -> None:
     check_ffmpeg()
     check_capture_scripts()
     check_public_site()
+    check_spectrum_scale()
     with tempfile.TemporaryDirectory() as td:
         out_dir = Path(td)
         wav = out_dir / "smoke_tones.wav"
