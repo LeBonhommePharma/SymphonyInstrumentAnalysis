@@ -8,6 +8,8 @@ Open [`keyboard.html`](keyboard.html) in Safari or Chrome. Prefer `python3 -m ht
 
 **Pistes** — empty until a band is heard. Click a chip to follow that musician; empty selection snaps back to the mix.
 
-**Look** — Day, Light, Dark, Night, and Stealth (dim stage). The five swatches sit next to the title.
+**Look** — Day, Light, Dark, Night, Stealth, plus **Auto** (ambient light / time of day). A manual swatch sticks until you tap Auto again.
 
-**Keyboard** — full 88 keys, La0 to Do8. On a phone, swipe sideways; it opens on Do4.
+**Spectre** — top-right. One log-Hz plot (A0–C8, **440** marked) in dBFS. Every clustered source and held key is a crayon tick on those same axes. No source cap.
+
+**Keyboard** — full 88 keys, La0 to Do8, spanning the page (52 white keys × 28px minimum; swipe if the window is narrower). Hold keys for polyphony.

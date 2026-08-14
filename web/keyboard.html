@@ -7,9 +7,14 @@
   (function () {
     try {
       var t = localStorage.getItem("crayon-theme");
+      var mode = localStorage.getItem("crayon-theme-mode");
       var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
-      if (!t || !ok[t]) {
-        t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "day" : "night";
+      if (mode !== "manual" || !t || !ok[t]) {
+        var h = new Date().getHours();
+        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
+        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
+        else if (h >= 17) t = light ? "light" : "night";
+        else t = light ? "day" : "light";
       }
       var light = t === "day" || t === "light";
       var bg = { day: "#f6ead4", light: "#eef1f5", dark: "#1c1e24", night: "#0d1220", stealth: "#121214" }[t];
@@ -50,9 +55,9 @@
       --tap: color-mix(in srgb, #9a9aa2 18%, transparent);
       --ease: cubic-bezier(0.22, 1, 0.36, 1);
       --dt: 150ms;
-      --glow: 28%;
+      --glow: 8%;
       --wave-bed: #16161a;
-      --wave-grid: rgba(255,255,255,0.04);
+      --wave-grid: rgba(255,255,255,0.03);
       --btn-face: #1c1c20;
       --safe-t: env(safe-area-inset-top, 0px);
       --safe-r: env(safe-area-inset-right, 0px);
@@ -197,13 +202,25 @@
       box-shadow: inset 0 0 0 1px rgba(0,0,0,0.22);
       background: var(--swatch);
     }
-    .scene[data-theme-set="day"] { --swatch: #f6ead4; }
-    .scene[data-theme-set="light"] { --swatch: #eef1f5; }
-    .scene[data-theme-set="dark"] { --swatch: #1c1e24; }
-    .scene[data-theme-set="night"] { --swatch: #0d1220; }
-    .scene[data-theme-set="stealth"] { --swatch: #121214; }
+    .scene[data-theme-set="day"] { --swatch: #f6ead4; box-shadow: inset 0 0 0 1px #b89f78; }
+    .scene[data-theme-set="light"] { --swatch: #eef1f5; box-shadow: inset 0 0 0 1px #8a97a8; }
+    .scene[data-theme-set="dark"] { --swatch: #1c1e24; box-shadow: inset 0 0 0 1px #6a6e7c; }
+    .scene[data-theme-set="night"] { --swatch: #0d1220; box-shadow: inset 0 0 0 1px #5a6a90; }
+    .scene[data-theme-set="stealth"] { --swatch: #121214; box-shadow: inset 0 0 0 1px #6e6e76; }
+    .scene-auto {
+      font: 700 0.68rem/1 "SF Pro Text", system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px var(--hairline);
+    }
+    .scene-auto[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
+    }
     .scene[aria-pressed="true"] {
-      box-shadow: 0 0 0 2px var(--ink);
+      box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px rgba(0,0,0,0.35);
     }
     .scene:focus-visible {
       outline: 1px solid var(--replay-on);
@@ -215,12 +232,30 @@
       font-weight: 650;
       letter-spacing: -0.03em;
     }
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
-      align-items: center;
-      margin-bottom: 10px;
+    .work {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 38vw);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+    .spec-panel h3 {
+      margin: 0 0 6px;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #spec {
+      width: 100%;
+      height: 220px;
+      display: block;
+      border-radius: 10px;
+      background: var(--wave-bed);
+    }
+    @media (max-width: 820px) {
+      .work { grid-template-columns: 1fr; }
     }
     button, input, select {
       font: inherit;
@@ -692,7 +727,8 @@
       border: 1px solid var(--hairline);
       border-radius: 12px;
       padding: 10px 10px 12px;
-      box-shadow: 0 18px 40px color-mix(in srgb, var(--ink) 12%, transparent);
+      box-shadow: none;
+      width: calc(100% + 0px);
     }
     .board-wrap {
       position: relative;
@@ -704,9 +740,9 @@
     }
     #board {
       position: relative;
-      height: clamp(200px, 30vw, 280px);
-      min-width: 1180px;
-      width: 100%;
+      height: clamp(240px, 32vh, 360px);
+      min-width: max(100%, calc(52 * 28px));
+      width: max(100%, calc(52 * 28px));
       user-select: none;
       touch-action: pan-x;
     }
@@ -872,10 +908,10 @@
       .chroma { height: 72px; }
     }
     @media (min-width: 768px) {
-      #board { height: 240px; }
+      #board { height: 280px; }
     }
     @media (min-width: 1180px) {
-      #board { height: 268px; min-width: 0; }
+      #board { height: 320px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .chroma .fill,
@@ -1032,6 +1068,7 @@
   <div class="top">
     <h1>Piano-crayon</h1>
     <div class="scenes" role="radiogroup" aria-label="Ambiance">
+      <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
       <button type="button" class="scene" data-theme-set="day" aria-label="Jour" title="Jour"></button>
       <button type="button" class="scene" data-theme-set="light" aria-label="Clair" title="Clair"></button>
       <button type="button" class="scene" data-theme-set="dark" aria-label="Sombre" title="Sombre"></button>
@@ -1040,6 +1077,8 @@
     </div>
   </div>
 
+  <div class="work">
+  <div class="work-main">
   <div class="row">
     <button id="replay" type="button" aria-label="Rejouer">
       <span class="icon" aria-hidden="true"></span>
@@ -1094,6 +1133,12 @@
   <div id="chroma" class="chroma" aria-label="Crayons allumés"></div>
   <div class="chips" id="chips">
     <span class="hz-live" id="hzLive"></span>
+  </div>
+  </div>
+  <aside class="spec-panel">
+    <h3>Spectre · sources regroupées</h3>
+    <canvas id="spec" width="640" height="320" aria-label="Spectre log-hertz, sources regroupées"></canvas>
+  </aside>
   </div>
 
   <div class="board-well">
@@ -1164,7 +1209,10 @@
   const MIXED_LO_HZ = 27.5;
   const MIXED_HI_HZ = 5000;
   const CLUSTER_DROP_MS = 1400;
-  const CLUSTER_SOFT_MAX = 8;
+  const SPEC_F_LO = 27.5;
+  const SPEC_F_HI = 440 * Math.pow(2, 39 / 12);
+  const SPEC_DB_LO = -90;
+  const SPEC_DB_HI = 0;
   const LABEL_URL = "http://127.0.0.1:4174/label";
   const LABEL_EVERY_MS = 1600;
 
@@ -1188,6 +1236,7 @@
   const $tracks = document.getElementById("tracks");
   const $autotune = document.getElementById("autotune");
   const $tuneLine = document.getElementById("tuneLine");
+  const $spec = document.getElementById("spec");
   let liveTracks = [];
   let nextTrackId = 1;
   let selectedTrackId = null;
@@ -1208,6 +1257,9 @@
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const keys = new Map();
+  const heldVoices = new Map();
+  let lastSpecClusters = [];
+  let specSizeKey = "";
   let audioCtx = null;
   let analyser = null;
   let sourceNode = null;
@@ -1268,15 +1320,41 @@
     stealth: { scheme: "dark", bg: "#121214", bar: "black" }
   };
   const THEME_KEY = "crayon-theme";
+  const THEME_MODE_KEY = "crayon-theme-mode";
+  let themeMode = "auto";
+  let lastThemeLux = null;
+  let lastAutoTheme = null;
+  let lastAutoThemeAt = 0;
+  function prefersLightScheme() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
+  }
+  function themeFromHour() {
+    const h = new Date().getHours() + new Date().getMinutes() / 60;
+    const light = prefersLightScheme();
+    if (h >= 6 && h < 17) return light ? "day" : "light";
+    if (h >= 17 && h < 21) return light ? "light" : "night";
+    return light ? "night" : "stealth";
+  }
+  function themeFromLux(lux) {
+    if (!(lux >= 0) || !isFinite(lux)) return themeFromHour();
+    if (lux >= 20000) return "day";
+    if (lux >= 800) return "light";
+    if (lux >= 80) return prefersLightScheme() ? "light" : "dark";
+    if (lux >= 8) return "night";
+    return "stealth";
+  }
+  function autoThemeName() {
+    return lastThemeLux != null ? themeFromLux(lastThemeLux) : themeFromHour();
+  }
   function preferredTheme() {
     try {
+      const mode = localStorage.getItem(THEME_MODE_KEY);
       const saved = localStorage.getItem(THEME_KEY);
-      if (saved && THEMES[saved]) return saved;
+      if (mode === "manual" && saved && THEMES[saved]) return saved;
     } catch (e) { /* ignore */ }
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) return "day";
-    return "night";
+    return autoThemeName();
   }
-  function applyTheme(name) {
+  function applyTheme(name, persistMode) {
     const id = THEMES[name] ? name : "night";
     const spec = THEMES[id];
     document.documentElement.setAttribute("data-theme", id);
@@ -1287,9 +1365,15 @@
     if (theme) theme.setAttribute("content", spec.bg);
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if (bar) bar.setAttribute("content", spec.bar);
-    try { localStorage.setItem(THEME_KEY, id); } catch (e) { /* ignore */ }
+    try {
+      localStorage.setItem(THEME_KEY, id);
+      localStorage.setItem(THEME_MODE_KEY, themeMode);
+    } catch (e) { /* ignore */ }
     document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
-      btn.setAttribute("aria-pressed", btn.getAttribute("data-theme-set") === id ? "true" : "false");
+      btn.setAttribute("aria-pressed", themeMode === "manual" && btn.getAttribute("data-theme-set") === id ? "true" : "false");
+    });
+    document.querySelectorAll("[data-theme-auto]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", themeMode === "auto" ? "true" : "false");
     });
     NOTE_NAMES.forEach(function (n) {
       const c = CRAYONS[n];
@@ -1311,6 +1395,7 @@
       if (pc && CRAYONS[pc]) paintEl(el, CRAYONS[pc]);
     });
     if (typeof drawWave === "function") drawWave(true);
+    if (typeof drawSpecPlot === "function") drawSpecPlot(lastSpecClusters);
   }
   function concertA() { return $autotune.checked ? aEst : A4_REF; }
   function midiToHzRef(m, a) { return a * Math.pow(2, (m - 69) / 12); }
@@ -1474,7 +1559,7 @@
       }
     }
     peaks.sort(function (a, b) { return b.db - a.db; });
-    return peaks.slice(0, 36);
+    return peaks.slice(0, 512);
   }
 
   function groupHarmonicFunds(peaks) {
@@ -1594,11 +1679,9 @@
       });
     });
     clusters.sort(function (a, b) { return b.db - a.db; });
-    if (!clusters.length) return [];
-    const top = clusters[0].db;
     return clusters.filter(function (c) {
-      return c.db > top - 22 && c.db > -72;
-    }).slice(0, CLUSTER_SOFT_MAX);
+      return c.db > -90;
+    });
   }
 
   function trackIou(t, c) {
@@ -1901,7 +1984,15 @@
       }
       el.appendChild(lab);
       el.dataset.idleName = lab.textContent;
-      el.addEventListener("click", function () { previewKey(m); });
+      el.addEventListener("pointerdown", function (ev) {
+        ev.preventDefault();
+        el.setPointerCapture(ev.pointerId);
+        startHeldKey(m);
+        el.classList.add("on");
+        paintEl(el, crayonOf(m));
+      });
+      el.addEventListener("pointerup", function () { stopHeldKey(m); });
+      el.addEventListener("pointercancel", function () { stopHeldKey(m); });
       $board.appendChild(el);
       keys.set(m, el);
     }
@@ -2222,6 +2313,193 @@
       $arrange.setAttribute("aria-valuenow", String(sec));
       $arrange.setAttribute("aria-valuetext", text);
     }
+  }
+
+  function sizeSpecCanvas() {
+    if (!$spec) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const rect = $spec.getBoundingClientRect();
+    const w = Math.max(240, Math.floor(rect.width * dpr));
+    const h = Math.max(160, Math.floor(rect.height * dpr));
+    const key = w + "x" + h;
+    if (specSizeKey === key) return;
+    specSizeKey = key;
+    $spec.width = w;
+    $spec.height = h;
+  }
+
+  function specXOf(f, padL, plotW) {
+    const t = (Math.log2(Math.max(f, SPEC_F_LO)) - Math.log2(SPEC_F_LO)) / (Math.log2(SPEC_F_HI) - Math.log2(SPEC_F_LO));
+    return padL + Math.max(0, Math.min(1, t)) * plotW;
+  }
+
+  function specYOfDb(db, padT, plotH) {
+    const t = (db - SPEC_DB_LO) / (SPEC_DB_HI - SPEC_DB_LO);
+    return padT + plotH - Math.max(0, Math.min(1, t)) * plotH;
+  }
+
+  function drawSpecPlot(clusters) {
+    if (!$spec) return;
+    sizeSpecCanvas();
+    const ctx = $spec.getContext("2d");
+    const width = $spec.width;
+    const height = $spec.height;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--wave-bed").trim() || "#16161a";
+    ctx.fillRect(0, 0, width, height);
+    const padL = 36 * dpr;
+    const padR = 10 * dpr;
+    const padT = 20 * dpr;
+    const padB = 26 * dpr;
+    const plotW = Math.max(8, width - padL - padR);
+    const plotH = Math.max(8, height - padT - padB);
+    ctx.strokeStyle = "rgba(148,163,184,0.16)";
+    ctx.lineWidth = Math.max(1, dpr * 0.5);
+    ctx.font = 9 * dpr + "px ui-monospace, Menlo, monospace";
+    ctx.fillStyle = "#94a3b8";
+    ctx.textBaseline = "middle";
+    [-90, -60, -30, 0].forEach(function (db) {
+      const y = specYOfDb(db, padT, plotH);
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(padL + plotW, y);
+      ctx.stroke();
+      ctx.textAlign = "right";
+      ctx.fillText(String(db), padL - 4 * dpr, y);
+    });
+    ctx.textAlign = "center";
+    ctx.fillText("dBFS", 16 * dpr, padT - 8 * dpr);
+    [
+      [27.5, "27.5"], [55, "55"], [110, "110"], [220, "220"],
+      [440, "440"], [880, "880"], [1760, "1.76k"], [3520, "3.5k"]
+    ].forEach(function (row) {
+      const x = specXOf(row[0], padL, plotW);
+      const mark = row[0] === 440;
+      ctx.beginPath();
+      ctx.strokeStyle = mark ? "rgba(248,250,252,0.4)" : "rgba(148,163,184,0.12)";
+      ctx.moveTo(x, padT);
+      ctx.lineTo(x, padT + plotH);
+      ctx.stroke();
+      ctx.fillStyle = mark ? "#e2e8f0" : "#94a3b8";
+      ctx.textBaseline = "top";
+      ctx.fillText(row[1], x, padT + plotH + 4 * dpr);
+    });
+    ctx.fillStyle = "#94a3b8";
+    ctx.textAlign = "right";
+    ctx.fillText("Hz", width - 6 * dpr, padT + plotH + 4 * dpr);
+
+    if (spec && analyser && audioCtx) {
+      const binHz = audioCtx.sampleRate / analyser.fftSize;
+      const i0 = Math.max(1, Math.floor(SPEC_F_LO / binHz));
+      const i1 = Math.min(spec.length - 1, Math.ceil(SPEC_F_HI / binHz));
+      if (i1 > i0) {
+        ctx.beginPath();
+        ctx.moveTo(specXOf(i0 * binHz, padL, plotW), padT + plotH);
+        for (let i = i0; i <= i1; i++) {
+          ctx.lineTo(specXOf(i * binHz, padL, plotW), specYOfDb(spec[i], padT, plotH));
+        }
+        ctx.lineTo(specXOf(i1 * binHz, padL, plotW), padT + plotH);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(45, 212, 191, 0.28)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(specXOf(i0 * binHz, padL, plotW), specYOfDb(spec[i0], padT, plotH));
+        for (let i = i0; i <= i1; i++) {
+          ctx.lineTo(specXOf(i * binHz, padL, plotW), specYOfDb(spec[i], padT, plotH));
+        }
+        ctx.strokeStyle = "rgba(45, 212, 191, 0.85)";
+        ctx.lineWidth = Math.max(1.1, dpr);
+        ctx.stroke();
+      }
+    }
+
+    const marks = clusters || [];
+    marks.forEach(function (c) {
+      const f = c.f0 || c.f || c.freq;
+      if (!f) return;
+      const db = typeof c.db === "number" ? c.db : -24;
+      const x = specXOf(f, padL, plotW);
+      const y = specYOfDb(db, padT, plotH);
+      const info = crayonOf(Math.round(69 + 12 * Math.log2(f / 440)));
+      ctx.fillStyle = rgbCss(info.rgb);
+      ctx.beginPath();
+      ctx.arc(x, y, 4.5 * dpr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(248,250,252,0.7)";
+      ctx.lineWidth = Math.max(1, dpr * 0.6);
+      ctx.stroke();
+    });
+    heldVoices.forEach(function (_v, midi) {
+      const f = midiToHz(midi);
+      const x = specXOf(f, padL, plotW);
+      const y = specYOfDb(-18, padT, plotH);
+      ctx.strokeStyle = rgbCss(crayonOf(midi).rgb);
+      ctx.beginPath();
+      ctx.moveTo(x, padT + plotH);
+      ctx.lineTo(x, y);
+      ctx.lineWidth = Math.max(1, dpr);
+      ctx.stroke();
+    });
+    if (marks.length) {
+      ctx.fillStyle = "#e2e8f0";
+      ctx.font = "600 " + 11 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const f0 = marks[0].f0 || marks[0].f;
+      ctx.fillText(Math.round(f0) + " Hz · " + marks.length, padL + 6 * dpr, 6 * dpr);
+    }
+  }
+
+  function ensureKeyBus() {
+    ensureAnalyser();
+    if (!audioCtx) return null;
+    if (!window._keyMix) {
+      const mix = audioCtx.createGain();
+      mix.gain.value = 0.2;
+      mix.connect(analyser);
+      const hear = audioCtx.createGain();
+      hear.gain.value = $unmute.checked ? 0.18 : 0;
+      mix.connect(hear);
+      hear.connect(audioCtx.destination);
+      window._keyMix = mix;
+      window._keyHear = hear;
+    }
+    if (window._keyHear) window._keyHear.gain.value = $unmute.checked ? 0.18 : 0;
+    return window._keyMix;
+  }
+
+  function startHeldKey(midi) {
+    if (heldVoices.has(midi)) return;
+    const mix = ensureKeyBus();
+    if (!mix) return;
+    if (heldVoices.size >= 96) {
+      const oldest = heldVoices.keys().next().value;
+      stopHeldKey(oldest);
+    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = midiToHz(midi);
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.012);
+    osc.connect(gain);
+    gain.connect(mix);
+    osc.start();
+    heldVoices.set(midi, { osc: osc, gain: gain });
+    startLoop();
+  }
+
+  function stopHeldKey(midi) {
+    const v = heldVoices.get(midi);
+    if (!v) return;
+    heldVoices.delete(midi);
+    const now = audioCtx ? audioCtx.currentTime : 0;
+    try {
+      v.gain.gain.cancelScheduledValues(now);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+      v.gain.gain.linearRampToValueAtTime(0, now + 0.06);
+      v.osc.stop(now + 0.07);
+    } catch (e) { /* already stopped */ }
   }
 
   function stopLoop() {
@@ -2588,6 +2866,7 @@
 
   $unmute.addEventListener("change", function () {
     setSampleGain($unmute.checked);
+    if (window._keyHear && audioCtx) window._keyHear.gain.value = $unmute.checked ? 0.18 : 0;
   });
 
   $autotune.addEventListener("change", function () {
@@ -2595,11 +2874,44 @@
     syncTuneUi();
   });
 
+  try { themeMode = localStorage.getItem(THEME_MODE_KEY) || "auto"; } catch (e) { themeMode = "auto"; }
   document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
     btn.addEventListener("click", function () {
+      themeMode = "manual";
       applyTheme(btn.getAttribute("data-theme-set"));
     });
   });
+  document.querySelectorAll("[data-theme-auto]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      themeMode = "auto";
+      lastAutoThemeAt = 0;
+      applyTheme(autoThemeName());
+    });
+  });
+  try {
+    if (typeof AmbientLightSensor === "function") {
+      const als = new AmbientLightSensor({ frequency: 0.4 });
+      als.addEventListener("reading", function () {
+        lastThemeLux = als.illuminance;
+        if (themeMode !== "auto") return;
+        const next = themeFromLux(lastThemeLux);
+        const now = Date.now();
+        if (next === lastAutoTheme && now - lastAutoThemeAt < 8000) return;
+        if (lastAutoThemeAt && now - lastAutoThemeAt < 12000) return;
+        lastAutoThemeAt = now;
+        lastAutoTheme = next;
+        applyTheme(next);
+      });
+      als.start();
+    }
+  } catch (e) { /* no ALS */ }
+  setInterval(function () {
+    if (themeMode !== "auto" || lastThemeLux != null) return;
+    const next = themeFromHour();
+    if (next === lastAutoTheme) return;
+    lastAutoTheme = next;
+    applyTheme(next);
+  }, 60000);
 
   function onArrangePointer(ev, restart) {
     if (ev.pointerType === "mouse" && ev.buttons !== 1 && ev.type !== "pointerdown") return;
@@ -2654,6 +2966,7 @@
   function onResize() {
     layoutBlackKeys();
     drawWave();
+    drawSpecPlot(lastSpecClusters);
   }
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(onResize);
@@ -2691,14 +3004,21 @@
 
   function loop() {
     raf = 0;
-    if (mode === "idle" || !analyser) {
+    if (!analyser) {
       loopOn = false;
+      return;
+    }
+    if (mode === "idle" && heldVoices.size === 0) {
+      loopOn = false;
+      drawSpecPlot(lastSpecClusters);
       return;
     }
     analyser.getFloatFrequencyData(spec);
     const binHz = audioCtx.sampleRate / analyser.fftSize;
     updateConcertPitch(spec, binHz);
     const clustered = densityClusterFunds(groupHarmonicFunds(extractClusterPeaks(spec, binHz)));
+    lastSpecClusters = clustered;
+    drawSpecPlot(clustered);
     matchLiveTracks(clustered, performance.now());
     syncTrackUi();
     if (performance.now() - lastLabelAt > LABEL_EVERY_MS) requestLabels(false);
