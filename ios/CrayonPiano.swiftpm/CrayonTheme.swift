@@ -225,10 +225,32 @@ enum SceneStyle: String, CaseIterable, Identifiable {
     }
 
     static func preferred() -> SceneStyle {
-        if let saved = UserDefaults.standard.string(forKey: "crayon-theme"),
+        let auto = UserDefaults.standard.object(forKey: "crayon-theme-auto") as? Bool ?? true
+        if !auto, let saved = UserDefaults.standard.string(forKey: "crayon-theme-manual")
+            ?? UserDefaults.standard.string(forKey: "crayon-theme"),
            let style = SceneStyle(rawValue: saved) {
             return style
         }
-        return UITraitCollection.current.userInterfaceStyle == .light ? .day : .night
+        return fromAmbient(
+            brightness: UIScreen.main.brightness,
+            interface: UITraitCollection.current.userInterfaceStyle
+        )
+    }
+
+    /// No camera / CoreLocation. Screen brightness + system color scheme + hour.
+    static func fromAmbient(brightness: CGFloat, interface: UIUserInterfaceStyle, now: Date = Date()) -> SceneStyle {
+        let hour = Calendar.current.component(.hour, from: now)
+        let lightScheme = interface == .light
+        if brightness < 0.12 { return .stealth }
+        if brightness < 0.22 { return .night }
+        if hour >= 21 || hour < 6 {
+            return brightness < 0.45 ? .stealth : .night
+        }
+        if hour >= 17 {
+            return lightScheme ? .light : .night
+        }
+        if brightness >= 0.78, lightScheme, hour >= 8, hour < 17 { return .day }
+        if lightScheme { return brightness >= 0.5 ? .day : .light }
+        return brightness >= 0.55 ? .dark : .night
     }
 }

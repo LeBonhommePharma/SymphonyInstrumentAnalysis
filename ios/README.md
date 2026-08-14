@@ -53,8 +53,9 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
   Unmute** to hear it.
 - **Waveform track** — DAW-style lane (Logic Pro / GarageBand feel): a fixed playhead with the
   waveform scrolling right→left as it plays. Drag the lane to scrub.
-- Track chips, auto-accord, day/light/dark/night/stealth scenes, chords.
-- Full 88-key piano (A0–C8) with a log-frequency clustered spectrum.
+- Track chips, auto-accord, day/light/dark/night/stealth + Auto ambient scenes, chords.
+- Full 88-key piano (A0–C8) spanning the window (horizontal scroll only if white keys would drop below ~28pt).
+- Log-frequency clustered spectrum (A0–C8, dBFS, 440 Hz tick) with unbounded regrouped sources.
 
 ## Files (`CrayonPiano.swiftpm/`)
 

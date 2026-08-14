@@ -44,7 +44,7 @@ final class PianoScrollView: UIScrollView {
     override func layoutSubviews() {
         super.layoutSubviews()
         let whites = CGFloat(max(1, PitchMath.whiteKeyCount()))
-        let minWhite: CGFloat = 22
+        let minWhite: CGFloat = 28
         let width = max(bounds.width, whites * minWhite)
         board.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
         contentSize = board.frame.size

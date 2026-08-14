@@ -27,7 +27,12 @@ final class PianoSession: ObservableObject {
     private(set) var wavePeaks: [Float] = []
     let peaksPerSec: Double = 240
     @Published var sceneChoice: SceneStyle = SceneStyle.preferred() {
-        didSet { UserDefaults.standard.set(sceneChoice.rawValue, forKey: "crayon-theme") }
+        didSet {
+            UserDefaults.standard.set(sceneChoice.rawValue, forKey: "crayon-theme")
+            if !sceneAuto {
+                UserDefaults.standard.set(sceneChoice.rawValue, forKey: "crayon-theme-manual")
+            }
+        }
     }
     @Published var chordsOn = true
     @Published var unmute = false
@@ -36,9 +41,10 @@ final class PianoSession: ObservableObject {
     @Published var selectedTrackId: Int?
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
-    @Published var specDb: [Float] = []
-    @Published var specBinHz: Double = 0
-    @Published var specClusters: [SpectralCluster] = []
+    @Published var sceneAuto = UserDefaults.standard.object(forKey: "crayon-theme-auto") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(sceneAuto, forKey: "crayon-theme-auto") }
+    }
+    let specBus = SpectrumBus()
 
     var scene: SceneStyle { sceneChoice }
 
@@ -70,9 +76,16 @@ final class PianoSession: ObservableObject {
     private var nextTrackId = 1
     private var lastLabelAt: Double = 0
     private var labelBusy = false
+    private var voiceOrder: [Int] = []
+    private var lastAutoSceneAt: TimeInterval = 0
+    private var lastAutoStyle: SceneStyle?
+    private var brightnessObserver: NSObjectProtocol?
+    private var lastClusters: [SpectralCluster] = []
+    private var lastPeaks: [SpecPeak] = []
 
     private struct Voice {
         let osc: AVAudioSourceNode
+        let phasor: TonePhasor
     }
 
     init() {
@@ -88,6 +101,43 @@ final class PianoSession: ObservableObject {
         demoBuffer = Self.makeDemoBuffer(format: format)
         sampleDuration = Double(demoBuffer?.frameLength ?? 0) / 44100
         wavePeaks = Self.computePeaks(demoBuffer, peaksPerSec: peaksPerSec)
+        brightnessObserver = NotificationCenter.default.addObserver(
+            forName: UIScreen.brightnessDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.considerAmbient() }
+        }
+        considerAmbient()
+    }
+
+    func pickScene(_ style: SceneStyle) {
+        sceneAuto = false
+        sceneChoice = style
+    }
+
+    func enableSceneAuto() {
+        sceneAuto = true
+        lastAutoSceneAt = 0
+        considerAmbient()
+    }
+
+    func considerAmbient() {
+        guard sceneAuto else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let next = SceneStyle.fromAmbient(
+            brightness: UIScreen.main.brightness,
+            interface: UITraitCollection.current.userInterfaceStyle
+        )
+        if next == sceneChoice {
+            lastAutoStyle = next
+            return
+        }
+        if lastAutoStyle == next, now - lastAutoSceneAt < 8 { return }
+        if now - lastAutoSceneAt < 12, lastAutoStyle != nil { return }
+        lastAutoSceneAt = now
+        lastAutoStyle = next
+        sceneChoice = next
     }
 
     /// Live playback position, valid while playing, scrubbing, or paused.
@@ -233,15 +283,20 @@ final class PianoSession: ObservableObject {
 
     func noteOn(_ midi: Int) {
         pressed.insert(midi)
+        if voices.count >= 96, let oldest = voiceOrder.first {
+            fadeOut(oldest)
+        }
         ensureTone(midi)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         let name = NoteName.pitchClass(of: midi)
         statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
+        publishHeld()
     }
 
     func noteOff(_ midi: Int) {
         pressed.remove(midi)
         fadeOut(midi)
+        publishHeld()
     }
 
     func setPressed(_ midis: Set<Int>) {
@@ -252,7 +307,11 @@ final class PianoSession: ObservableObject {
     }
 
     private func ensureTone(_ midi: Int) {
-        if voices[midi] != nil { return }
+        if let existing = voices[midi] {
+            existing.phasor.releasing = false
+            existing.phasor.target = 1
+            return
+        }
         do { try startEngineIfNeeded() } catch { return }
         let freq = PitchMath.midiToHz(midi, concertA: autotune ? concertA : PitchMath.a4Ref)
         let phasor = TonePhasor()
@@ -261,7 +320,12 @@ final class PianoSession: ObservableObject {
             let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
             let sr = 44100.0
             for frame in 0..<Int(frameCount) {
-                let sample = 0.18 * sin(phasor.phase) + 0.07 * sin(phasor.phase2)
+                if phasor.releasing {
+                    phasor.amp += (0 - phasor.amp) * 0.004
+                } else {
+                    phasor.amp += (phasor.target - phasor.amp) * 0.012
+                }
+                let sample = (0.18 * sin(phasor.phase) + 0.07 * sin(phasor.phase2)) * Double(phasor.amp)
                 phasor.phase += twoPi * freq / sr
                 phasor.phase2 += twoPi * freq * 2 / sr
                 if phasor.phase > twoPi { phasor.phase -= twoPi }
@@ -275,13 +339,22 @@ final class PianoSession: ObservableObject {
         }
         engine.attach(src)
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
-        engine.connect(src, to: engine.mainMixerNode, format: format)
-        voices[midi] = Voice(osc: src)
+        engine.connect(src, to: tapMixer, format: format)
+        voices[midi] = Voice(osc: src, phasor: phasor)
+        voiceOrder.append(midi)
     }
 
     private func fadeOut(_ midi: Int) {
         guard let voice = voices.removeValue(forKey: midi) else { return }
-        engine.detach(voice.osc)
+        voiceOrder.removeAll { $0 == midi }
+        voice.phasor.releasing = true
+        let osc = voice.osc
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 90_000_000)
+            if voices[midi] == nil {
+                engine.detach(osc)
+            }
+        }
     }
 
     private func configureSession() throws {
@@ -345,10 +418,10 @@ final class PianoSession: ObservableObject {
         )
         let result = analyzer.analyze(samples: samples, sampleRate: sampleRate, now: now, config: config)
         let clustered = DensityCluster.cluster(peaks: result.mixPeaks)
+        lastClusters = clustered
+        lastPeaks = result.mixPeaks
         syncClusters(clustered, now: now)
-        specDb = analyzer.lastDb
-        specBinHz = analyzer.lastBinHz
-        specClusters = clustered
+        publishSpectrum(clusters: clustered, peaks: result.mixPeaks)
         lit = result.lit
         harmonics = result.harmonics
         chroma = result.chroma
@@ -438,10 +511,44 @@ final class PianoSession: ObservableObject {
         concertA = PitchMath.a4Ref
         liveTracks = []
         selectedTrackId = nil
-        specDb = []
-        specBinHz = 0
-        specClusters = []
+        lastClusters = []
+        lastPeaks = []
+        specBus.clear()
         analyzer.reset()
+    }
+
+    private func publishSpectrum(clusters: [SpectralCluster], peaks: [SpecPeak]) {
+        var marks: [SpecMark] = []
+        var seen = Set<Int>()
+        for c in clusters {
+            let midi = PitchMath.foldedMidi(freq: c.f0, concertA: concertA, fold: false)
+            let name = NoteName.pitchClass(of: midi)
+            marks.append(SpecMark(f: c.f0, db: c.db, name: name, kind: .cluster))
+            seen.insert(midi)
+        }
+        for midi in pressed {
+            let f = PitchMath.midiToHz(midi, concertA: concertA)
+            let db = lookupDb(f)
+            marks.append(SpecMark(f: f, db: db, name: NoteName.pitchClass(of: midi), kind: .held))
+        }
+        for p in peaks.prefix(64) {
+            let midi = PitchMath.foldedMidi(freq: p.f, concertA: concertA, fold: false)
+            if seen.contains(midi) { continue }
+            marks.append(SpecMark(f: p.f, db: p.db, name: NoteName.pitchClass(of: midi), kind: .peak))
+        }
+        specBus.update(db: analyzer.lastDb, binHz: analyzer.lastBinHz, marks: marks)
+    }
+
+    private func lookupDb(_ f: Double) -> Float {
+        let bins = analyzer.lastDb
+        let binHz = analyzer.lastBinHz
+        guard bins.count > 2, binHz > 0 else { return -24 }
+        let i = min(bins.count - 1, max(1, Int((f / binHz).rounded())))
+        return max(-48, bins[i])
+    }
+
+    private func publishHeld() {
+        publishSpectrum(clusters: lastClusters, peaks: lastPeaks)
     }
 
     private func startClock() {
@@ -554,5 +661,8 @@ final class PianoSession: ObservableObject {
 private final class TonePhasor: @unchecked Sendable {
     var phase: Double = 0
     var phase2: Double = 0
+    var amp: Float = 0
+    var target: Float = 1
+    var releasing = false
 }
 

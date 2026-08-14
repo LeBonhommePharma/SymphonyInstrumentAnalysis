@@ -11,57 +11,63 @@ struct ContentView: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 10)
                     .padding(.bottom, 8)
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(alignment: .center, spacing: 10) {
-                                controls
-                                toggles
-                            }
+                GeometryReader { geo in
+                    let wide = geo.size.width >= 720
+                    let pianoH = max(260, min(380, geo.size.height * 0.42))
+                    VStack(spacing: 10) {
+                        HStack(alignment: .top, spacing: 10) {
                             VStack(alignment: .leading, spacing: 10) {
-                                controls
-                                toggles
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(alignment: .center, spacing: 10) {
+                                        controls
+                                        toggles
+                                    }
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        controls
+                                        toggles
+                                    }
+                                }
+                                trackRow
+                                if session.mode != .live {
+                                    HStack(alignment: .center, spacing: 10) {
+                                        WaveformTrackView(session: session)
+                                        Text(clock)
+                                            .font(.caption.monospacedDigit().weight(.semibold))
+                                            .foregroundStyle(session.scene.ink)
+                                            .fixedSize()
+                                    }
+                                    .frame(height: 68)
+                                }
+                                if !session.tuneLine.isEmpty {
+                                    Text(session.tuneLine)
+                                        .font(.subheadline.weight(.semibold).monospacedDigit())
+                                        .foregroundStyle(session.scene.ink)
+                                }
+                                if let err = session.errorMessage {
+                                    Text(err)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(Color(red: 0.54, green: 0.29, blue: 0.30))
+                                }
+                                chromaRow
+                                chipsRow
+                            }
+                            if wide {
+                                specBlock
+                                    .frame(width: min(460, geo.size.width * 0.38))
                             }
                         }
-                        trackRow
-                        if session.mode != .live {
-                            HStack(alignment: .center, spacing: 10) {
-                                WaveformTrackView(session: session)
-                                Text(clock)
-                                    .font(.caption.monospacedDigit().weight(.semibold))
-                                    .foregroundStyle(session.scene.ink)
-                                    .fixedSize()
-                            }
-                            .frame(height: 68)
-                        }
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Spectre · sources regroupées")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(session.scene.muted)
-                            SpectrumPlotView(session: session)
-                                .frame(height: 280)
+                        if !wide {
+                            specBlock
                                 .frame(maxWidth: .infinity)
+                                .frame(height: 200)
                         }
-                        if !session.tuneLine.isEmpty {
-                            Text(session.tuneLine)
-                                .font(.subheadline.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(session.scene.ink)
-                        }
-                        if let err = session.errorMessage {
-                            Text(err)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color(red: 0.54, green: 0.29, blue: 0.30))
-                        }
-                        chromaRow
-                        chipsRow
-                        legend
+                        Spacer(minLength: 0)
+                        piano
+                            .frame(height: pianoH)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 12)
-                }
-                piano
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
+                }
             }
         }
         .preferredColorScheme(session.scene.colorScheme)
@@ -81,9 +87,27 @@ struct ContentView: View {
 
     private var scenePicker: some View {
         HStack(spacing: 6) {
+            Button {
+                session.enableSceneAuto()
+            } label: {
+                Text("A")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(session.scene.ink)
+                    .frame(width: 28, height: 28)
+                    .background(session.scene.paper, in: Circle())
+                    .overlay(
+                        Circle().stroke(
+                            session.sceneAuto ? session.scene.ink : session.scene.muted.opacity(0.45),
+                            lineWidth: session.sceneAuto ? 2 : 1
+                        )
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Auto")
+            .accessibilityAddTraits(session.sceneAuto ? .isSelected : [])
             ForEach(SceneStyle.allCases) { style in
                 Button {
-                    session.sceneChoice = style
+                    session.pickScene(style)
                 } label: {
                     Circle()
                         .fill(style.swatch)
@@ -97,23 +121,34 @@ struct ContentView: View {
                         )
                         .overlay(
                             Circle().stroke(
-                                session.sceneChoice == style ? session.scene.ink : Color.clear,
+                                !session.sceneAuto && session.sceneChoice == style ? session.scene.ink : Color.clear,
                                 lineWidth: 2
                             )
                         )
                         .frame(width: 28, height: 28)
-                        .padding(8)
+                        .padding(4)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(style.french)
-                .accessibilityAddTraits(session.sceneChoice == style ? .isSelected : [])
+                .accessibilityAddTraits(!session.sceneAuto && session.sceneChoice == style ? .isSelected : [])
             }
         }
         .padding(.horizontal, 4)
-        .background(session.scene.paper.opacity(0.88), in: Capsule())
+        .background(session.scene.paper.opacity(session.scene == .stealth ? 0.55 : 0.88), in: Capsule())
         .overlay(Capsule().stroke(session.scene.muted.opacity(0.35), lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Ambiance")
+    }
+
+    private var specBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Spectre · sources regroupées")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(session.scene.muted)
+            SpectrumPlotView(scene: session.scene, bus: session.specBus)
+                .frame(minHeight: 180)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var controls: some View {
@@ -267,13 +302,18 @@ struct ContentView: View {
             scene: session.scene,
             onPressed: { session.setPressed($0) }
         )
-        .frame(height: 228)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 260)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
         )
-        .shadow(color: session.scene.ink.opacity(session.scene.isLight ? 0.08 : 0.28), radius: 18, y: 8)
+        .shadow(
+            color: session.scene == .stealth ? .clear : session.scene.ink.opacity(session.scene.isLight ? 0.08 : 0.28),
+            radius: session.scene == .stealth ? 0 : 18,
+            y: session.scene == .stealth ? 0 : 8
+        )
     }
 
     private var legend: some View {
