@@ -10,7 +10,7 @@
   const RULER_CSS_PX = 28;
   const DROP_AFTER_MS = 1800;
   const CLUSTER_CENTS = 85;
-  const PRACTICAL_LANE_SOFT_MAX = 16;
+  const PRACTICAL_LANE_SOFT_MAX = 64;
   const LANE_COLORS = [
     "#f97316", "#2dd4bf", "#a78bfa", "#60a5fa", "#f472b6",
     "#fbbf24", "#34d399", "#fb7185", "#38bdf8", "#c084fc",
@@ -68,7 +68,10 @@
   let stream = null;
   let raf = 0;
   let freq = new Uint8Array(2048);
+  let specDb = new Float32Array(2048);
   let time = new Uint8Array(2048);
+  let pianoKeys = [];
+  let specSizeKey = "";
   let listenStartedAt = 0;
   let heardSound = false;
   let colCount = 480;
@@ -197,11 +200,17 @@
   }
 
   function resizeCanvases() {
-    layoutTracksCanvas();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const specRect = specCanvas.getBoundingClientRect();
-    specCanvas.width = Math.max(320, Math.floor(specRect.width * dpr));
-    specCanvas.height = Math.max(220, Math.floor((specRect.height || 300) * dpr));
+    const sw = Math.max(320, Math.floor(specRect.width * dpr));
+    const sh = Math.max(180, Math.floor((specRect.height || 300) * dpr));
+    const key = sw + "x" + sh;
+    layoutTracksCanvas();
+    if (specSizeKey !== key) {
+      specSizeKey = key;
+      specCanvas.width = sw;
+      specCanvas.height = sh;
+    }
     updateTracksHeading();
     drawTracks(lastElapsed);
     drawSpec(lastClusters, audioCtx ? audioCtx.sampleRate : 44100);
@@ -268,13 +277,15 @@
       const frac = midC >= 0 ? midC / n : 0.45;
       wrap.scrollLeft = Math.max(0, frac * wrap.scrollWidth - wrap.clientWidth / 2);
     }
+    pianoKeys = Array.prototype.slice.call(pianoEl.querySelectorAll("[data-midi]"));
   }
 
   function lightPiano(midiSet) {
     const set = midiSet instanceof Set ? midiSet : new Set(midiSet == null ? [] : [midiSet]);
-    pianoEl.querySelectorAll("[data-midi]").forEach(function (el) {
+    for (let i = 0; i < pianoKeys.length; i += 1) {
+      const el = pianoKeys[i];
       el.classList.toggle("on", set.has(Number(el.dataset.midi)));
-    });
+    }
   }
 
   function rmsOfTime() {
@@ -453,11 +464,9 @@
       });
     });
     clusters.sort(function (a, b) { return b.db - a.db; });
-    if (!clusters.length) return [];
-    const top = clusters[0].db;
     return clusters.filter(function (c) {
-      return c.db > top - 22 && c.db > -72;
-    }).slice(0, PRACTICAL_LANE_SOFT_MAX);
+      return c.db > -90;
+    });
   }
 
   /**
@@ -467,10 +476,13 @@
   function densityCluster(peaks) {
     if (!peaks.length) return [];
     const withDb = peaks.map(function (p) {
+      const minD = analyser ? analyser.minDecibels : -100;
+      const maxD = analyser ? analyser.maxDecibels : -20;
+      const byte = Math.max(0, Math.min(255, p.mag));
       return {
         f: p.f,
         mag: p.mag,
-        db: 20 * Math.log10((p.mag + 1) / 256),
+        db: minD + (byte / 255) * (maxD - minD),
         logF: p.logF,
       };
     });
@@ -574,10 +586,6 @@
       if (!used.has(inst.id)) inst.pendingAmp = Math.max(0, inst.pendingAmp * 0.4);
     });
     dropStale(now);
-    // Soft UI trim if clustering exploded.
-    if (instruments.length > PRACTICAL_LANE_SOFT_MAX) {
-      instruments = displayLanes().slice(0, PRACTICAL_LANE_SOFT_MAX);
-    }
     return kind;
   }
 
@@ -731,22 +739,22 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx.fillStyle = specBed();
     ctx.fillRect(0, 0, width, height);
-    const padL = 46 * dpr;
-    const padR = 22 * dpr;
-    const padT = 36 * dpr;
-    const padB = 36 * dpr;
+    const padL = 40 * dpr;
+    const padR = 12 * dpr;
+    const padT = 24 * dpr;
+    const padB = 30 * dpr;
     const plotW = Math.max(8, width - padL - padR);
     const plotH = Math.max(8, height - padT - padB);
     const fLo = 27.5;
-    const fHi = 4186;
+    const fHi = 440 * Math.pow(2, 39 / 12);
+    const dbLo = -90;
+    const dbHi = 0;
     function xOf(f) {
       const t = (Math.log2(Math.max(f, fLo)) - Math.log2(fLo)) / (Math.log2(fHi) - Math.log2(fLo));
       return padL + Math.max(0, Math.min(1, t)) * plotW;
     }
-    function yOfMag(mag) {
-      if (mag < 1.5) return padT + plotH;
-      const db = 20 * Math.log10((Math.max(mag, 1) * softGain) / 256);
-      const t = (db + 80) / 80;
+    function yOfDb(db) {
+      const t = (db - dbLo) / (dbHi - dbLo);
       return padT + plotH - Math.max(0, Math.min(1, t)) * plotH;
     }
 
@@ -755,9 +763,8 @@
     ctx.font = 10 * dpr + "px ui-monospace, SFMono-Regular, Menlo, monospace";
     ctx.fillStyle = "#94a3b8";
     ctx.textBaseline = "middle";
-    [-60, -40, -20, 0].forEach(function (db) {
-      const t = (db + 80) / 80;
-      const y = padT + plotH - t * plotH;
+    [-90, -60, -30, 0].forEach(function (db) {
+      const y = yOfDb(db);
       ctx.beginPath();
       ctx.moveTo(padL, y);
       ctx.lineTo(padL + plotW, y);
@@ -766,25 +773,25 @@
       ctx.fillText(String(db), padL - 6 * dpr, y);
     });
     ctx.textAlign = "center";
-    ctx.fillText(t("specAxisDb"), 14 * dpr, padT - 10 * dpr);
+    ctx.fillText(t("specAxisDb"), 16 * dpr, padT - 10 * dpr);
     [
-      ["A0", 27.5],
-      ["A1", 55],
-      ["A2", 110],
-      ["A3", 220],
-      ["C4", 261.63],
-      ["A4", 440],
-      ["A5", 880],
-      ["A6", 1760],
-      ["C8", 4186],
+      ["27.5", 27.5],
+      ["55", 55],
+      ["110", 110],
+      ["220", 220],
+      ["440", 440],
+      ["880", 880],
+      ["1.76k", 1760],
+      ["3.5k", 3520],
     ].forEach(function (row) {
       const x = xOf(row[1]);
+      const mark = row[1] === 440;
       ctx.beginPath();
-      ctx.strokeStyle = (row[0] === "A4" || row[0] === "C4") ? "rgba(248,250,252,0.28)" : "rgba(148,163,184,0.14)";
+      ctx.strokeStyle = mark ? "rgba(248,250,252,0.45)" : "rgba(148,163,184,0.14)";
       ctx.moveTo(x, padT);
       ctx.lineTo(x, padT + plotH);
       ctx.stroke();
-      ctx.fillStyle = (row[0] === "A4" || row[0] === "C4") ? "#e2e8f0" : "#94a3b8";
+      ctx.fillStyle = mark ? "#e2e8f0" : "#94a3b8";
       ctx.textBaseline = "top";
       ctx.fillText(row[0], x, padT + plotH + 6 * dpr);
     });
@@ -792,43 +799,40 @@
     ctx.textAlign = "right";
     ctx.fillText(t("specAxisHz"), width - 8 * dpr, padT + plotH + 6 * dpr);
 
-    const n = freq.length;
-    const nyquist = sampleRate / 2;
-    const steps = 160;
-    const pts = [];
-    let peakMag = 0;
-    for (let i = 0; i < steps; i += 1) {
-      const u = i / (steps - 1);
-      const f = fLo * Math.pow(2, u * (Math.log2(fHi) - Math.log2(fLo)));
-      const bin = Math.min(n - 1, Math.max(1, Math.round((f / nyquist) * n)));
-      const lo = Math.max(1, Math.round((f * 0.97 / nyquist) * n));
-      const hi = Math.min(n - 1, Math.round((f * 1.03 / nyquist) * n));
-      let mag = freq[bin] || 0;
-      for (let k = lo; k <= hi; k += 1) if (freq[k] > mag) mag = freq[k];
-      if (mag > peakMag) peakMag = mag;
-      pts.push({ x: xOf(f), y: yOfMag(mag) });
-    }
-    if (peakMag >= 8 && pts.length) {
+    const sr = sampleRate || 44100;
+    const n = specDb.length;
+    const fftSize = analyser ? analyser.fftSize : n * 2;
+    const binHz = sr / fftSize;
+    const i0 = Math.max(1, Math.floor(fLo / binHz));
+    const i1 = Math.min(n - 1, Math.ceil(fHi / binHz));
+    if (i1 > i0) {
       ctx.beginPath();
-      ctx.moveTo(pts[0].x, padT + plotH);
-      pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
-      ctx.lineTo(pts[pts.length - 1].x, padT + plotH);
+      ctx.moveTo(xOf(i0 * binHz), padT + plotH);
+      for (let i = i0; i <= i1; i += 1) {
+        ctx.lineTo(xOf(i * binHz), yOfDb(specDb[i]));
+      }
+      ctx.lineTo(xOf(i1 * binHz), padT + plotH);
       ctx.closePath();
       ctx.fillStyle = "rgba(45, 212, 191, 0.28)";
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      pts.forEach(function (p) { ctx.lineTo(p.x, p.y); });
+      ctx.moveTo(xOf(i0 * binHz), yOfDb(specDb[i0]));
+      for (let i = i0; i <= i1; i += 1) {
+        ctx.lineTo(xOf(i * binHz), yOfDb(specDb[i]));
+      }
       ctx.strokeStyle = "rgba(45, 212, 191, 0.9)";
       ctx.lineWidth = Math.max(1.2, dpr);
       ctx.stroke();
     }
 
-    clusters.slice(0, 8).forEach(function (c, i) {
-      const x = xOf(c.f);
-      const y = yOfMag(c.mag);
+    (clusters || []).forEach(function (c, i) {
+      const f = c.f || c.f0;
+      const db = typeof c.db === "number" ? c.db : -30;
+      const x = xOf(f);
+      const y = yOfDb(db);
+      const rgb = crayonOf(Math.round(69 + 12 * Math.log2(f / 440))).rgb;
       const r = (i === 0 ? 6 : 4.5) * dpr;
-      ctx.fillStyle = LANE_COLORS[i % LANE_COLORS.length];
+      ctx.fillStyle = "rgb(" + rgb.join(",") + ")";
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
@@ -836,19 +840,20 @@
       ctx.lineWidth = Math.max(1, dpr * 0.7);
       ctx.stroke();
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 " + 11 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.font = "600 " + 10 * dpr + "px ui-sans-serif, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.fillText(hzToNote(c.f), x, y - 8 * dpr);
+      ctx.fillText(hzToNote(f), x, y - 7 * dpr);
     });
 
-    if (clusters[0]) {
+    if (clusters && clusters[0]) {
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 " + 12 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.font = "600 " + 11 * dpr + "px ui-sans-serif, system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillText(
-        hzToNote(clusters[0].f) + "  " + clusters[0].f.toFixed(0) + " Hz · " + clusters.length,
+        hzToNote(clusters[0].f || clusters[0].f0) + "  " +
+          (clusters[0].f || clusters[0].f0).toFixed(0) + " Hz · " + clusters.length,
         padL + 8 * dpr,
         8 * dpr
       );
@@ -858,6 +863,7 @@
   function tick() {
     if (!analyser || !audioCtx) return;
     analyser.getByteFrequencyData(freq);
+    analyser.getFloatFrequencyData(specDb);
     analyser.getByteTimeDomainData(time);
     const rms = rmsOfTime();
     updateAutoGain(rms);
@@ -972,6 +978,7 @@
     analyser.minDecibels = -100;
     analyser.maxDecibels = -20;
     freq = new Uint8Array(analyser.frequencyBinCount);
+    specDb = new Float32Array(analyser.frequencyBinCount);
     time = new Uint8Array(analyser.fftSize);
     sourceNode = audioCtx.createMediaStreamSource(mediaStream);
     // Analysis only — never connect to destination (page stays silent).

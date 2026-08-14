@@ -154,8 +154,9 @@
       themeDark: "Dark",
       themeNight: "Night",
       themeStealth: "Stealth",
+      themeAuto: "Auto",
       specAxisHz: "Hz",
-      specAxisDb: "dB",
+      specAxisDb: "dBFS",
       pianoFull: "Full piano · A0 to C8",
     },
     fr: {
@@ -306,8 +307,9 @@
       themeDark: "Sombre",
       themeNight: "Soir",
       themeStealth: "Scène",
+      themeAuto: "Auto",
       specAxisHz: "Hz",
-      specAxisDb: "dB",
+      specAxisDb: "dBFS",
       pianoFull: "Piano entier · La0 à Do8",
     },
   };
