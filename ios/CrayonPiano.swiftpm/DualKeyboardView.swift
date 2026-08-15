@@ -82,9 +82,6 @@ struct HardwareKeyCatcher: UIViewRepresentable {
 
     func updateUIView(_ uiView: HardwareKeyView, context: Context) {
         uiView.session = session
-        DispatchQueue.main.async {
-            _ = uiView.becomeFirstResponder()
-        }
     }
 }
 
