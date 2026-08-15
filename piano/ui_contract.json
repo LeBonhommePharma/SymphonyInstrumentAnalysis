@@ -15,8 +15,8 @@
   ],
   "layout": [
     "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
-    "actions: Rejouer | Écouter | clock | La/A readout",
-    "toggles: Sensibilité, Accords, Entendre, Auto-accord",
+    "actions: Rejouer | Écouter (labeled chips; Arrêter while on) | clock | La/A readout",
+    "toggles: Accords, Son, La auto",
     "tracks: count badge + one color chip per density cluster (Tous = all on)",
     "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
     "chroma: 12 pitch-class bars labeled Do..Si",

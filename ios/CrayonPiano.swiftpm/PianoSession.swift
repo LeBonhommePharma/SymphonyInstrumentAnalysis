@@ -370,8 +370,8 @@ final class PianoSession: ObservableObject {
 
     func dualDown(pointer: Int, board: String, kid: String) {
         let key = HeldDual(board: board, kid: kid)
-        if fingerGate.pointers[pointer] == key { return }
-        if fingerGate.pointers[pointer] != nil { return }
+        if fingerGate.at(pointer) == key { return }
+        if fingerGate.at(pointer) != nil { return }
         let already = fingerGate.held.contains(key)
         guard fingerGate.down(pointer: pointer, key: key) else { return }
         if !already, let spec = DualBoards.layout(board).key(kid) {
@@ -384,7 +384,7 @@ final class PianoSession: ObservableObject {
     }
 
     func dualUp(pointer: Int) {
-        if let held = fingerGate.pointers[pointer], let spec = DualBoards.layout(held.board).key(held.kid) {
+        if let held = fingerGate.at(pointer), let spec = DualBoards.layout(held.board).key(held.kid) {
             typeState.release(spec)
         }
         fingerGate.up(pointer: pointer)

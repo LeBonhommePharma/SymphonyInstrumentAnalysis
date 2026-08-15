@@ -432,12 +432,15 @@ class FingerGate:
 
     max_fingers: int = MAX_FINGERS
     pointers: dict[int, HeldKey] = field(default_factory=dict)
-    extras: list[HeldKey] = field(default_factory=list)
+    extras: dict[int, HeldKey] = field(default_factory=dict)
 
     def held(self) -> list[HeldKey]:
         out = list(self.pointers.values())
-        out.extend(self.extras)
+        out.extend(self.extras.values())
         return out
+
+    def at(self, pointer: int) -> HeldKey | None:
+        return self.pointers.get(pointer) or self.extras.get(pointer)
 
     def clusters(self) -> list[list[HeldKey]]:
         return cluster_held(self.held())
@@ -460,24 +463,26 @@ class FingerGate:
         if len(self.pointers) < self.max_fingers:
             self.pointers[pointer] = key
         else:
-            self.extras.append(key)
+            self.extras[pointer] = key
         return True
 
     def up(self, pointer: int) -> None:
         self.pointers.pop(pointer, None)
+        self.extras.pop(pointer, None)
         self._prune_extras()
 
     def _prune_extras(self) -> None:
         """Extras stay only while they remain well clustered with a live finger."""
         base = list(self.pointers.values())
-        kept: list[HeldKey] = []
-        for extra in self.extras:
-            if extra in base or extra in kept:
+        kept: dict[int, HeldKey] = {}
+        for pointer, extra in self.extras.items():
+            already = list(kept.values())
+            if extra in base or extra in already:
                 continue
-            before = len(cluster_held(base + kept))
-            after = len(cluster_held(base + kept + [extra]))
+            before = len(cluster_held(base + already))
+            after = len(cluster_held(base + already + [extra]))
             if after <= before:
-                kept.append(extra)
+                kept[pointer] = extra
         self.extras = kept
 
     def clear(self) -> None:
@@ -548,6 +553,13 @@ def main() -> None:
         raise SystemExit("gate must allow a well-clustered extra key")
     if len(gate.clusters()) != 10:
         raise SystemExit("stacked track count must stay at 10 fingers when extras cluster")
+    if len(gate.held()) != 11:
+        raise SystemExit("a clustered extra is an 11th touch")
+    gate.up(99)
+    if len(gate.held()) != 10 or any(k.kid == "Backquote" for k in gate.held()):
+        raise SystemExit("lifting the extra finger must release that key")
+    if not gate.down(99, neighbor):
+        raise SystemExit("gate must allow the clustered extra again")
 
     st = TypeState()
     st.apply(CSA.by_id()["Slash"])

@@ -2,9 +2,11 @@
 
 Open [`keyboard.html`](keyboard.html) in Safari or Chrome. Prefer `python3 -m http.server 4173` in this folder, then http://localhost:4173/keyboard.html. Chrome often blocks mic and sample fetch on `file://`. On iPhone use the native app in `ios/`.
 
-**Listen** (green ring) — live mic FFT, silent. Turns into a red square to stop.
+**Écouter** — live mic (or computer audio) FFT, silent. The button reads **Arrêter** while listening.
 
-**Replay** (play circle) — `samples/final_song.wav` if present. Muted until **Son**. Turns into a square while playing.
+**Rejouer** — `samples/final_song.wav` if present, else a built-in 8 s demo. Muted until **Son**. Reads **Arrêter** while playing.
+
+**Accords / Son / La auto** — chords (up to 8 notes), hear replay, estimate concert A (off locks 440 Hz).
 
 **Pistes** — one color chip and one stacked lane per density cluster. Click to solo, click more to stack, click the count to hear all. Empty selection snaps back to the mix.
 

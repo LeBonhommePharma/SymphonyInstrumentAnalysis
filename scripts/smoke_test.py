@@ -178,6 +178,10 @@ def check_public_site() -> None:
         raise SystemExit("public piano must ship US and Canadian French layouts")
     if 'id="kbLayout"' not in piano or 'data-layout="csa"' not in piano:
         raise SystemExit("public piano must ship a US / Canadian French layout picker")
+    if ">Rejouer<" not in piano or ">Accords<" not in piano or ">La auto<" not in piano:
+        raise SystemExit("public piano must label transport and option chips")
+    if "live-ring" in piano:
+        raise SystemExit("public piano must not pulse candy-circle listen/replay buttons")
     if "function setLayout" not in piano or "crayon-kb-layout" not in piano:
         raise SystemExit("public piano must remap the whole board when the layout picker changes")
     if "grid-template-columns: 1fr 1fr" in piano:
@@ -230,8 +234,14 @@ def check_crayon_piano() -> None:
         raise SystemExit("10-finger gate must count touches, not clusters")
     if "if (held.length < MAX_FINGERS) return true" not in gate_js:
         raise SystemExit("10-finger gate must allow keys until ten fingers are down")
-    if "Canadien français" not in html:
-        raise SystemExit("HTML piano must label the Canadian French CSA board")
+    if "this.extras = new Map()" not in gate_js and "this.extras = new Map();" not in gate_js:
+        raise SystemExit("clustered extra keys must be keyed by pointer so lifting them releases them")
+    if "class=\"act\"" not in html or ">Rejouer<" not in html or ">Écouter<" not in html:
+        raise SystemExit("HTML piano must label Rejouer and Écouter")
+    if ">Accords<" not in html or ">La auto<" not in html:
+        raise SystemExit("HTML piano must label Accords / Son / La auto instead of mystery glyphs")
+    if "live-ring" in html or "width: 56px" in html:
+        raise SystemExit("HTML piano must not use pulsing candy-circle transport buttons")
     if "getDisplayMedia" not in html:
         raise SystemExit("HTML piano must capture tab/system audio for listen")
     if "loopWantsFrames" not in html or "requestAnimationFrame(loop)" not in html:

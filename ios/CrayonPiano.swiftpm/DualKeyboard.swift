@@ -332,17 +332,24 @@ final class DualTypeState {
 
 final class FingerGate {
     var pointers: [Int: HeldDual] = [:]
-    var extras: [HeldDual] = []
+    var extras: [Int: HeldDual] = [:]
 
-    var held: [HeldDual] { Array(pointers.values) + extras }
+    var held: [HeldDual] { Array(pointers.values) + Array(extras.values) }
     var clusters: [[HeldDual]] { DualBoards.cluster(held) }
 
+    func at(_ pointer: Int) -> HeldDual? { pointers[pointer] ?? extras[pointer] }
+
     func down(pointer: Int, key: HeldDual) -> Bool {
-        if let prev = pointers[pointer] {
+        if let prev = pointers[pointer] ?? extras[pointer] {
             if prev == key { return true }
             pointers.removeValue(forKey: pointer)
+            extras.removeValue(forKey: pointer)
             if DualBoards.canAccept(held, incoming: key) {
-                pointers[pointer] = key
+                if pointers.count < maxFingers {
+                    pointers[pointer] = key
+                } else {
+                    extras[pointer] = key
+                }
                 return true
             }
             pointers[pointer] = prev
@@ -353,13 +360,14 @@ final class FingerGate {
         if pointers.count < maxFingers {
             pointers[pointer] = key
         } else {
-            extras.append(key)
+            extras[pointer] = key
         }
         return true
     }
 
     func up(pointer: Int) {
         pointers.removeValue(forKey: pointer)
+        extras.removeValue(forKey: pointer)
         pruneExtras()
     }
 
@@ -370,12 +378,13 @@ final class FingerGate {
 
     private func pruneExtras() {
         let base = Array(pointers.values)
-        var kept: [HeldDual] = []
-        for extra in extras {
-            if base.contains(extra) || kept.contains(extra) { continue }
-            let before = DualBoards.cluster(base + kept).count
-            let after = DualBoards.cluster(base + kept + [extra]).count
-            if after <= before { kept.append(extra) }
+        var kept: [Int: HeldDual] = [:]
+        for (pointer, extra) in extras {
+            let already = Array(kept.values)
+            if base.contains(extra) || already.contains(extra) { continue }
+            let before = DualBoards.cluster(base + already).count
+            let after = DualBoards.cluster(base + already + [extra]).count
+            if after <= before { kept[pointer] = extra }
         }
         extras = kept
     }

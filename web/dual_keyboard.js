@@ -352,11 +352,15 @@
 
   function FingerGate() {
     this.pointers = new Map();
-    this.extras = [];
+    this.extras = new Map();
   }
 
   FingerGate.prototype.held = function () {
-    return Array.from(this.pointers.values()).concat(this.extras);
+    return Array.from(this.pointers.values()).concat(Array.from(this.extras.values()));
+  };
+
+  FingerGate.prototype.at = function (pointer) {
+    return this.pointers.get(pointer) || this.extras.get(pointer);
   };
 
   FingerGate.prototype.clusters = function () {
@@ -378,32 +382,34 @@
     if (this.held().some(function (h) { return sameHeld(h, key); })) return true;
     if (!canAccept(this.held(), key)) return false;
     if (this.pointers.size < MAX_FINGERS) this.pointers.set(pointer, key);
-    else this.extras.push(key);
+    else this.extras.set(pointer, key);
     return true;
   };
 
   FingerGate.prototype.up = function (pointer) {
     this.pointers.delete(pointer);
+    this.extras.delete(pointer);
     this.pruneExtras();
   };
 
   FingerGate.prototype.pruneExtras = function () {
     const base = Array.from(this.pointers.values());
-    const kept = [];
-    this.extras.forEach(function (extra) {
+    const kept = new Map();
+    this.extras.forEach(function (extra, pointer) {
       if (base.some(function (x) { return sameHeld(x, extra); })) return;
-      if (kept.some(function (x) { return sameHeld(x, extra); })) return;
-      const trial = base.concat(kept);
+      const already = Array.from(kept.values());
+      if (already.some(function (x) { return sameHeld(x, extra); })) return;
+      const trial = base.concat(already);
       const before = clusterHeld(trial).length;
       const after = clusterHeld(trial.concat([extra])).length;
-      if (after <= before) kept.push(extra);
+      if (after <= before) kept.set(pointer, extra);
     });
     this.extras = kept;
   };
 
   FingerGate.prototype.clear = function () {
     this.pointers.clear();
-    this.extras = [];
+    this.extras.clear();
   };
 
   global.DUAL = {
@@ -449,6 +455,11 @@
     if (gate.down(99, held("csa", "KeyA"))) throw new Error("gate isolated");
     if (!gate.down(99, held("us", "Backquote"))) throw new Error("gate clustered");
     if (gate.clusters().length !== 10) throw new Error("tracks stay at 10");
+    if (gate.held().length !== 11) throw new Error("clustered extra is an 11th touch");
+    gate.up(99);
+    if (gate.held().length !== 10) throw new Error("lifting the extra finger must release it");
+    if (gate.held().some(function (k) { return k.kid === "Backquote"; })) throw new Error("extra pointer lift");
+    if (!gate.down(99, held("us", "Backquote"))) throw new Error("re-cluster extra");
     const st = new TypeState();
     st.apply(keyById(CSA, "Slash"));
     if (st.text !== "é") throw new Error("é");
