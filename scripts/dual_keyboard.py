@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """US ANSI + Canadian French CSA keyboards, and the 10-finger cluster gate.
 
-Two standard layouts sit side by side. A person has 10 fingers, so an 11th
-independent key-down is rejected — unless that key is well clustered with keys
-already held (adjacent on the same board). Lane / track count follows those
+The piano shows one layout at a time. Switching US ANSI ↔ CSA ISO remaps
+glyphs, geometry, and hardware event.code handling together. A person has
+10 fingers, so an 11th independent key-down is rejected — unless that key
+is well clustered with keys already held. Lane / track count follows those
 spatial density clusters, not a fixed instrument parameter.
 """
 from __future__ import annotations

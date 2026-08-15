@@ -11,7 +11,7 @@ struct DualKeyboardView: View {
                     .buttonStyle(.plain)
                     .frame(width: 44, height: 44)
                     .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8))
-                Text(session.typedText.isEmpty ? "US + canadien français · 10 doigts, plus si bien groupés" : session.typedText)
+                Text(session.typedText.isEmpty ? session.layoutHint : session.typedText)
                     .font(.body.monospaced())
                     .foregroundStyle(session.typedText.isEmpty ? session.scene.muted : session.scene.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -23,30 +23,28 @@ struct DualKeyboardView: View {
                     .padding(8)
                     .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8))
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 10) {
-                    board("us")
-                    board("csa")
-                }
-                VStack(spacing: 10) {
-                    board("us")
-                    board("csa")
-                }
+            Picker("Disposition", selection: $session.kbLayout) {
+                Text("US").tag("us")
+                Text("Canadien français").tag("csa")
             }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("kbLayout")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.kbLayout == "csa" ? "Canadien français · CSA" : "US")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(session.scene.muted)
+                DualBoardUIView(session: session, boardId: session.kbLayout)
+                    .frame(minHeight: 200)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(6)
+            .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-    }
-
-    private func board(_ id: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(id == "us" ? "US" : "Canadien français · CSA")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(session.scene.muted)
-            DualBoardUIView(session: session, boardId: id)
-                .frame(minHeight: 160)
-                .frame(maxWidth: .infinity)
+        .background {
+            HardwareKeyCatcher(session: session)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
         }
-        .padding(6)
-        .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -62,9 +60,70 @@ struct DualBoardUIView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: DualBoardView, context: Context) {
+        if uiView.boardId != boardId {
+            uiView.cancelTouches()
+        }
         uiView.boardId = boardId
         uiView.session = session
-        uiView.setNeedsDisplay()
+        uiView.rebuildNow()
+    }
+}
+
+struct HardwareKeyCatcher: UIViewRepresentable {
+    @ObservedObject var session: PianoSession
+
+    func makeUIView(context: Context) -> HardwareKeyView {
+        let view = HardwareKeyView()
+        view.session = session
+        view.isUserInteractionEnabled = false
+        view.backgroundColor = .clear
+        return view
+    }
+
+    func updateUIView(_ uiView: HardwareKeyView, context: Context) {
+        uiView.session = session
+        DispatchQueue.main.async {
+            _ = uiView.becomeFirstResponder()
+        }
+    }
+}
+
+final class HardwareKeyView: UIView {
+    weak var session: PianoSession?
+
+    override var canBecomeFirstResponder: Bool { true }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil {
+            becomeFirstResponder()
+        }
+    }
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let key = press.key, !key.modifierFlags.contains(.command) else { continue }
+            if session?.hardwareDown(code: DualHID.code(for: key.keyCode)) == true {
+                handled = true
+            }
+        }
+        if !handled { super.pressesBegan(presses, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for press in presses {
+            guard let key = press.key else { continue }
+            if session?.hardwareUp(code: DualHID.code(for: key.keyCode)) == true {
+                handled = true
+            }
+        }
+        if !handled { super.pressesEnded(presses, with: event) }
+    }
+
+    override func pressesCancelled(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        pressesEnded(presses, with: event)
     }
 }
 
@@ -90,6 +149,18 @@ final class DualBoardView: UIView {
         super.layoutSubviews()
         rebuild()
         setNeedsDisplay()
+    }
+
+    func rebuildNow() {
+        rebuild()
+        setNeedsDisplay()
+    }
+
+    func cancelTouches() {
+        for touch in touchKey.keys {
+            session?.dualUp(pointer: touch.hash)
+        }
+        touchKey.removeAll()
     }
 
     private func rebuild() {

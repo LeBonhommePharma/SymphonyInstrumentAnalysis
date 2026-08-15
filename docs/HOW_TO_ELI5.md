@@ -9,7 +9,7 @@ A piano **A** is about **440 Hz**. A low bass note can be near **110 Hz**.
 Open this **on the device that is already making sound**, including a phone on 5G:
 
 - https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
-- Crayon piano (US + Canadian French): https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
+- Crayon piano (US or Canadian French): https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
 
 The page stays silent. It only draws **whatever this device is making now** — speaker, piano, room, headphone bleed, or Now Playing if that sound reaches the mic. Soft auto-gain lifts quiet rooms. **Logic-style tracks** come from **density clustering** (lane count follows the sound; not a fixed parameter). If there is no melody (voices, noise), it still draws that live signal. It never invents a tune.
 

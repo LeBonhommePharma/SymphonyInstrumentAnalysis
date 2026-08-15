@@ -21,7 +21,7 @@ The tutorial is a static HTTPS page. Open it **on the device that is making soun
 
 - Hub: https://thebonhomme.com/SymphonyInstrumentAnalysis/
 - Live listen: https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
-- Crayon piano (US + Canadian French): https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
+- Crayon piano (US or Canadian French): https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
 - ELI5: https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html
 
 One-click: [Pages settings](https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis/settings/pages). The deploy workflow is `.github/workflows/pages.yml`. `GITHUB_TOKEN` cannot create the Pages site from this agent; that toggle is the missing step.
