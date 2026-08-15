@@ -84,7 +84,10 @@ final class PianoSession: ObservableObject {
     private var demoBuffer: AVAudioPCMBuffer?
     private var replayStartHost: TimeInterval = 0
     private var replayOffset: Double = 0
-    private var clockTimer: Timer?
+    private let displayPulse = DisplayPulse()
+    private var mixerTapOn = false
+    private var histClock: TimeInterval = 0
+    private let waveWindowSec: Double = 6
     private var voices: [Int: Voice] = [:]
     private var didInstallTap = false
     private var nextTrackId = 1
@@ -123,6 +126,11 @@ final class PianoSession: ObservableObject {
             Task { @MainActor in self?.considerAmbient() }
         }
         considerAmbient()
+        displayPulse.onTick = { [weak self] in
+            Task { @MainActor in
+                self?.onDisplayTick()
+            }
+        }
     }
 
     func pickScene(_ style: SceneStyle) {
@@ -165,6 +173,7 @@ final class PianoSession: ObservableObject {
 
     func beginScrub() {
         scrubbing = true
+        armDisplayPulse()
     }
 
     func scrub(toTime t: Double) {
@@ -176,6 +185,7 @@ final class PianoSession: ObservableObject {
     func endScrub() {
         scrubbing = false
         if mode == .replay { startReplay() }
+        armDisplayPulse()
     }
 
     func toggleListen() {
@@ -203,11 +213,13 @@ final class PianoSession: ObservableObject {
             try configureSession()
             try startEngineIfNeeded()
             tapMixer.removeTap(onBus: 0)
+            mixerTapOn = false
             installInputTap()
             analyzer.reset()
             mode = .live
             statusLine = "live"
             hint = ""
+            armDisplayPulse()
         } catch {
             mode = .idle
             errorMessage = micError(error)
@@ -221,6 +233,8 @@ final class PianoSession: ObservableObject {
         clearSpectrum()
         statusLine = ""
         hint = ""
+        if !voices.isEmpty { ensureMixerTap() }
+        armDisplayPulse()
     }
 
     func startReplay() {
@@ -248,8 +262,8 @@ final class PianoSession: ObservableObject {
             mode = .replay
             statusLine = "démo"
             hint = ""
-            startClock()
             installMixerTap()
+            armDisplayPulse()
         } catch {
             mode = .idle
             errorMessage = error.localizedDescription
@@ -261,9 +275,8 @@ final class PianoSession: ObservableObject {
             replayOffset = keepScrub ? sampleNow() : 0
         }
         player.stop()
-        clockTimer?.invalidate()
-        clockTimer = nil
         tapMixer.removeTap(onBus: 0)
+        mixerTapOn = false
         if mode == .replay { mode = .idle }
         if mode == .idle {
             clearSpectrum()
@@ -271,6 +284,8 @@ final class PianoSession: ObservableObject {
             hint = ""
             if !keepScrub { sampleTime = 0 }
         }
+        if !voices.isEmpty { ensureMixerTap() }
+        armDisplayPulse()
     }
 
     func seekReplay(fraction: Double) {
@@ -319,6 +334,7 @@ final class PianoSession: ObservableObject {
         }
         fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+        armDisplayPulse()
     }
 
     func dualUp(pointer: Int) {
@@ -328,6 +344,7 @@ final class PianoSession: ObservableObject {
         fingerGate.up(pointer: pointer)
         fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+        armDisplayPulse()
     }
 
     private static func caption(for gate: FingerGate) -> String {
@@ -373,11 +390,9 @@ final class PianoSession: ObservableObject {
 
     private func pushHist() {
         for t in liveTracks {
-            var h = trackEnergyHist[t.id] ?? Array(repeating: Float(0), count: histLen)
-            if h.count != histLen { h = Array(repeating: 0, count: histLen) }
-            if !h.isEmpty { h.removeFirst() }
-            h.append(Float(t.energy))
-            trackEnergyHist[t.id] = h
+            if trackEnergyHist[t.id]?.count != histLen {
+                trackEnergyHist[t.id] = Array(repeating: 0, count: histLen)
+            }
         }
         let ids = Set(liveTracks.map(\.id))
         trackEnergyHist = trackEnergyHist.filter { ids.contains($0.key) }
@@ -393,12 +408,14 @@ final class PianoSession: ObservableObject {
         let name = NoteName.pitchClass(of: midi)
         statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
         publishHeld()
+        armDisplayPulse()
     }
 
     func noteOff(_ midi: Int) {
         pressed.remove(midi)
         fadeOut(midi)
         publishHeld()
+        armDisplayPulse()
     }
 
     func setPressed(_ midis: Set<Int>) {
@@ -415,6 +432,7 @@ final class PianoSession: ObservableObject {
             return
         }
         do { try startEngineIfNeeded() } catch { return }
+        ensureMixerTap()
         let freq = PitchMath.midiToHz(midi, concertA: autotune ? concertA : PitchMath.a4Ref)
         let phasor = TonePhasor()
         let twoPi = 2.0 * Double.pi
@@ -476,18 +494,24 @@ final class PianoSession: ObservableObject {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.consume(buffer, sampleRate: format.sampleRate)
         }
         didInstallTap = true
     }
 
+    private func ensureMixerTap() {
+        if mixerTapOn || mode == .live { return }
+        installMixerTap()
+    }
+
     private func installMixerTap() {
         tapMixer.removeTap(onBus: 0)
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
-        tapMixer.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
+        tapMixer.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.consume(buffer, sampleRate: 44100)
         }
+        mixerTapOn = true
     }
 
     nonisolated private func consume(_ buffer: AVAudioPCMBuffer, sampleRate: Double) {
@@ -501,7 +525,7 @@ final class PianoSession: ObservableObject {
     }
 
     private func process(samples: [Float], sampleRate: Double, now: Double) {
-        guard mode == .live || mode == .replay else { return }
+        guard mode == .live || mode == .replay || !voices.isEmpty else { return }
         let tous = isTous
         var bands: [(lo: Double, hi: Double)] = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
         if !tous {
@@ -656,13 +680,52 @@ final class PianoSession: ObservableObject {
         publishSpectrum(clusters: lastClusters, peaks: lastPeaks)
     }
 
-    private func startClock() {
-        clockTimer?.invalidate()
-        clockTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.mode == .replay else { return }
-                self.sampleTime = self.sampleNow()
+    private func onDisplayTick() {
+        tickDisplay(now: ProcessInfo.processInfo.systemUptime)
+        armDisplayPulse()
+    }
+
+    func tickDisplay(now: TimeInterval) {
+        let cols = histLen
+        let secPerCol = waveWindowSec / Double(max(1, cols))
+        if histClock == 0 { histClock = now }
+        var shifts = Int((now - histClock) / secPerCol)
+        if shifts < 1 {
+            for t in liveTracks {
+                if var h = trackEnergyHist[t.id], !h.isEmpty {
+                    h[h.count - 1] = Float(t.energy)
+                    trackEnergyHist[t.id] = h
+                }
             }
+            return
+        }
+        if shifts > cols { shifts = cols }
+        histClock += Double(shifts) * secPerCol
+        for t in liveTracks {
+            var h = trackEnergyHist[t.id] ?? Array(repeating: Float(0), count: cols)
+            if h.count != cols { h = Array(repeating: 0, count: cols) }
+            if shifts >= cols {
+                h = Array(repeating: Float(t.energy), count: cols)
+            } else {
+                h.removeFirst(shifts)
+                h.append(contentsOf: repeatElement(Float(t.energy), count: shifts))
+            }
+            trackEnergyHist[t.id] = h
+        }
+        let ids = Set(liveTracks.map(\.id))
+        trackEnergyHist = trackEnergyHist.filter { ids.contains($0.key) }
+    }
+
+    private func wantsDisplayPulse() -> Bool {
+        mode != .idle || scrubbing || !pressed.isEmpty || !fingerGate.held.isEmpty || !liveTracks.isEmpty
+    }
+
+    private func armDisplayPulse() {
+        if wantsDisplayPulse() {
+            displayPulse.start()
+        } else {
+            displayPulse.stop()
+            histClock = 0
         }
     }
 

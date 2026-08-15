@@ -13,7 +13,7 @@ struct WaveformTrackView: View {
     @State private var grabT: Double = 0
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: session.mode == .idle && session.liveTracks.isEmpty && !session.scrubbing)) { _ in
+        TimelineView(.animation(paused: session.mode == .idle && session.liveTracks.isEmpty && session.pressed.isEmpty && !session.scrubbing)) { _ in
             GeometryReader { geo in
                 Canvas { ctx, size in
                     draw(ctx, size, session.currentSampleTime())

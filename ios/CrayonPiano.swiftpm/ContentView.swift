@@ -30,10 +30,7 @@ struct ContentView: View {
                                 trackRow
                                 HStack(alignment: .center, spacing: 10) {
                                     WaveformTrackView(session: session)
-                                    Text(clock)
-                                        .font(.caption.monospacedDigit().weight(.semibold))
-                                        .foregroundStyle(session.scene.ink)
-                                        .fixedSize()
+                                    clock
                                 }
                                 .frame(height: session.waveStackHeight)
                                 if !session.tuneLine.isEmpty {
@@ -144,7 +141,11 @@ struct ContentView: View {
             Text("Spectre · sources regroupées")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(session.scene.muted)
-            SpectrumPlotView(scene: session.scene, bus: session.specBus)
+            SpectrumPlotView(
+                scene: session.scene,
+                bus: session.specBus,
+                paused: session.mode == .idle && session.pressed.isEmpty && session.liveTracks.isEmpty
+            )
                 .frame(minHeight: 180)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -349,14 +350,23 @@ struct ContentView: View {
         }
     }
 
-    private var clock: String {
+    private var clock: some View {
+        TimelineView(.animation(paused: session.mode != .replay && !session.scrubbing)) { _ in
+            Text(clockText)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(session.scene.ink)
+                .fixedSize()
+        }
+    }
+
+    private var clockText: String {
         func fmt(_ s: Double) -> String {
             let t = max(0, s)
             let m = Int(t) / 60
             let sec = t - Double(m * 60)
             return String(format: "%d:%04.1f", m, sec)
         }
-        return "\(fmt(session.sampleTime)) / \(fmt(session.sampleDuration))"
+        return "\(fmt(session.currentSampleTime())) / \(fmt(session.sampleDuration))"
     }
 }
 
