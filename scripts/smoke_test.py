@@ -132,6 +132,8 @@ def check_public_site() -> None:
         docs / "tutorial" / "index.html",
         docs / "tutorial" / "app.js",
         docs / "tutorial" / "styles.css",
+        docs / "piano" / "index.html",
+        docs / "piano" / "dual_keyboard.js",
         docs / ".nojekyll",
     ]
     missing = [str(path) for path in required if not path.is_file()]
@@ -162,6 +164,14 @@ def check_public_site() -> None:
         raise SystemExit("tutorial copy must describe audio-only density clustering")
     if "listenSmart" not in app_js or "sniffHeard" not in app_js:
         raise SystemExit("tutorial must sniff the mic then fall through to live listen")
+    piano = (docs / "piano" / "index.html").read_text(encoding="utf-8")
+    piano_js = (docs / "piano" / "dual_keyboard.js").read_text(encoding="utf-8")
+    if 'id="dualBoards"' not in piano or "Canadien français" not in piano:
+        raise SystemExit("public piano must ship US + Canadian French boards")
+    if "MAX_FINGERS" not in piano_js or "CLUSTER_EPS" not in piano_js:
+        raise SystemExit("public piano must include the clustered 10-finger gate")
+    if "pages-crumb" not in piano:
+        raise SystemExit("public piano must link back to the Pages hub")
     bootstrap = tutorial.split('id="bootstrap"', 1)[-1]
     if 'data-action="system"' in bootstrap:
         raise SystemExit("bootstrap must not offer a mic vs tab choice")

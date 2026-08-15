@@ -15,6 +15,7 @@
       hubLead:
         "The page stays quiet. One Listen asks for the mic; if nothing is around it live-listens to this computer. Tracks come from density clustering. No melody? We still draw the noise. We never fake a tune.",
       hubCtaTutorial: "Open the 60-second live listen",
+      hubCtaPiano: "Open the crayon piano",
       hubCtaHowTo: "How it works (ELI5)",
       hubUsefulTitle: "Useful",
       hubUsefulBody:
@@ -34,7 +35,9 @@
       howP3:
         "Open this on the device that is already making sound, including a phone on 5G. The page stays silent. Soft auto-gain lifts quiet rooms and headphone bleed. Tracks are density-clustered on the fly. No melody? It still draws voices and noise. It never fakes a tune.",
       howOpenTutorial: "Open the silent live tutorial",
+      howOpenPiano: "Open the US + Canadian French piano",
       howBackHub: "Symphony",
+      crumbPiano: "Piano",
       howH2Useful: "Useful",
       howSandwichIntro: "A song is a sandwich, not a blob:",
       howBoom: "Boom on the bottom = left hand / bass",
@@ -167,6 +170,7 @@
       hubLead:
         "La page reste silencieuse. Un Écouter demande le micro ; s’il n’y a rien autour, elle écoute cet ordinateur. Les pistes viennent d’un clustering par densité. Pas d’air ? On dessine quand même le bruit. On n’invente jamais de mélodie.",
       hubCtaTutorial: "Ouvrir l’écoute en direct (60 secondes)",
+      hubCtaPiano: "Ouvrir le piano-crayon",
       hubCtaHowTo: "Comment ça marche (très simple)",
       hubUsefulTitle: "Utile",
       hubUsefulBody:
@@ -186,7 +190,9 @@
       howP3:
         "Ouvre ceci sur l’appareil qui fait déjà du son, y compris un téléphone en 5G. La page reste silencieuse. Un gain automatique relève les pièces calmes et la fuite des écouteurs. Les pistes sont regroupées par densité en direct. Pas d’air ? Elle dessine quand même les voix et le bruit. Elle n’invente jamais de mélodie.",
       howOpenTutorial: "Ouvrir le tutoriel silencieux en direct",
+      howOpenPiano: "Ouvrir le piano É.-U. + canadien français",
       howBackHub: "Symphony",
+      crumbPiano: "Piano",
       howH2Useful: "Utile",
       howSandwichIntro: "Une chanson, c’est un sandwich, pas une bouillie :",
       howBoom: "Grave en bas = main gauche / basse",
