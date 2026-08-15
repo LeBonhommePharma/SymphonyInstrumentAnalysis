@@ -84,12 +84,22 @@ final class SpectrumAnalyzer {
             }
         }
 
-        var nyquistScale: Float = 1.0 / Float(fftSize)
-        vDSP_vsmul(magnitudes, 1, &nyquistScale, &magnitudes, 1, vDSP_Length(fftSize / 2))
-        var minMag: Float = 1e-12
-        vDSP_vdbcon(magnitudes, 1, &minMag, &dbSpectrum, 1, vDSP_Length(fftSize / 2), 1)
-        lastDb = dbSpectrum
+        // Match Python rfft_db: amp = |bin| / (N/2), dB = 20·log10(amp), clip −95…0 dBFS.
+        // Previous code did 10·log10(|z|² / N) which sat ~30 dB too hot and pinned the plot to 0 dB.
+        let halfN = Float(fftSize / 2)
+        for i in 0..<magnitudes.count {
+            let amp = sqrt(max(magnitudes[i], 0)) / halfN
+            let db = 20 * log10(amp + 1e-12)
+            dbSpectrum[i] = min(0, max(-95, db))
+        }
         lastBinHz = sampleRate / Double(fftSize)
+        if lastDb.count != dbSpectrum.count {
+            lastDb = Array(dbSpectrum)
+        } else {
+            for i in 0..<dbSpectrum.count {
+                lastDb[i] = 0.55 * lastDb[i] + 0.45 * dbSpectrum[i]
+            }
+        }
 
         let binHz = lastBinHz
         if config.autotune {
@@ -124,7 +134,7 @@ final class SpectrumAnalyzer {
                 }
             }
             mixPeaks.sort { $0.db > $1.db }
-            if mixPeaks.count > 36 { mixPeaks = Array(mixPeaks.prefix(36)) }
+            if mixPeaks.count > 512 { mixPeaks = Array(mixPeaks.prefix(512)) }
         }
 
         let a = config.autotune ? concertA : config.concertA

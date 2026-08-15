@@ -13,7 +13,7 @@ struct SpectralCluster {
 }
 
 enum DensityCluster {
-    static let softMax = 8
+    /// No count cap — every independent fund stays a source. Harmonics already folded.
 
     static func cluster(peaks: [SpecPeak]) -> [SpectralCluster] {
         densityClusterFunds(groupHarmonicFunds(peaks))
@@ -93,8 +93,15 @@ enum DensityCluster {
         let n = pts.count
         var labels = Array(repeating: -1, count: n)
 
+        let order = pts.indices.sorted { pts[$0].g.logF < pts[$1].g.logF }
         func neighbors(_ i: Int) -> [Int] {
-            (0..<n).filter { dist(pts[i].x, pts[$0].x) <= eps }
+            var out: [Int] = []
+            let logF = pts[i].g.logF
+            for j in order {
+                if abs(pts[j].g.logF - logF) * 0.42 > eps + 0.05 { continue }
+                if dist(pts[i].x, pts[j].x) <= eps { out.append(j) }
+            }
+            return out
         }
 
         var cid = 0
@@ -129,7 +136,6 @@ enum DensityCluster {
             clusters.append(SpectralCluster(f0: head.f0, db: db, harm: harm, centroid: head.centroid))
         }
         clusters.sort { $0.db > $1.db }
-        guard let top = clusters.first?.db else { return [] }
-        return Array(clusters.filter { $0.db > top - 22 && $0.db > -72 }.prefix(softMax))
+        return clusters.filter { $0.db > -90 }
     }
 }
