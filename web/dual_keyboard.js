@@ -1,4 +1,5 @@
 /* US ANSI + Canadian French CSA. Mirrors scripts/dual_keyboard.py.
+   One layout at a time; the picker remaps glyphs and hardware together.
    10 fingers max unless the extra key is well clustered. */
 (function (global) {
   const MAX_FINGERS = 10;

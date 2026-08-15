@@ -41,6 +41,21 @@ final class PianoSession: ObservableObject {
     @Published var selectedTrackIds: Set<Int> = []
     @Published var typedText = ""
     @Published var fingerCaption = "0 touche · 0 groupe"
+    @Published var kbLayout: String = DualBoards.normalize(
+        UserDefaults.standard.string(forKey: "crayon-kb-layout")
+    ) {
+        didSet {
+            let next = DualBoards.normalize(kbLayout)
+            if next != kbLayout {
+                kbLayout = next
+                return
+            }
+            if oldValue != kbLayout {
+                UserDefaults.standard.set(kbLayout, forKey: "crayon-kb-layout")
+                releaseDualHolds()
+            }
+        }
+    }
     let fingerGate = FingerGate()
     let typeState = DualTypeState()
     private var trackEnergyHist: [Int: [Float]] = [:]
@@ -316,10 +331,41 @@ final class PianoSession: ObservableObject {
         analyzer.reset()
     }
 
+    var layoutHint: String {
+        kbLayout == "csa"
+            ? "Canadien français · 10 doigts, plus si bien groupés"
+            : "US · 10 doigts, plus si bien groupés"
+    }
+
     func clearTyped() {
         typeState.text = ""
         typeState.dead = ""
         typedText = ""
+    }
+
+    func releaseDualHolds() {
+        for held in fingerGate.held {
+            if let spec = DualBoards.layout(held.board).key(held.kid) {
+                typeState.release(spec)
+            }
+        }
+        fingerGate.clear()
+        fingerCaption = Self.caption(for: fingerGate)
+        publishSpatialTracks()
+    }
+
+    @discardableResult
+    func hardwareDown(code: String?) -> Bool {
+        guard let code, let spec = DualBoards.layout(kbLayout).key(code: code) else { return false }
+        dualDown(pointer: DualHID.pointer(for: code), board: kbLayout, kid: spec.kid)
+        return true
+    }
+
+    @discardableResult
+    func hardwareUp(code: String?) -> Bool {
+        guard let code else { return false }
+        dualUp(pointer: DualHID.pointer(for: code))
+        return DualBoards.layout(kbLayout).key(code: code) != nil
     }
 
     func dualDown(pointer: Int, board: String, kid: String) {

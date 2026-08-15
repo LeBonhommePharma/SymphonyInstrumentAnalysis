@@ -21,7 +21,7 @@
     "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
     "chroma: 12 pitch-class bars labeled Do..Si",
     "lit: current notes as crayon chips + Hz",
-    "keyboards: US ANSI + Canadian French CSA side by side (10 fingers; extras only if well clustered)",
+    "keyboard: one US ANSI or Canadian French CSA board (picker remaps instantly; 10 fingers; extras only if well clustered)",
     "keyboard: compact La0–Do8 (88 keys) under the typing boards"
   ],
   "crayons": {
@@ -77,7 +77,7 @@
   "actions": {
     "listen": "Écouter / Stop — mic FFT, silent analyser (do not tap speakers)",
     "replay": "Rejouer / Stop — sample or 8s synth demo; muted until Entendre",
-    "keyboard": "US + Canadian French CSA type; 10 independent fingers, extra keys only if well clustered. Compact La0–Do8 strip still lights from listen/replay.",
+    "keyboard": "Pick US or Canadian French CSA; the board remaps at once. 10 independent fingers, extra keys only if well clustered. Compact La0–Do8 strip still lights from listen/replay.",
     "chroma": "12 bars are the color key; height follows energy",
     "sensitivity": "gate for lighting keys",
     "chords": "on = up to 8 notes; off = 1",

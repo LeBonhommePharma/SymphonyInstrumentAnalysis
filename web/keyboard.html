@@ -764,10 +764,23 @@
     .type-head {
       display: grid;
       grid-template-columns: 44px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "clear out meta"
+        "picker picker picker";
       gap: 8px;
       align-items: stretch;
       margin-bottom: 8px;
     }
+    @media (min-width: 760px) {
+      .type-head {
+        grid-template-columns: 44px minmax(0, 1fr) auto auto;
+        grid-template-areas: "clear out meta picker";
+      }
+    }
+    .type-clear { grid-area: clear; }
+    .type-out { grid-area: out; }
+    .kb-meta { grid-area: meta; }
+    .kb-picker { grid-area: picker; }
     .type-clear {
       border: 1px solid var(--hairline);
       border-radius: 8px;
@@ -790,17 +803,44 @@
       word-break: break-word;
     }
     .type-out:empty::before {
-      content: "US + canadien français · 10 doigts, plus si bien groupés";
+      content: attr(data-hint);
       color: var(--muted);
       font-weight: 600;
     }
+    .kb-picker {
+      display: inline-flex;
+      align-items: stretch;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--paper);
+      min-height: 44px;
+    }
+    .kb-picker button {
+      border: 0;
+      margin: 0;
+      padding: 8px 12px;
+      background: transparent;
+      color: var(--muted);
+      font: 650 0.78rem/1.2 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .kb-picker button + button {
+      border-left: 1px solid var(--hairline);
+    }
+    .kb-picker button[aria-pressed="true"] {
+      background: var(--key-white);
+      color: var(--ink);
+    }
+    .kb-picker button:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: -2px;
+    }
     .dual-boards {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 10px;
-    }
-    @media (max-width: 980px) {
-      .dual-boards { grid-template-columns: 1fr; }
     }
     .kb-wrap {
       background: var(--paper);
@@ -821,7 +861,7 @@
       position: relative;
       --cols: 15;
       --rows: 5;
-      --ku: clamp(22px, 3.05vw, 34px);
+      --ku: clamp(26px, 5.4vw, 48px);
       height: calc(var(--rows) * var(--ku));
       user-select: none;
       touch-action: none;
@@ -1302,10 +1342,14 @@
   <div class="type-well">
     <div class="type-head">
       <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
-      <pre id="typeOut" class="type-out" aria-live="polite"></pre>
+      <pre id="typeOut" class="type-out" data-hint="US · 10 doigts, plus si bien groupés" aria-live="polite"></pre>
       <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
+      <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Disposition">
+        <button type="button" data-layout="us" aria-pressed="true">US</button>
+        <button type="button" data-layout="csa" aria-pressed="false">Canadien français</button>
+      </div>
     </div>
-    <div class="dual-boards" id="dualBoards"></div>
+    <div class="dual-boards" id="dualBoards" data-layout="us"></div>
   </div>
   <div class="board-well piano-strip">
     <div class="board-wrap">
@@ -1410,6 +1454,7 @@
   const $typeOut = document.getElementById("typeOut");
   const $typeClear = document.getElementById("typeClear");
   const $kbMeta = document.getElementById("kbMeta");
+  const $kbLayout = document.getElementById("kbLayout");
   const $arrangeHeads = document.getElementById("arrangeHeads");
   const $arrangeStack = document.getElementById("arrangeStack");
   let liveTracks = [];
@@ -1417,7 +1462,9 @@
   let selectedTrackIds = new Set();
   const fingerGate = new DUAL.FingerGate();
   const typeState = new DUAL.TypeState();
-  let activeBoard = "us";
+  const LAYOUT_STORE = "crayon-kb-layout";
+  let activeBoard = readStoredLayout();
+  let kbWired = false;
   const keyEls = new Map();
   let captureKind = "mic";
   let lastLabelAt = 0;
@@ -2272,12 +2319,57 @@
     return wrap;
   }
 
-  function buildDualBoards() {
+  function readStoredLayout() {
+    try {
+      const saved = localStorage.getItem("crayon-kb-layout");
+      if (saved === "csa" || saved === "us") return saved;
+    } catch (e) { /* private mode */ }
+    return "us";
+  }
+
+  function selectedLayout() {
+    return DUAL.LAYOUTS[activeBoard] || DUAL.US;
+  }
+
+  function layoutHint(id) {
+    return id === "csa"
+      ? "Canadien français · 10 doigts, plus si bien groupés"
+      : "US · 10 doigts, plus si bien groupés";
+  }
+
+  function syncLayoutPicker() {
+    if ($kbLayout) {
+      Array.prototype.forEach.call($kbLayout.querySelectorAll("[data-layout]"), function (btn) {
+        btn.setAttribute("aria-pressed", String(btn.dataset.layout === activeBoard));
+      });
+    }
+    if ($typeOut) $typeOut.setAttribute("data-hint", layoutHint(activeBoard));
+    if ($dualBoards) $dualBoards.dataset.layout = activeBoard;
+    document.documentElement.dataset.kbLayout = activeBoard;
+  }
+
+  function rebuildBoard() {
     if (!$dualBoards) return;
     $dualBoards.innerHTML = "";
     keyEls.clear();
-    $dualBoards.appendChild(buildOneBoard(DUAL.US));
-    $dualBoards.appendChild(buildOneBoard(DUAL.CSA));
+    $dualBoards.appendChild(buildOneBoard(selectedLayout()));
+  }
+
+  function setLayout(id) {
+    const next = id === "csa" ? "csa" : "us";
+    if (next !== activeBoard) {
+      releaseTypedHolds();
+      activeBoard = next;
+      try { localStorage.setItem(LAYOUT_STORE, next); } catch (e) { /* private mode */ }
+      rebuildBoard();
+    }
+    syncLayoutPicker();
+    renderKbMeta();
+  }
+
+  function wireKeyboard() {
+    if (kbWired) return;
+    kbWired = true;
     window.addEventListener("pointerup", onKbPointerUp);
     window.addEventListener("pointercancel", onKbPointerUp);
     window.addEventListener("keydown", onHwKeyDown, true);
@@ -2286,6 +2378,13 @@
     document.addEventListener("visibilitychange", function () {
       if (document.hidden) releaseStuckHolds();
     });
+    if ($kbLayout) {
+      $kbLayout.addEventListener("click", function (ev) {
+        const btn = ev.target.closest("[data-layout]");
+        if (!btn) return;
+        setLayout(btn.dataset.layout);
+      });
+    }
     if ($typeClear) {
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
@@ -2293,6 +2392,15 @@
         renderTypeOut();
       });
     }
+  }
+
+  function initKeyboard() {
+    rebuildBoard();
+    wireKeyboard();
+    syncLayoutPicker();
+    window.__CRAYON_SET_LAYOUT = setLayout;
+    window.__CRAYON_LAYOUT = function () { return activeBoard; };
+    window.__CRAYON_TYPED = function () { return typeState.text; };
   }
 
   function renderTypeOut() {
@@ -2450,12 +2558,18 @@
     renderKbMeta();
   }
 
-  function releaseStuckHolds() {
+  function releaseTypedHolds() {
     Array.from(fingerGate.pointers.keys()).forEach(function (id) {
       const prev = fingerGate.pointers.get(id);
       if (prev) releaseTyped(prev.board, prev.kid);
     });
     fingerGate.clear();
+    syncSpatialTracks();
+    renderKbMeta();
+  }
+
+  function releaseStuckHolds() {
+    releaseTypedHolds();
     Array.from(heldVoices.keys()).forEach(stopHeldKey);
     keys.forEach(function (el) {
       if (mode === "idle") {
@@ -3868,7 +3982,7 @@
 
   buildLegend();
   buildKeyboard();
-  buildDualBoards();
+  initKeyboard();
   buildTracks();
   applyTheme(preferredTheme());
   setCaptureKind(canShareTabAudio() ? "phones" : "mic");

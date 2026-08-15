@@ -35,7 +35,7 @@
       howP3:
         "Open this on the device that is already making sound, including a phone on 5G. The page stays silent. Soft auto-gain lifts quiet rooms and headphone bleed. Tracks are density-clustered on the fly. No melody? It still draws voices and noise. It never fakes a tune.",
       howOpenTutorial: "Open the silent live tutorial",
-      howOpenPiano: "Open the US + Canadian French piano",
+      howOpenPiano: "Open the crayon piano (US or Canadian French)",
       howBackHub: "Symphony",
       crumbPiano: "Piano",
       howH2Useful: "Useful",
@@ -191,7 +191,7 @@
       howP3:
         "Ouvre ceci sur l’appareil qui fait déjà du son, y compris un téléphone en 5G. La page reste silencieuse. Un gain automatique relève les pièces calmes et la fuite des écouteurs. Les pistes sont regroupées par densité en direct. Pas d’air ? Elle dessine quand même les voix et le bruit. Elle n’invente jamais de mélodie.",
       howOpenTutorial: "Ouvrir le tutoriel silencieux en direct",
-      howOpenPiano: "Ouvrir le piano É.-U. + canadien français",
+      howOpenPiano: "Ouvrir le piano-crayon (É.-U. ou canadien français)",
       howBackHub: "Symphony",
       crumbPiano: "Piano",
       howH2Useful: "Utile",

@@ -175,7 +175,13 @@ def check_public_site() -> None:
     piano = (docs / "piano" / "index.html").read_text(encoding="utf-8")
     piano_js = (docs / "piano" / "dual_keyboard.js").read_text(encoding="utf-8")
     if 'id="dualBoards"' not in piano or "Canadien français" not in piano:
-        raise SystemExit("public piano must ship US + Canadian French boards")
+        raise SystemExit("public piano must ship US and Canadian French layouts")
+    if 'id="kbLayout"' not in piano or 'data-layout="csa"' not in piano:
+        raise SystemExit("public piano must ship a US / Canadian French layout picker")
+    if "function setLayout" not in piano or "crayon-kb-layout" not in piano:
+        raise SystemExit("public piano must remap the whole board when the layout picker changes")
+    if "grid-template-columns: 1fr 1fr" in piano:
+        raise SystemExit("public piano must show one layout at a time, not two side-by-side boards")
     if "MAX_FINGERS" not in piano_js or "CLUSTER_EPS" not in piano_js:
         raise SystemExit("public piano must include the clustered 10-finger gate")
     if "pages-crumb" not in piano:
@@ -206,7 +212,13 @@ def check_crayon_piano() -> None:
     if 'id="arrangeHeads"' not in html or "pushTrackHist" not in html:
         raise SystemExit("HTML piano must stack one waveform lane per density cluster")
     if 'id="dualBoards"' not in html or "dual_keyboard.js" not in html:
-        raise SystemExit("HTML piano must expose side-by-side US and Canadian French keyboards")
+        raise SystemExit("HTML piano must ship the typing board and dual_keyboard.js")
+    if 'id="kbLayout"' not in html or 'data-layout="us"' not in html or 'data-layout="csa"' not in html:
+        raise SystemExit("HTML piano must expose a US / Canadian French layout picker")
+    if "function setLayout" not in html or "crayon-kb-layout" not in html:
+        raise SystemExit("HTML piano must remap glyphs and hardware together when the layout changes")
+    if "grid-template-columns: 1fr 1fr" in html:
+        raise SystemExit("HTML piano must show one typing layout at a time, not two side-by-side boards")
     if 'id="kbMeta"' not in html:
         raise SystemExit("HTML piano must show live finger / cluster counts")
     if "onKbPointerEnter" in html:
@@ -256,6 +268,17 @@ def check_crayon_piano() -> None:
         raise SystemExit("iOS waveform history must advance in seconds, not per audio buffer")
     if "CADisplayLink" not in pulse_swift:
         raise SystemExit("iOS must drive the waveform from CADisplayLink")
+    dual_view = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "DualKeyboardView.swift").read_text(
+        encoding="utf-8"
+    )
+    if 'board("us")' in dual_view and 'board("csa")' in dual_view:
+        raise SystemExit("iOS piano must show one typing layout at a time, not two boards")
+    if 'accessibilityIdentifier("kbLayout")' not in dual_view or "Picker" not in dual_view:
+        raise SystemExit("iOS piano must expose a US / Canadian French layout picker")
+    if "kbLayout" not in session_swift or "crayon-kb-layout" not in session_swift:
+        raise SystemExit("iOS piano must persist the chosen typing layout")
+    if "hardwareDown" not in session_swift:
+        raise SystemExit("iOS piano must remap hardware keys to the chosen layout")
     if 'id="stealth"' in html:
         raise SystemExit("HTML piano must use the 5-scene picker, not a stealth checkbox")
     if 'data-theme-set="stealth"' not in html or 'data-theme-set="day"' not in html:

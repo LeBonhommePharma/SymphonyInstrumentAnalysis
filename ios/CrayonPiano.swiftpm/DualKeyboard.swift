@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 let maxFingers = 10
 let clusterEps = 1.20
@@ -39,12 +40,90 @@ struct HeldDual: Hashable {
     var kid: String
 }
 
+enum DualHID {
+    static func code(for usage: UIKeyboardHIDUsage) -> String? {
+        switch usage {
+        case .keyboardA: return "KeyA"
+        case .keyboardB: return "KeyB"
+        case .keyboardC: return "KeyC"
+        case .keyboardD: return "KeyD"
+        case .keyboardE: return "KeyE"
+        case .keyboardF: return "KeyF"
+        case .keyboardG: return "KeyG"
+        case .keyboardH: return "KeyH"
+        case .keyboardI: return "KeyI"
+        case .keyboardJ: return "KeyJ"
+        case .keyboardK: return "KeyK"
+        case .keyboardL: return "KeyL"
+        case .keyboardM: return "KeyM"
+        case .keyboardN: return "KeyN"
+        case .keyboardO: return "KeyO"
+        case .keyboardP: return "KeyP"
+        case .keyboardQ: return "KeyQ"
+        case .keyboardR: return "KeyR"
+        case .keyboardS: return "KeyS"
+        case .keyboardT: return "KeyT"
+        case .keyboardU: return "KeyU"
+        case .keyboardV: return "KeyV"
+        case .keyboardW: return "KeyW"
+        case .keyboardX: return "KeyX"
+        case .keyboardY: return "KeyY"
+        case .keyboardZ: return "KeyZ"
+        case .keyboard1: return "Digit1"
+        case .keyboard2: return "Digit2"
+        case .keyboard3: return "Digit3"
+        case .keyboard4: return "Digit4"
+        case .keyboard5: return "Digit5"
+        case .keyboard6: return "Digit6"
+        case .keyboard7: return "Digit7"
+        case .keyboard8: return "Digit8"
+        case .keyboard9: return "Digit9"
+        case .keyboard0: return "Digit0"
+        case .keyboardReturnOrEnter: return "Enter"
+        case .keyboardDeleteOrBackspace: return "Backspace"
+        case .keyboardTab: return "Tab"
+        case .keyboardSpacebar: return "Space"
+        case .keyboardHyphen: return "Minus"
+        case .keyboardEqualSign: return "Equal"
+        case .keyboardOpenBracket: return "BracketLeft"
+        case .keyboardCloseBracket: return "BracketRight"
+        case .keyboardBackslash: return "Backslash"
+        case .keyboardNonUSPound: return "Backslash"
+        case .keyboardSemicolon: return "Semicolon"
+        case .keyboardQuote: return "Quote"
+        case .keyboardGraveAccentAndTilde: return "Backquote"
+        case .keyboardComma: return "Comma"
+        case .keyboardPeriod: return "Period"
+        case .keyboardSlash: return "Slash"
+        case .keyboardCapsLock: return "CapsLock"
+        case .keyboardLeftShift: return "ShiftLeft"
+        case .keyboardRightShift: return "ShiftRight"
+        case .keyboardLeftAlt: return "AltLeft"
+        case .keyboardRightAlt: return "AltRight"
+        case .keyboardLeftControl: return "ControlLeft"
+        case .keyboardRightControl: return "ControlRight"
+        case .keyboardNonUSBackslash: return "IntlBackslash"
+        default: return nil
+        }
+    }
+
+    static func pointer(for code: String) -> Int {
+        var hash = 5381
+        for byte in code.utf8 {
+            hash = ((hash << 5) &+ hash) &+ Int(byte)
+        }
+        return hash == 0 ? -1 : -abs(hash)
+    }
+}
+
 enum DualBoards {
     static let us = makeUS()
     static let csa = makeCSA()
     static var layouts: [String: DualLayout] { ["us": us, "csa": csa] }
 
-    static func layout(_ id: String) -> DualLayout { layouts[id] ?? us }
+    static func normalize(_ id: String?) -> String { id == "csa" ? "csa" : "us" }
+
+    static func layout(_ id: String) -> DualLayout { layouts[normalize(id)] ?? us }
 
     static func point(_ held: HeldDual) -> (Double, Double) {
         let board = layout(held.board)
@@ -282,6 +361,11 @@ final class FingerGate {
     func up(pointer: Int) {
         pointers.removeValue(forKey: pointer)
         pruneExtras()
+    }
+
+    func clear() {
+        pointers.removeAll()
+        extras.removeAll()
     }
 
     private func pruneExtras() {

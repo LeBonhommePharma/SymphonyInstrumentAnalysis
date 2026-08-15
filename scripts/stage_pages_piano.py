@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Copy the crayon piano into docs/piano for GitHub Pages.
 
-The public site publishes docs/ from main. The dual US + Canadian French
-boards live in web/; this script stages that same page under /piano/.
+The public site publishes docs/ from main. The US / Canadian French
+layout picker lives in web/; this script stages that same page under /piano/.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ CRUMB_CSS = """
 """
 
 HEAD_INJECT = f"""  <link rel="canonical" href="{CANONICAL}">
-  <meta name="description" content="US ANSI and Canadian French CSA keyboards. Ten fingers; extras only if well clustered.">
+  <meta name="description" content="Pick US ANSI or Canadian French CSA. One board remaps instantly. Ten fingers; extras only if well clustered.">
 """
 
 
