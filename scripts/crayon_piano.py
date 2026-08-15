@@ -31,7 +31,9 @@ from analyze_instruments import load_wav
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 from crayon_piano_lib import (
     BLACK_MIDIS,
+    SCENES,
     COLS_PER_SEC,
+    current_scene,
     FFT_SIZE,
     MIDI_LO,
     MUSICIANS,
@@ -47,6 +49,7 @@ from crayon_piano_lib import (
     PeakPicker,
     RGB,
     TrackSet,
+    apply_scene,
     chroma_fill_pct,
     clock_text,
     column_blocks,
@@ -67,7 +70,7 @@ from crayon_piano_lib import (
     window_at,
 )
 
-FOOTER = "l Écouter  r Rejouer  0 Tous  1–5  c Accords  u Entendre  a Auto  [ ] Sens  ← →  q"
+FOOTER = "l Écouter  r Rejouer  0 Tous  1–5  c Accords  u Entendre  a Auto  t Scène  [ ] Sens  ← →  q"
 MIC_ERR = "Pas de micro / No mic — replay still works"
 
 
@@ -709,6 +712,7 @@ class CrayonPianoApp(App[None]):
         Binding("c", "chords", "Accords", show=False, priority=True),
         Binding("u", "unmute", "Entendre", show=False, priority=True),
         Binding("a", "autotune", "Auto", show=False, priority=True),
+        Binding("t", "theme", "Scène", show=False, priority=True),
         Binding("left_square_bracket,[", "sens_down", "[", show=False, priority=True),
         Binding("right_square_bracket,]", "sens_up", "]", show=False, priority=True),
         Binding("left", "seek_left", "←", show=False, priority=True),
@@ -914,6 +918,19 @@ class CrayonPianoApp(App[None]):
     def action_autotune(self) -> None:
         self.autotune_on = not self.autotune_on
         self.picker.reset()
+        self._refresh_chrome()
+
+    def action_theme(self) -> None:
+        i = SCENES.index(current_scene()) if current_scene() in SCENES else 0
+        name = apply_scene(SCENES[(i + 1) % len(SCENES)])
+        colors = {
+            "day": "#f6ead4",
+            "light": "#eef1f5",
+            "dark": "#1c1e24",
+            "night": "#0d1220",
+            "stealth": "#121214",
+        }
+        self.screen.styles.background = colors.get(name, "#121214")
         self._refresh_chrome()
 
     def action_sens_down(self) -> None:
@@ -1143,7 +1160,17 @@ def self_test() -> int:
     app = CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes)
     if app.mode != "idle" or "bass" not in app.envelopes:
         raise SystemExit("app did not instantiate with demo envelopes")
-    print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK")
+    from crayon_piano_lib import SPEC_F_LO, spec_x_of
+
+    x440 = spec_x_of(440.0)
+    x_a0 = spec_x_of(SPEC_F_LO)
+    if abs(x_a0) > 1e-12:
+        raise SystemExit(f"A0 should sit at x=0, got {x_a0}")
+    # A4 is exactly 4 octaves above A0, so x = 4 / log2(C8/A0)
+    expect = 4.0 / np.log2((440.0 * (2.0 ** (39.0 / 12.0))) / SPEC_F_LO)
+    if abs(x440 - expect) > 1e-9:
+        raise SystemExit(f"440 Hz log-x {x440} != {expect}")
+    print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK")
     return 0
 
 

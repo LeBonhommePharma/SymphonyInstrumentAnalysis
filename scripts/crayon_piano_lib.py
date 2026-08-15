@@ -25,6 +25,7 @@ if str(_SCRIPTS) not in sys.path:
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 
 Mode = Literal["idle", "live", "replay"]
+RGB = tuple[int, int, int]
 
 MIDI_LO = 21  # A0 / La-1, first key of an 88-key piano
 MIDI_HI = 108  # C8 / Do8, last key of an 88-key piano
@@ -37,21 +38,73 @@ TUNE_WINDOW_S = 2.2
 MIXED_LO_HZ = 27.5
 MIXED_HI_HZ = 2500.0
 FFT_SIZE = 8192
+# Shared spectrum plot: log-Hz A0–C8, dBFS. Same math as iOS/web/tutorial.
+SPEC_F_LO = 27.5  # A0
+SPEC_F_HI = A4_REF * (2.0 ** ((MIDI_HI - 69) / 12.0))  # C8 ≈ 4186.01 Hz
+SPEC_DB_LO = -90.0
+SPEC_DB_HI = 0.0
+SPEC_HZ_TICKS = (27.5, 55.0, 110.0, 220.0, 440.0, 880.0, 1760.0, 3520.0)
+SCENES = ("day", "light", "dark", "night", "stealth")
+SCENE_COLORS: dict[str, dict[str, RGB]] = {
+    "day": {"bg": (246, 234, 212), "ink": (42, 34, 24), "muted": (106, 94, 80), "paper": (255, 246, 232)},
+    "light": {"bg": (238, 241, 245), "ink": (26, 32, 40), "muted": (92, 102, 114), "paper": (255, 255, 255)},
+    "dark": {"bg": (28, 30, 36), "ink": (210, 212, 220), "muted": (139, 142, 152), "paper": (38, 40, 48)},
+    "night": {"bg": (13, 18, 32), "ink": (200, 208, 228), "muted": (122, 132, 156), "paper": (21, 27, 44)},
+    "stealth": {"bg": (18, 18, 20), "ink": (154, 154, 162), "muted": (110, 110, 118), "paper": (24, 24, 28)},
+}
 PEAKS_PER_SEC = 80.0
 WAVE_PLAYHEAD_REPLAY = 0.34
 WAVE_PLAYHEAD_LIVE = 0.92
 COLS_PER_SEC = 14.0
 BLACK_PC = frozenset({1, 3, 6, 8, 10})
-THEME_BG = (18, 18, 20)
-THEME_INK = (154, 154, 162)
-THEME_MUTED = (110, 110, 118)
-THEME_PAPER = (24, 24, 28)
+THEME_BG = SCENE_COLORS["stealth"]["bg"]
+THEME_INK = SCENE_COLORS["stealth"]["ink"]
+THEME_MUTED = SCENE_COLORS["stealth"]["muted"]
+THEME_PAPER = SCENE_COLORS["stealth"]["paper"]
+_SCENE = "stealth"
 TOUS_RGB = (42, 42, 46)
 SENS_DEFAULT = 58
 DEMO_SR = 44100
 DEMO_DUR = 8.0
 
-RGB = tuple[int, int, int]
+
+def apply_scene(name: str) -> str:
+    """Swap TUI crayons. Returns the active scene id."""
+    global THEME_BG, THEME_INK, THEME_MUTED, THEME_PAPER, _SCENE
+    scene = name if name in SCENE_COLORS else "stealth"
+    colors = SCENE_COLORS[scene]
+    THEME_BG = colors["bg"]
+    THEME_INK = colors["ink"]
+    THEME_MUTED = colors["muted"]
+    THEME_PAPER = colors["paper"]
+    _SCENE = scene
+    return scene
+
+
+def current_scene() -> str:
+    return _SCENE
+
+
+def spec_x_of(freq_hz: float) -> float:
+    """Log-frequency position on the shared A0–C8 plot, 0 at A0, 1 at C8."""
+    f = max(float(freq_hz), SPEC_F_LO)
+    return (np.log2(f) - np.log2(SPEC_F_LO)) / (np.log2(SPEC_F_HI) - np.log2(SPEC_F_LO))
+
+
+def spec_y_of_db(db: float) -> float:
+    """dBFS position, 0 at SPEC_DB_LO, 1 at SPEC_DB_HI."""
+    t = (float(db) - SPEC_DB_LO) / (SPEC_DB_HI - SPEC_DB_LO)
+    return min(1.0, max(0.0, t))
+
+
+def peak_hz_of_db(db: np.ndarray, bin_hz: float, f_lo: float = SPEC_F_LO, f_hi: float = SPEC_F_HI) -> float:
+    """Frequency of the loudest bin inside the plot range."""
+    i0 = max(1, int(f_lo / bin_hz))
+    i1 = min(db.size - 1, int(np.ceil(f_hi / bin_hz)))
+    if i1 <= i0:
+        return 0.0
+    peak_i = i0 + int(np.argmax(db[i0 : i1 + 1]))
+    return peak_i * bin_hz
 
 
 @dataclass(frozen=True)

@@ -94,9 +94,15 @@
     "left/right": "seek ±1s on replay",
     "q": "quit"
   },
-  "theme": {
-    "scenes": ["day", "light", "dark", "night", "stealth"],
-    "default": "night or day from prefers-color-scheme",
-    "stealth": { "bg": "#121214", "ink": "#9a9aa2", "muted": "#6e6e76", "paper": "#18181c" }
-  }
+    "theme": {
+        "scenes": ["day", "light", "dark", "night", "stealth"],
+        "auto": "Ambient Light Sensor if permitted; else prefers-color-scheme + hour. Manual swatch sticks until Auto.",
+        "default": "auto",
+        "stealth": { "bg": "#121214", "ink": "#9a9aa2", "muted": "#6e6e76", "paper": "#18181c" }
+    },
+    "spectrum": {
+        "x": "log Hz, A0 27.5 → C8 4186, tick 440 at A4",
+        "y": "dBFS −90…0",
+        "sources": "unbounded clustered funds + held keys on the same axes"
+    }
 }
