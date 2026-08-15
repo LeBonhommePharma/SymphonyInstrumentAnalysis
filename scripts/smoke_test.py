@@ -156,6 +156,12 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must fold harmonics before counting tracks")
     if "theme.js" not in tutorial:
         raise SystemExit("tutorial must load the shared theme switch")
+    if "data-theme-auto" not in tutorial:
+        raise SystemExit("tutorial must include Auto lighting")
+    if "specYOfDb" not in app_js and "yOfDb" not in app_js:
+        raise SystemExit("tutorial spectrum must plot dBFS, not byte-log")
+    if '["440", 440]' not in app_js:
+        raise SystemExit("tutorial spectrum must label the 440 Hz tick")
     if "softGain" not in app_js and "updateAutoGain" not in app_js:
         raise SystemExit("tutorial must soft-auto-gain quiet / headphone bleed")
     if "video: false" not in app_js and "audioOnlyStream" not in app_js:

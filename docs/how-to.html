@@ -6,9 +6,14 @@
   (function () {
     try {
       var t = localStorage.getItem("crayon-theme");
+      var mode = localStorage.getItem("crayon-theme-mode");
       var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
-      if (!t || !ok[t]) {
-        t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "day" : "night";
+      if (mode !== "manual" || !t || !ok[t]) {
+        var h = new Date().getHours();
+        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
+        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
+        else if (h >= 17) t = light ? "light" : "night";
+        else t = light ? "day" : "light";
       }
       document.documentElement.setAttribute("data-theme", t);
       document.documentElement.setAttribute("data-scheme", (t === "day" || t === "light") ? "light" : "dark");
@@ -46,6 +51,7 @@
       </span>
       <span class="crumb-tools">
         <span class="scenes" role="radiogroup" data-theme-group aria-label="Look">
+          <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
           <button type="button" class="scene" data-theme-set="day" aria-label="Day" title="Day"></button>
           <button type="button" class="scene" data-theme-set="light" aria-label="Light" title="Light"></button>
           <button type="button" class="scene" data-theme-set="dark" aria-label="Dark" title="Dark"></button>

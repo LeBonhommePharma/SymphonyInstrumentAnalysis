@@ -65,14 +65,17 @@ html[data-theme="stealth"] {
   --ink: #9a9aa2;
   --muted: #6e6e76;
   --card: #18181c;
-  --line: #333338;
-  --orange: #c97848;
-  --teal: #6a9a72;
-  --panel-dark: #0c0c0e;
-  --shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
-  --glow-blob-a: #1a1a1e;
+  --line: #2a2a30;
+  --orange: #a07050;
+  --teal: #5a7a60;
+  --panel-dark: #0a0a0c;
+  --shadow: none;
+  --glow-blob-a: #121214;
   --glow-blob-b: #121214;
   color-scheme: dark;
+}
+html[data-theme="stealth"] body {
+  background: #121214;
 }
 
 * { box-sizing: border-box; }
@@ -146,13 +149,25 @@ body {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
   cursor: pointer;
 }
-.scene[data-theme-set="day"] { background: #f6ead4; }
-.scene[data-theme-set="light"] { background: #eef1f5; }
-.scene[data-theme-set="dark"] { background: #1c1e24; }
-.scene[data-theme-set="night"] { background: #0d1220; }
-.scene[data-theme-set="stealth"] { background: #121214; }
+.scene[data-theme-set="day"] { background: #f6ead4; box-shadow: inset 0 0 0 1px #b89f78; }
+.scene[data-theme-set="light"] { background: #eef1f5; box-shadow: inset 0 0 0 1px #8a97a8; }
+.scene[data-theme-set="dark"] { background: #1c1e24; box-shadow: inset 0 0 0 1px #6a6e7c; }
+.scene[data-theme-set="night"] { background: #0d1220; box-shadow: inset 0 0 0 1px #5a6a90; }
+.scene[data-theme-set="stealth"] { background: #121214; box-shadow: inset 0 0 0 1px #6e6e76; }
+.scene-auto {
+  font: 700 0.68rem/1 ui-sans-serif, system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.scene-auto[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--card);
+}
 .scene[aria-pressed="true"] {
-  box-shadow: 0 0 0 2px var(--ink);
+  box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 .scene:focus-visible {
   outline: 2px solid var(--teal);
@@ -168,7 +183,7 @@ body {
 .app {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 18px 18px 28px;
+  padding: 18px 18px 12px;
   min-height: 100%;
   display: grid;
   gap: 16px;
@@ -313,15 +328,16 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   grid-template-columns: minmax(0, 1fr) minmax(320px, 1.05fr);
   gap: 16px;
   min-height: 0;
-  align-items: stretch;
+  align-items: start;
 }
 @media (max-width: 900px) {
   .stage { grid-template-columns: 1fr; }
   .hero h1 { font-size: 1.55rem; }
   button { min-height: 44px; }
   #spec {
-    height: min(34vh, 280px);
+    height: 220px;
     min-height: 220px;
+    max-height: 220px;
   }
 }
 
@@ -349,11 +365,11 @@ canvas {
 }
 #tracks { height: 168px; min-height: 168px; }
 #spec {
-  height: min(36vh, 340px);
-  min-height: 240px;
+  height: 280px;
+  min-height: 280px;
+  max-height: 280px;
 }
-.spec-panel { display: flex; flex-direction: column; }
-.spec-panel canvas { flex: 1; }
+.spec-panel canvas { flex: none; }
 .daw-panel h3 { margin-bottom: 8px; }
 
 .note-row {
@@ -388,7 +404,12 @@ canvas {
 }
 
 .piano-stage {
-  padding-bottom: 16px;
+  padding: 12px 16px 18px;
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  box-sizing: border-box;
 }
 .piano-wrap {
   margin-top: 4px;
@@ -396,14 +417,14 @@ canvas {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   border-radius: 14px;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 8%, transparent);
+  width: 100%;
 }
 .piano {
   display: block;
   position: relative;
-  height: clamp(156px, 28vw, 228px);
-  min-width: 1180px;
-  width: 100%;
+  height: clamp(220px, 32vh, 360px);
+  min-width: max(100%, calc(52 * 28px));
+  width: max(100%, calc(52 * 28px));
   border-radius: 14px;
   overflow: hidden;
   background: var(--panel-dark);

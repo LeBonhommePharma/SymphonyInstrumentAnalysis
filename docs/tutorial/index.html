@@ -6,9 +6,14 @@
   (function () {
     try {
       var t = localStorage.getItem("crayon-theme");
+      var mode = localStorage.getItem("crayon-theme-mode");
       var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
-      if (!t || !ok[t]) {
-        t = (window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches) ? "day" : "night";
+      if (mode !== "manual" || !t || !ok[t]) {
+        var h = new Date().getHours();
+        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
+        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
+        else if (h >= 17) t = light ? "light" : "night";
+        else t = light ? "day" : "light";
       }
       document.documentElement.setAttribute("data-theme", t);
       document.documentElement.setAttribute("data-scheme", (t === "day" || t === "light") ? "light" : "dark");
@@ -40,6 +45,7 @@
       </span>
       <span class="crumb-tools">
         <span class="scenes" role="radiogroup" data-theme-group aria-label="Look">
+          <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
           <button type="button" class="scene" data-theme-set="day" aria-label="Day" title="Day"></button>
           <button type="button" class="scene" data-theme-set="light" aria-label="Light" title="Light"></button>
           <button type="button" class="scene" data-theme-set="dark" aria-label="Dark" title="Dark"></button>
@@ -81,6 +87,13 @@
       <p class="meter-hint" data-i18n="meterHint">Works with quiet rooms and headphone leak — no need to blast the speaker.</p>
     </section>
 
+    <section class="panel piano-stage">
+      <h3 data-i18n="pianoFull">Full piano · A0 to C8</h3>
+      <div class="piano-wrap">
+        <div class="piano" id="piano" aria-label="Full piano, A0 to C8"></div>
+      </div>
+    </section>
+
     <main class="stage">
       <section class="panel daw-panel">
         <h3 id="tracksHeading">Live tracks · 0 instruments</h3>
@@ -107,13 +120,6 @@
         </div>
       </aside>
     </main>
-
-    <section class="panel piano-stage">
-      <h3 data-i18n="pianoFull">Full piano · A0 to C8</h3>
-      <div class="piano-wrap">
-        <div class="piano" id="piano" aria-label="Full piano, A0 to C8"></div>
-      </div>
-    </section>
 
     <p class="footer" id="status">
       Audio only. Mic is the default. On a computer you can share tab audio (video track discarded).
