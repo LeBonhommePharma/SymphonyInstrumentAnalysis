@@ -278,12 +278,11 @@
     if (key.kind === "space") return " ";
     if (key.kind !== "char") return "";
     if (this.altgr && key.altgr) return key.altgr;
-    const upper = this.shift !== (this.caps && /[a-zàèùéç]/i.test(key.base) && key.base.length === 1);
-    if (this.shift || (this.caps && key.shift && /[A-ZÀÈÙÉ]/.test(key.shift))) {
-      if (this.caps && !this.shift && key.base.length === 1 && key.shift) return key.shift;
-      if (this.shift) return key.shift || key.base.toUpperCase();
-    }
-    if (upper && key.shift) return key.shift;
+    const isAlpha = key.base.length > 0 && Array.from(key.base).every(function (ch) {
+      return /\p{L}/u.test(ch);
+    });
+    const upper = !!(this.shift ^ (this.caps && isAlpha));
+    if (upper) return key.shift || key.base.toUpperCase();
     return key.base;
   };
 
@@ -365,26 +364,40 @@
 
   FingerGate.prototype.down = function (pointer, key) {
     if (this.pointers.has(pointer)) {
-      this.pointers.set(pointer, key);
-      return true;
+      const prev = this.pointers.get(pointer);
+      if (sameHeld(prev, key)) return true;
+      this.pointers.delete(pointer);
+      if (canAccept(this.held(), key)) {
+        this.pointers.set(pointer, key);
+        return true;
+      }
+      this.pointers.set(pointer, prev);
+      return false;
     }
-    if (this.pointers.size < MAX_FINGERS) {
-      this.pointers.set(pointer, key);
-      return true;
-    }
-    if (canAccept(this.held(), key)) {
-      this.extras.push(key);
-      return true;
-    }
-    return false;
+    if (this.held().some(function (h) { return sameHeld(h, key); })) return true;
+    if (!canAccept(this.held(), key)) return false;
+    if (this.pointers.size < MAX_FINGERS) this.pointers.set(pointer, key);
+    else this.extras.push(key);
+    return true;
   };
 
   FingerGate.prototype.up = function (pointer) {
     this.pointers.delete(pointer);
-    const live = this.held();
-    this.extras = this.extras.filter(function (k) {
-      return live.some(function (x) { return sameHeld(x, k); });
+    this.pruneExtras();
+  };
+
+  FingerGate.prototype.pruneExtras = function () {
+    const base = Array.from(this.pointers.values());
+    const kept = [];
+    this.extras.forEach(function (extra) {
+      if (base.some(function (x) { return sameHeld(x, extra); })) return;
+      if (kept.some(function (x) { return sameHeld(x, extra); })) return;
+      const trial = base.concat(kept);
+      const before = clusterHeld(trial).length;
+      const after = clusterHeld(trial.concat([extra])).length;
+      if (after <= before) kept.push(extra);
     });
+    this.extras = kept;
   };
 
   FingerGate.prototype.clear = function () {
@@ -405,6 +418,44 @@
     canAccept: canAccept,
     TypeState: TypeState,
     FingerGate: FingerGate,
-    sameHeld: sameHeld
+    sameHeld: sameHeld,
+    selfTest: selfTest
   };
+
+  function selfTest() {
+    function held(board, kid) { return { board: board, kid: kid }; }
+    if (US.geometry !== "ansi" || CSA.geometry !== "iso") throw new Error("geometry");
+    if (US.keys.some(function (k) { return k.kid === "IntlBackslash"; })) throw new Error("US ISO key");
+    if (!CSA.keys.some(function (k) { return k.kid === "IntlBackslash" && k.base === "ù"; })) throw new Error("CSA ù");
+    const asdf = ["KeyA", "KeyS", "KeyD", "KeyF"].map(function (k) { return held("us", k); });
+    if (clusterHeld(asdf).length !== 1) throw new Error("ASDF must be one cluster");
+    const hands = asdf.concat(["KeyJ", "KeyK", "KeyL"].map(function (k) { return held("us", k); }));
+    if (clusterHeld(hands).length !== 2) throw new Error("two hands must be two clusters");
+    const tenKids = ["Digit1", "Digit3", "Digit5", "Digit7", "Digit9", "KeyZ", "KeyC", "KeyB", "KeyM", "Slash"];
+    const ten = tenKids.map(function (k) { return held("us", k); });
+    if (clusterHeld(ten).length !== 10) throw new Error("ten isolated keys");
+    if (canAccept(ten, held("csa", "KeyA"))) throw new Error("11th isolated must fail");
+    if (!canAccept(ten, held("us", "Backquote"))) throw new Error("clustered 11th must pass");
+    if (clusterHeld([held("us", "KeyA"), held("csa", "KeyA")]).length !== 2) throw new Error("two boards");
+    const gate = new FingerGate();
+    ten.forEach(function (k, i) { if (!gate.down(i, k)) throw new Error("finger " + i); });
+    if (gate.down(99, held("csa", "KeyA"))) throw new Error("gate isolated");
+    if (!gate.down(99, held("us", "Backquote"))) throw new Error("gate clustered");
+    if (gate.clusters().length !== 10) throw new Error("tracks stay at 10");
+    const st = new TypeState();
+    st.apply(keyById(CSA, "Slash"));
+    if (st.text !== "é") throw new Error("é");
+    st.apply(keyById(CSA, "BracketLeft"));
+    st.apply(keyById(CSA, "KeyA"));
+    if (!st.text.endsWith("â")) throw new Error("^a");
+    gate.up(0);
+    if (gate.held().some(function (k) { return k.kid === "Backquote"; })) throw new Error("extra lift");
+    if (!gate.down(0, held("csa", "KeyA"))) throw new Error("freed finger");
+    if (gate.down(98, held("csa", "Digit1"))) throw new Error("still 11th");
+    return "dual_keyboard.js: US=" + US.keys.length + " CSA=" + CSA.keys.length + " gate=10+cluster OK";
+  }
+
+  if (typeof process !== "undefined" && process.argv && /dual_keyboard\.js$/.test(String(process.argv[1] || ""))) {
+    console.log(selfTest());
+  }
 })(typeof window !== "undefined" ? window : globalThis);

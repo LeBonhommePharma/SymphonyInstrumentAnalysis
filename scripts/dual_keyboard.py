@@ -443,23 +443,41 @@ class FingerGate:
 
     def down(self, pointer: int, key: HeldKey) -> bool:
         if pointer in self.pointers:
-            self.pointers[pointer] = key
+            prev = self.pointers[pointer]
+            if prev == key:
+                return True
+            del self.pointers[pointer]
+            if can_accept(self.held(), key, max_fingers=self.max_fingers):
+                self.pointers[pointer] = key
+                return True
+            self.pointers[pointer] = prev
+            return False
+        if key in self.held():
             return True
+        if not can_accept(self.held(), key, max_fingers=self.max_fingers):
+            return False
         if len(self.pointers) < self.max_fingers:
             self.pointers[pointer] = key
-            return True
-        if can_accept(self.held(), key, max_fingers=self.max_fingers):
+        else:
             self.extras.append(key)
-            return True
-        return False
+        return True
 
     def up(self, pointer: int) -> None:
         self.pointers.pop(pointer, None)
-        # extras live only while some pointer still holds a clustered neighbor
-        still = self.held()
-        self.extras = [k for k in self.extras if can_accept(
-            [x for x in still if x != k], k, max_fingers=self.max_fingers
-        ) and k in still]
+        self._prune_extras()
+
+    def _prune_extras(self) -> None:
+        """Extras stay only while they remain well clustered with a live finger."""
+        base = list(self.pointers.values())
+        kept: list[HeldKey] = []
+        for extra in self.extras:
+            if extra in base or extra in kept:
+                continue
+            before = len(cluster_held(base + kept))
+            after = len(cluster_held(base + kept + [extra]))
+            if after <= before:
+                kept.append(extra)
+        self.extras = kept
 
     def clear(self) -> None:
         self.pointers.clear()
@@ -529,6 +547,22 @@ def main() -> None:
     st2.apply(US.by_id()["KeyA"])
     if st2.text != "a":
         raise SystemExit("US KeyA should type a")
+    st2.apply(US.by_id()["CapsLock"])
+    st2.apply(US.by_id()["KeyA"])
+    if st2.text != "aA":
+        raise SystemExit(f"caps should invert case, got {st2.text!r}")
+    st2.apply(US.by_id()["ShiftLeft"])
+    st2.apply(US.by_id()["KeyB"])
+    if st2.text != "aAb":
+        raise SystemExit(f"caps+shift should cancel, got {st2.text!r}")
+
+    gate.up(0)
+    if any(k.kid == "Backquote" for k in gate.held()):
+        raise SystemExit("a clustered extra must lift when its neighbor finger lifts")
+    if not gate.down(0, eleventh):
+        raise SystemExit("a freed finger must be able to press a new isolated key")
+    if gate.down(98, HeldKey("csa", "Digit1")):
+        raise SystemExit("an 11th isolated key must stay rejected after the extra is gone")
 
     print(
         f"dual_keyboard: US={len(US.keys)} CSA={len(CSA.keys)} "

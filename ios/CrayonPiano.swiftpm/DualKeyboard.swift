@@ -259,23 +259,40 @@ final class FingerGate {
     var clusters: [[HeldDual]] { DualBoards.cluster(held) }
 
     func down(pointer: Int, key: HeldDual) -> Bool {
-        if pointers[pointer] != nil {
-            pointers[pointer] = key
-            return true
+        if let prev = pointers[pointer] {
+            if prev == key { return true }
+            pointers.removeValue(forKey: pointer)
+            if DualBoards.canAccept(held, incoming: key) {
+                pointers[pointer] = key
+                return true
+            }
+            pointers[pointer] = prev
+            return false
         }
+        if held.contains(key) { return true }
+        if !DualBoards.canAccept(held, incoming: key) { return false }
         if pointers.count < maxFingers {
             pointers[pointer] = key
-            return true
-        }
-        if DualBoards.canAccept(held, incoming: key) {
+        } else {
             extras.append(key)
-            return true
         }
-        return false
+        return true
     }
 
     func up(pointer: Int) {
         pointers.removeValue(forKey: pointer)
-        extras = extras.filter { held.contains($0) }
+        pruneExtras()
+    }
+
+    private func pruneExtras() {
+        let base = Array(pointers.values)
+        var kept: [HeldDual] = []
+        for extra in extras {
+            if base.contains(extra) || kept.contains(extra) { continue }
+            let before = DualBoards.cluster(base + kept).count
+            let after = DualBoards.cluster(base + kept + [extra]).count
+            if after <= before { kept.append(extra) }
+        }
+        extras = kept
     }
 }

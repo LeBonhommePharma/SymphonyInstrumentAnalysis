@@ -40,6 +40,7 @@ final class PianoSession: ObservableObject {
     @Published var liveTracks: [LiveTrack] = []
     @Published var selectedTrackIds: Set<Int> = []
     @Published var typedText = ""
+    @Published var fingerCaption = "0 touche · 0 groupe"
     let fingerGate = FingerGate()
     let typeState = DualTypeState()
     private var trackEnergyHist: [Int: [Float]] = [:]
@@ -308,11 +309,15 @@ final class PianoSession: ObservableObject {
 
     func dualDown(pointer: Int, board: String, kid: String) {
         let key = HeldDual(board: board, kid: kid)
+        if fingerGate.pointers[pointer] == key { return }
+        if fingerGate.pointers[pointer] != nil { return }
+        let already = fingerGate.held.contains(key)
         guard fingerGate.down(pointer: pointer, key: key) else { return }
-        if let spec = DualBoards.layout(board).key(kid) {
+        if !already, let spec = DualBoards.layout(board).key(kid) {
             _ = typeState.apply(spec)
             typedText = typeState.text
         }
+        fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
     }
 
@@ -321,7 +326,16 @@ final class PianoSession: ObservableObject {
             typeState.release(spec)
         }
         fingerGate.up(pointer: pointer)
+        fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+    }
+
+    private static func caption(for gate: FingerGate) -> String {
+        let n = gate.held.count
+        let g = gate.clusters.count
+        let nt = n <= 1 ? "\(n) touche" : "\(n) touches"
+        let ng = g <= 1 ? "\(g) groupe" : "\(g) groupes"
+        return "\(nt) · \(ng)"
     }
 
     private func publishSpatialTracks() {

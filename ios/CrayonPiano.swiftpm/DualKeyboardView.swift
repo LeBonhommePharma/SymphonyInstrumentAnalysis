@@ -17,6 +17,11 @@ struct DualKeyboardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
                     .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8))
+                Text(session.fingerCaption)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(session.scene.muted)
+                    .padding(8)
+                    .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8))
             }
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 10) {
@@ -126,16 +131,6 @@ final class DualBoardView: UIView {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for touch in touches {
-            if let key = keyAt(touch.location(in: self)) {
-                touchKey[touch] = key
-                session?.dualDown(pointer: touch.hash, board: boardId, kid: key.kid)
-            }
-        }
-        setNeedsDisplay()
-    }
-
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
             if let key = keyAt(touch.location(in: self)) {
                 touchKey[touch] = key

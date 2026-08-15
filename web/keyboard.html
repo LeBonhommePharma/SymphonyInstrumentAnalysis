@@ -763,7 +763,7 @@
     }
     .type-head {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr);
+      grid-template-columns: 44px minmax(0, 1fr) auto;
       gap: 8px;
       align-items: stretch;
       margin-bottom: 8px;
@@ -826,8 +826,21 @@
       user-select: none;
       touch-action: none;
     }
+    .kb-meta {
+      min-width: 7.5rem;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--paper);
+      color: var(--muted);
+      font: 650 0.72rem/1.35 ui-sans-serif, system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+    }
     .kb-key {
       position: absolute;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -1290,6 +1303,7 @@
     <div class="type-head">
       <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
       <pre id="typeOut" class="type-out" aria-live="polite"></pre>
+      <p id="kbMeta" class="kb-meta">0 touche · 0 groupe</p>
     </div>
     <div class="dual-boards" id="dualBoards"></div>
   </div>
@@ -1393,6 +1407,7 @@
   const $dualBoards = document.getElementById("dualBoards");
   const $typeOut = document.getElementById("typeOut");
   const $typeClear = document.getElementById("typeClear");
+  const $kbMeta = document.getElementById("kbMeta");
   const $arrangeHeads = document.getElementById("arrangeHeads");
   const $arrangeStack = document.getElementById("arrangeStack");
   let liveTracks = [];
@@ -2211,6 +2226,7 @@
       el.style.width = (key.w / 15 * 100) + "%";
       el.style.top = (key.row / 5 * 100) + "%";
       el.style.height = (key.h / 5 * 100) + "%";
+      el.style.zIndex = key.h > 1 ? "0" : "1";
       const main = document.createElement("span");
       main.textContent = keyLabel(key) || (key.kind === "space" ? "" : key.base);
       el.appendChild(main);
@@ -2222,7 +2238,6 @@
       }
       el.setAttribute("aria-label", (key.base || key.kind) + " " + layout.id);
       el.addEventListener("pointerdown", onKbPointerDown);
-      el.addEventListener("pointerenter", onKbPointerEnter);
       board.appendChild(el);
       keyEls.set(layout.id + ":" + key.kid, el);
     });
@@ -2333,6 +2348,15 @@
     });
   }
 
+  function renderKbMeta() {
+    if (!$kbMeta) return;
+    const n = fingerGate.held().length;
+    const g = fingerGate.clusters().length;
+    const nt = n <= 1 ? n + " touche" : n + " touches";
+    const ng = g <= 1 ? g + " groupe" : g + " groupes";
+    $kbMeta.textContent = nt + " · " + ng;
+  }
+
   function applyTyped(board, kid) {
     const layout = DUAL.LAYOUTS[board];
     const key = DUAL.keyById(layout, kid);
@@ -2354,27 +2378,13 @@
     el.setPointerCapture(ev.pointerId);
     activeBoard = el.dataset.board;
     const key = { board: el.dataset.board, kid: el.dataset.kid };
+    const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, key); });
     const ok = fingerGate.down(ev.pointerId, key);
     el.classList.toggle("blocked", !ok);
     if (!ok) return;
-    applyTyped(key.board, key.kid);
+    if (!already) applyTyped(key.board, key.kid);
     syncSpatialTracks();
-  }
-
-  function onKbPointerEnter(ev) {
-    if (ev.buttons !== 1 && ev.pointerType !== "touch") return;
-    if (!fingerGate.pointers.has(ev.pointerId) && fingerGate.pointers.size >= DUAL.MAX_FINGERS) {
-      const key = { board: ev.currentTarget.dataset.board, kid: ev.currentTarget.dataset.kid };
-      if (!DUAL.canAccept(fingerGate.held(), key)) return;
-    }
-    if (!fingerGate.pointers.has(ev.pointerId)) return;
-    const key = { board: ev.currentTarget.dataset.board, kid: ev.currentTarget.dataset.kid };
-    const prev = fingerGate.pointers.get(ev.pointerId);
-    if (prev && DUAL.sameHeld(prev, key)) return;
-    if (prev) releaseTyped(prev.board, prev.kid);
-    if (!fingerGate.down(ev.pointerId, key)) return;
-    applyTyped(key.board, key.kid);
-    syncSpatialTracks();
+    renderKbMeta();
   }
 
   function onKbPointerUp(ev) {
@@ -2382,6 +2392,7 @@
     if (prev) releaseTyped(prev.board, prev.kid);
     fingerGate.up(ev.pointerId);
     syncSpatialTracks();
+    renderKbMeta();
   }
 
   function onHwKeyDown(ev) {
@@ -2392,9 +2403,11 @@
     if (!key) return;
     ev.preventDefault();
     const held = { board: layout.id, kid: key.kid };
+    const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, held); });
     if (!fingerGate.down("hw-" + ev.code, held)) return;
-    applyTyped(layout.id, key.kid);
+    if (!already) applyTyped(layout.id, key.kid);
     syncSpatialTracks();
+    renderKbMeta();
   }
 
   function onHwKeyUp(ev) {
@@ -2403,6 +2416,7 @@
     if (key) releaseTyped(layout.id, key.kid);
     fingerGate.up("hw-" + ev.code);
     syncSpatialTracks();
+    renderKbMeta();
   }
 
   function buildLegend() {
