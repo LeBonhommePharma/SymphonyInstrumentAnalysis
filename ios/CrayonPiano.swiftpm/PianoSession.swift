@@ -38,7 +38,12 @@ final class PianoSession: ObservableObject {
     @Published var unmute = false
     @Published var autotune = true
     @Published var liveTracks: [LiveTrack] = []
-    @Published var selectedTrackId: Int?
+    @Published var selectedTrackIds: Set<Int> = []
+    @Published var typedText = ""
+    let fingerGate = FingerGate()
+    let typeState = DualTypeState()
+    private var trackEnergyHist: [Int: [Float]] = [:]
+    let histLen = 240
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
     @Published var sceneAuto = UserDefaults.standard.object(forKey: "crayon-theme-auto") as? Bool ?? true {
@@ -48,9 +53,17 @@ final class PianoSession: ObservableObject {
 
     var scene: SceneStyle { sceneChoice }
 
-    var isTous: Bool { selectedTrackId == nil || liveTracks.isEmpty }
+    var isTous: Bool { selectedTrackIds.isEmpty || liveTracks.isEmpty }
 
     var trackLabel: String { "\(liveTracks.count)" }
+
+    var waveStackHeight: CGFloat {
+        min(280, CGFloat(max(1, liveTracks.count)) * 36)
+    }
+
+    func trackIsOn(_ id: Int) -> Bool { isTous || selectedTrackIds.contains(id) }
+
+    func energyHist(for id: Int) -> [Float] { trackEnergyHist[id] ?? [] }
 
     var tuneLine: String {
         if !autotune {
@@ -272,13 +285,88 @@ final class PianoSession: ObservableObject {
     }
 
     func selectAllTracks() {
-        selectedTrackId = nil
+        selectedTrackIds = []
         analyzer.reset()
     }
 
     func toggleTrack(_ id: Int) {
-        selectedTrackId = selectedTrackId == id ? nil : id
+        if isTous {
+            selectedTrackIds = [id]
+        } else if selectedTrackIds.contains(id) {
+            selectedTrackIds.remove(id)
+        } else {
+            selectedTrackIds.insert(id)
+        }
         analyzer.reset()
+    }
+
+    func clearTyped() {
+        typeState.text = ""
+        typeState.dead = ""
+        typedText = ""
+    }
+
+    func dualDown(pointer: Int, board: String, kid: String) {
+        let key = HeldDual(board: board, kid: kid)
+        guard fingerGate.down(pointer: pointer, key: key) else { return }
+        if let spec = DualBoards.layout(board).key(kid) {
+            _ = typeState.apply(spec)
+            typedText = typeState.text
+        }
+        publishSpatialTracks()
+    }
+
+    func dualUp(pointer: Int) {
+        if let held = fingerGate.pointers[pointer], let spec = DualBoards.layout(held.board).key(held.kid) {
+            typeState.release(spec)
+        }
+        fingerGate.up(pointer: pointer)
+        publishSpatialTracks()
+    }
+
+    private func publishSpatialTracks() {
+        guard mode == .idle else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let groups = fingerGate.clusters
+        var next: [LiveTrack] = []
+        for members in groups {
+            let pts = members.map { DualBoards.point($0) }
+            let cx = pts.map(\.0).reduce(0, +) / Double(max(1, pts.count))
+            let glyphs = members.compactMap { DualBoards.layout($0.board).key($0.kid)?.base }.joined()
+            var t = LiveTrack(
+                id: nextTrackId,
+                f0: 110 * pow(2, (cx.truncatingRemainder(dividingBy: 12)) / 12),
+                db: -12,
+                harm: 0.4,
+                energy: 1,
+                born: now,
+                lastSeen: now,
+                label: glyphs,
+                labelSource: "keys"
+            )
+            if let existing = liveTracks.first(where: { abs(($0.f0) - t.f0) < 8 }) {
+                t.id = existing.id
+                t.born = existing.born
+            } else {
+                nextTrackId += 1
+            }
+            next.append(t)
+        }
+        liveTracks = next
+        selectedTrackIds = selectedTrackIds.filter { id in liveTracks.contains { $0.id == id } }
+        pushHist()
+    }
+
+    private func pushHist() {
+        for t in liveTracks {
+            var h = trackEnergyHist[t.id] ?? Array(repeating: Float(0), count: histLen)
+            if h.count != histLen { h = Array(repeating: 0, count: histLen) }
+            if !h.isEmpty { h.removeFirst() }
+            h.append(Float(t.energy))
+            trackEnergyHist[t.id] = h
+        }
+        let ids = Set(liveTracks.map(\.id))
+        trackEnergyHist = trackEnergyHist.filter { ids.contains($0.key) }
     }
 
     func noteOn(_ midi: Int) {
@@ -402,11 +490,15 @@ final class PianoSession: ObservableObject {
         guard mode == .live || mode == .replay else { return }
         let tous = isTous
         var bands: [(lo: Double, hi: Double)] = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
-        if !tous, let id = selectedTrackId, let t = liveTracks.first(where: { $0.id == id }) {
-            bands = (1...8).map { n in
-                let f = t.f0 * Double(n)
-                return (f * 0.97, f * 1.03)
+        if !tous {
+            let chosen = liveTracks.filter { selectedTrackIds.contains($0.id) }
+            bands = chosen.flatMap { t in
+                (1...8).map { n in
+                    let f = t.f0 * Double(n)
+                    return (f * 0.97, f * 1.03)
+                }
             }
+            if bands.isEmpty { bands = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)] }
         }
         let config = PeakPickConfig(
             sensitivity: 0.58,
@@ -472,9 +564,8 @@ final class PianoSession: ObservableObject {
             liveTracks[i].energy *= 0.72
         }
         liveTracks.removeAll { now - $0.lastSeen > 1.4 || $0.energy < 0.04 }
-        if let id = selectedTrackId, !liveTracks.contains(where: { $0.id == id }) {
-            selectedTrackId = nil
-        }
+        selectedTrackIds = selectedTrackIds.filter { id in liveTracks.contains { $0.id == id } }
+        pushHist()
     }
 
     private func maybeLabel(now: Double) {
@@ -510,7 +601,7 @@ final class PianoSession: ObservableObject {
         tuneReady = false
         concertA = PitchMath.a4Ref
         liveTracks = []
-        selectedTrackId = nil
+        selectedTrackIds = []
         lastClusters = []
         lastPeaks = []
         specBus.clear()

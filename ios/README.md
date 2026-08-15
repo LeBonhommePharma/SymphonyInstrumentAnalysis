@@ -53,7 +53,9 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
   Unmute** to hear it.
 - **Waveform track** — DAW-style lane (Logic Pro / GarageBand feel): a fixed playhead with the
   waveform scrolling right→left as it plays. Drag the lane to scrub.
-- Track chips, auto-accord, day/light/dark/night/stealth + Auto ambient scenes, chords.
+- Track chips (multi-select, color-coded) and stacked waveform lanes — one lane per density cluster.
+- Dual usable keyboards (US + Canadian French CSA) with a 10-finger gate unless keys are well clustered.
+- Auto-accord, day/light/dark/night/stealth + Auto ambient scenes, chords.
 - Full 88-key piano (A0–C8) spanning the window (horizontal scroll only if white keys would drop below ~28pt).
 - Log-frequency clustered spectrum (A0–C8, dBFS, 440 Hz tick) with unbounded regrouped sources.
 
