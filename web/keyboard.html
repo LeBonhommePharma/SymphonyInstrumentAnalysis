@@ -833,8 +833,8 @@
       border: 1px solid var(--hairline);
       border-radius: 8px;
       background: var(--paper);
-      color: var(--muted);
-      font: 650 0.72rem/1.35 ui-sans-serif, system-ui, sans-serif;
+      color: var(--ink);
+      font: 650 0.78rem/1.35 ui-sans-serif, system-ui, sans-serif;
       display: flex;
       align-items: center;
     }
@@ -1303,7 +1303,7 @@
     <div class="type-head">
       <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
       <pre id="typeOut" class="type-out" aria-live="polite"></pre>
-      <p id="kbMeta" class="kb-meta">0 touche · 0 groupe</p>
+      <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
     </div>
     <div class="dual-boards" id="dualBoards"></div>
   </div>
@@ -2253,8 +2253,8 @@
     $dualBoards.appendChild(buildOneBoard(DUAL.CSA));
     window.addEventListener("pointerup", onKbPointerUp);
     window.addEventListener("pointercancel", onKbPointerUp);
-    window.addEventListener("keydown", onHwKeyDown);
-    window.addEventListener("keyup", onHwKeyUp);
+    window.addEventListener("keydown", onHwKeyDown, true);
+    window.addEventListener("keyup", onHwKeyUp, true);
     if ($typeClear) {
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
