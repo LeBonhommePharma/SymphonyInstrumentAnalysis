@@ -595,7 +595,13 @@
     });
     const elapsed = (performance.now() - colStart) / 1000;
     const colDur = WINDOW_SEC / colCount;
-    if (elapsed < colDur) return;
+    if (elapsed < colDur) {
+      instruments.forEach(function (inst) {
+        if (inst.history.length !== colCount) inst.history = new Float32Array(colCount);
+        inst.history[writeCol] = Math.min(1, inst.accum);
+      });
+      return;
+    }
     instruments.forEach(function (inst) {
       if (inst.history.length !== colCount) inst.history = new Float32Array(colCount);
       inst.history[writeCol] = Math.min(1, inst.accum);

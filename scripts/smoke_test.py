@@ -160,6 +160,8 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must include Auto lighting")
     if "specYOfDb" not in app_js and "yOfDb" not in app_js:
         raise SystemExit("tutorial spectrum must plot dBFS, not byte-log")
+    if "requestAnimationFrame(tick)" not in app_js:
+        raise SystemExit("tutorial must redraw on animation frames")
     if '["440", 440]' not in app_js:
         raise SystemExit("tutorial spectrum must label the 440 Hz tick")
     if "softGain" not in app_js and "updateAutoGain" not in app_js:
@@ -178,6 +180,8 @@ def check_public_site() -> None:
         raise SystemExit("public piano must include the clustered 10-finger gate")
     if "pages-crumb" not in piano:
         raise SystemExit("public piano must link back to the Pages hub")
+    if "loopWantsFrames" not in piano or "FFT_SIZE = 8192" not in piano:
+        raise SystemExit("public piano must draw on vsync (loopWantsFrames, 8192 FFT)")
     bootstrap = tutorial.split('id="bootstrap"', 1)[-1]
     if 'data-action="system"' in bootstrap:
         raise SystemExit("bootstrap must not offer a mic vs tab choice")
@@ -209,10 +213,49 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML typing must not slide-type neighboring keys")
     if "fingerGate" not in html or "MAX_FINGERS" not in (SCRIPTS.parent / "web" / "dual_keyboard.js").read_text(encoding="utf-8"):
         raise SystemExit("HTML piano must gate 10 fingers unless keys are well clustered")
+    gate_js = (SCRIPTS.parent / "web" / "dual_keyboard.js").read_text(encoding="utf-8")
+    if "if (after <= MAX_FINGERS) return true" in gate_js:
+        raise SystemExit("10-finger gate must count touches, not clusters")
+    if "if (held.length < MAX_FINGERS) return true" not in gate_js:
+        raise SystemExit("10-finger gate must allow keys until ten fingers are down")
     if "Canadien français" not in html:
         raise SystemExit("HTML piano must label the Canadian French CSA board")
     if "getDisplayMedia" not in html:
         raise SystemExit("HTML piano must capture tab/system audio for listen")
+    if "loopWantsFrames" not in html or "requestAnimationFrame(loop)" not in html:
+        raise SystemExit("HTML piano must keep a vsync rAF loop while keys, listen, or replay are active")
+    if "FFT_SIZE = 8192" not in html:
+        raise SystemExit("HTML piano FFT must stay light enough for display-rate drawing")
+    if "WAVE_WINDOW_SEC" not in html:
+        raise SystemExit("HTML piano waveform must scroll in seconds, not frames")
+    if "makeDemoBuffer" not in html:
+        raise SystemExit("HTML Rejouer must fall back to a built-in synth demo when the WAV is missing")
+    if re.search(r'if\s*\(\s*mode\s*===\s*"idle"\s*\)\s*\{\s*loopOn\s*=\s*false', html):
+        raise SystemExit("HTML piano must not freeze the draw loop when idle keys are held")
+    if "16384" in html:
+        raise SystemExit("HTML piano must not use a 16384 FFT that cannot keep up with vsync")
+    wave_swift = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "WaveformTrackView.swift").read_text(
+        encoding="utf-8"
+    )
+    spec_swift = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "SpectrumPlotView.swift").read_text(
+        encoding="utf-8"
+    )
+    session_swift = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "PianoSession.swift").read_text(
+        encoding="utf-8"
+    )
+    pulse_swift = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "DisplayPulse.swift").read_text(
+        encoding="utf-8"
+    )
+    if "minimumInterval" in wave_swift:
+        raise SystemExit("iOS waveform must follow the display refresh, not a 30 Hz cap")
+    if ".periodic" in spec_swift or "1.0 / 24.0" in spec_swift:
+        raise SystemExit("iOS spectrum must follow the display refresh, not a 24 Hz timer")
+    if "Timer.scheduledTimer" in session_swift:
+        raise SystemExit("iOS clock must not tick at 20 Hz; use the display pulse")
+    if "waveWindowSec" not in session_swift or "tickDisplay" not in session_swift:
+        raise SystemExit("iOS waveform history must advance in seconds, not per audio buffer")
+    if "CADisplayLink" not in pulse_swift:
+        raise SystemExit("iOS must drive the waveform from CADisplayLink")
     if 'id="stealth"' in html:
         raise SystemExit("HTML piano must use the 5-scene picker, not a stealth checkbox")
     if 'data-theme-set="stealth"' not in html or 'data-theme-set="day"' not in html:

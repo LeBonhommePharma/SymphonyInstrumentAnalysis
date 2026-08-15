@@ -260,9 +260,9 @@
     for (let i = 0; i < held.length; i++) {
       if (sameHeld(held[i], incoming)) return true;
     }
+    if (held.length < MAX_FINGERS) return true;
     const before = clusterHeld(held).length;
     const after = clusterHeld(held.concat([incoming])).length;
-    if (after <= MAX_FINGERS) return true;
     return after <= before;
   }
 
@@ -431,6 +431,12 @@
     if (clusterHeld(asdf).length !== 1) throw new Error("ASDF must be one cluster");
     const hands = asdf.concat(["KeyJ", "KeyK", "KeyL"].map(function (k) { return held("us", k); }));
     if (clusterHeld(hands).length !== 2) throw new Error("two hands must be two clusters");
+    const tenHome = ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote"].map(function (k) {
+      return held("us", k);
+    });
+    if (clusterHeld(tenHome).length !== 2) throw new Error("two-hand home row is two clusters");
+    if (canAccept(tenHome, held("us", "Digit1"))) throw new Error("11th isolated on a two-cluster board must fail");
+    if (!canAccept(tenHome, held("us", "KeyQ"))) throw new Error("clustered 11th on home row must pass");
     const tenKids = ["Digit1", "Digit3", "Digit5", "Digit7", "Digit9", "KeyZ", "KeyC", "KeyB", "KeyM", "Slash"];
     const ten = tenKids.map(function (k) { return held("us", k); });
     if (clusterHeld(ten).length !== 10) throw new Error("ten isolated keys");

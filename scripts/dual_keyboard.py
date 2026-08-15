@@ -335,10 +335,10 @@ def can_accept(held: list[HeldKey], incoming: HeldKey, *, max_fingers: int = MAX
     """11th independent touch is rejected unless it is well clustered."""
     if incoming in held:
         return True
+    if len(held) < max_fingers:
+        return True
     before = len(cluster_held(held))
     after = len(cluster_held(held + [incoming]))
-    if after <= max_fingers:
-        return True
     return after <= before
 
 
@@ -503,6 +503,19 @@ def main() -> None:
     hands = asdf + [HeldKey("us", kid) for kid in ("KeyJ", "KeyK", "KeyL")]
     if len(cluster_held(hands)) != 2:
         raise SystemExit("left and right home row must be two clusters (gap at G/H)")
+    ten_home = [
+        HeldKey("us", kid)
+        for kid in (
+            "KeyA", "KeyS", "KeyD", "KeyF", "KeyG",
+            "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote",
+        )
+    ]
+    if len(cluster_held(ten_home)) != 2:
+        raise SystemExit("two-hand home row must stay two clusters")
+    if can_accept(ten_home, HeldKey("us", "Digit1")):
+        raise SystemExit("an 11th isolated key must be rejected even when only two clusters are down")
+    if not can_accept(ten_home, HeldKey("us", "KeyQ")):
+        raise SystemExit("an 11th key next to A must be accepted as clustered")
 
     ten = [
         HeldKey("us", kid)

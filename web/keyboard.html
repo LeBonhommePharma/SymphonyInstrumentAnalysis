@@ -1382,6 +1382,8 @@
   const SPEC_DB_HI = 0;
   const LABEL_URL = "http://127.0.0.1:4174/label";
   const LABEL_EVERY_MS = 1600;
+  const FFT_SIZE = 8192;
+  const WAVE_WINDOW_SEC = 6;
 
   const $btn = document.getElementById("btn");
   const $replay = document.getElementById("replay");
@@ -1430,6 +1432,11 @@
   let lastClockText = "";
   let lastAriaSec = -1;
   let loopOn = false;
+  let lastLoopNow = 0;
+  let histClock = 0;
+  let loopFps = 0;
+  let loopFpsFrames = 0;
+  let loopFpsAt = 0;
   let chromaBars = [];
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -2139,19 +2146,39 @@
     return Math.max(28, Math.min(48, Math.floor(220 / n)));
   }
 
-  function pushTrackHist() {
+  function pushTrackHist(now) {
     const cols = Math.max(64, waveCssW || 320);
-    liveTracks.forEach(function (t) {
-      if (!t.hist || t.hist.length !== cols) {
+    const secPerCol = WAVE_WINDOW_SEC / cols;
+    const t = now || performance.now();
+    if (!histClock) histClock = t;
+    liveTracks.forEach(function (tr) {
+      if (!tr.hist || tr.hist.length !== cols) {
         const next = new Float32Array(cols);
-        if (t.hist && t.hist.length) {
-          const n = Math.min(t.hist.length, cols);
-          next.set(t.hist.subarray(t.hist.length - n), cols - n);
+        if (tr.hist && tr.hist.length) {
+          const n = Math.min(tr.hist.length, cols);
+          next.set(tr.hist.subarray(tr.hist.length - n), cols - n);
         }
-        t.hist = next;
+        tr.hist = next;
       }
-      t.hist.copyWithin(0, 1);
-      t.hist[t.hist.length - 1] = t.energy;
+    });
+    const elapsed = (t - histClock) / 1000;
+    let shifts = Math.floor(elapsed / secPerCol);
+    if (shifts < 1) {
+      liveTracks.forEach(function (tr) {
+        if (tr.hist && tr.hist.length) tr.hist[tr.hist.length - 1] = tr.energy;
+      });
+      return;
+    }
+    if (shifts > cols) shifts = cols;
+    histClock += shifts * secPerCol * 1000;
+    liveTracks.forEach(function (tr) {
+      const hist = tr.hist;
+      if (!hist) return;
+      if (shifts >= cols) hist.fill(tr.energy);
+      else {
+        hist.copyWithin(0, shifts);
+        for (let i = cols - shifts; i < cols; i++) hist[i] = tr.energy;
+      }
     });
   }
 
@@ -2255,6 +2282,10 @@
     window.addEventListener("pointercancel", onKbPointerUp);
     window.addEventListener("keydown", onHwKeyDown, true);
     window.addEventListener("keyup", onHwKeyUp, true);
+    window.addEventListener("blur", releaseStuckHolds);
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) releaseStuckHolds();
+    });
     if ($typeClear) {
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
@@ -2319,8 +2350,6 @@
         if (!liveTracks.some(function (t) { return t.id === id; })) selectedTrackIds.delete(id);
       });
       syncTrackUi();
-      pushTrackHist();
-      drawWave(true);
     }
     paintDualKeys();
   }
@@ -2375,7 +2404,7 @@
   function onKbPointerDown(ev) {
     ev.preventDefault();
     const el = ev.currentTarget;
-    el.setPointerCapture(ev.pointerId);
+    try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
     activeBoard = el.dataset.board;
     const key = { board: el.dataset.board, kid: el.dataset.kid };
     const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, key); });
@@ -2385,6 +2414,7 @@
     if (!already) applyTyped(key.board, key.kid);
     syncSpatialTracks();
     renderKbMeta();
+    startLoop();
   }
 
   function onKbPointerUp(ev) {
@@ -2408,6 +2438,7 @@
     if (!already) applyTyped(layout.id, key.kid);
     syncSpatialTracks();
     renderKbMeta();
+    startLoop();
   }
 
   function onHwKeyUp(ev) {
@@ -2415,6 +2446,23 @@
     const key = DUAL.keyByCode(layout, ev.code);
     if (key) releaseTyped(layout.id, key.kid);
     fingerGate.up("hw-" + ev.code);
+    syncSpatialTracks();
+    renderKbMeta();
+  }
+
+  function releaseStuckHolds() {
+    Array.from(fingerGate.pointers.keys()).forEach(function (id) {
+      const prev = fingerGate.pointers.get(id);
+      if (prev) releaseTyped(prev.board, prev.kid);
+    });
+    fingerGate.clear();
+    Array.from(heldVoices.keys()).forEach(stopHeldKey);
+    keys.forEach(function (el) {
+      if (mode === "idle") {
+        el.classList.remove("on", "harm");
+        restoreIdleLabel(el);
+      }
+    });
     syncSpatialTracks();
     renderKbMeta();
   }
@@ -2468,15 +2516,22 @@
       }
       el.appendChild(lab);
       el.dataset.idleName = lab.textContent;
+      function releasePianoPointer() {
+        stopHeldKey(m);
+        if (mode === "idle" && !heldVoices.has(m)) {
+          el.classList.remove("on", "harm");
+          restoreIdleLabel(el);
+        }
+      }
       el.addEventListener("pointerdown", function (ev) {
         ev.preventDefault();
-        el.setPointerCapture(ev.pointerId);
+        try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
         startHeldKey(m);
         el.classList.add("on");
         paintEl(el, crayonOf(m));
       });
-      el.addEventListener("pointerup", function () { stopHeldKey(m); });
-      el.addEventListener("pointercancel", function () { stopHeldKey(m); });
+      el.addEventListener("pointerup", releasePianoPointer);
+      el.addEventListener("pointercancel", releasePianoPointer);
       $board.appendChild(el);
       keys.set(m, el);
     }
@@ -2624,10 +2679,15 @@
     }
     if (!analyser) {
       analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 16384;
-      analyser.smoothingTimeConstant = 0.78;
-      analyser.minDecibels = -95;
-      analyser.maxDecibels = -18;
+    }
+    if (analyser.fftSize !== FFT_SIZE) {
+      analyser.fftSize = FFT_SIZE;
+      spec = new Float32Array(analyser.frequencyBinCount);
+    }
+    analyser.smoothingTimeConstant = 0.48;
+    analyser.minDecibels = -95;
+    analyser.maxDecibels = -18;
+    if (!spec || spec.length !== analyser.frequencyBinCount) {
       spec = new Float32Array(analyser.frequencyBinCount);
     }
     if (!sampleGain) {
@@ -2667,11 +2727,12 @@
     return dur > 0 ? Math.max(0, Math.min(1, t / dur)) : 0;
   }
 
-  function paintPlayhead(snap) {
+  function paintPlayhead(snap, dt) {
     const target = targetRatio();
     if (snap || scrubbing || reduceMotion) playheadShown = target;
     else {
-      playheadShown += (target - playheadShown) * 0.32;
+      const follow = 1 - Math.exp(-(dt || 1 / 60) / 0.05);
+      playheadShown += (target - playheadShown) * follow;
       if (Math.abs(target - playheadShown) < 0.0005) playheadShown = target;
     }
     $playhead.style.transform = "translate3d(" + (playheadShown * (waveCssW || 1)) + "px,0,0)";
@@ -2708,7 +2769,8 @@
     }
   }
 
-  function drawWave(force) {
+  function drawWave(force, opts) {
+    const snapPlayhead = !(opts && opts.playhead === false);
     const canvas = $wave;
     const lane = $arrangeLane;
     const rows = displayTracks();
@@ -2723,7 +2785,7 @@
     const key = cssW + "x" + cssH + "x" + dpr + themeName + ":" + ids + ":" + (wavePeaks ? wavePeaks.length : 0);
     waveCssW = cssW;
     if (!force && key === waveDrawnKey) {
-      paintPlayhead(true);
+      if (snapPlayhead) paintPlayhead(true);
       return;
     }
     waveDrawnKey = key;
@@ -2750,7 +2812,7 @@
           ctx.fillRect(x, mid - h, 1, h * 2);
         }
       }
-      paintPlayhead(true);
+      if (snapPlayhead) paintPlayhead(true);
       return;
     }
     rows.forEach(function (t, i) {
@@ -2773,7 +2835,7 @@
         }
       }
     });
-    paintPlayhead(true);
+    if (snapPlayhead) paintPlayhead(true);
   }
 
   function wavPeaks(buf, bins) {
@@ -3018,8 +3080,13 @@
     } catch (e) { /* already stopped */ }
   }
 
+  function loopWantsFrames() {
+    return mode === "live" || mode === "replay" || heldVoices.size > 0 || fingerGate.held().length > 0 || scrubbing;
+  }
+
   function stopLoop() {
     loopOn = false;
+    window.__CRAYON_LOOP_ON = false;
     if (raf) {
       cancelAnimationFrame(raf);
       raf = 0;
@@ -3029,6 +3096,7 @@
   function startLoop() {
     if (loopOn) return;
     loopOn = true;
+    lastLoopNow = 0;
     raf = requestAnimationFrame(loop);
   }
 
@@ -3064,6 +3132,8 @@
     resetTracks();
     clearLights();
     resetTune();
+    if (fingerGate.held().length) syncSpatialTracks();
+    if (loopWantsFrames()) startLoop();
   }
 
   function haltReplay(keepScrub) {
@@ -3084,7 +3154,9 @@
         sampleOffset = 0;
       }
       updateScrubUi(true);
+      if (fingerGate.held().length) syncSpatialTracks();
     }
+    if (loopWantsFrames()) startLoop();
   }
 
   function looksLoopback(label) {
@@ -3275,32 +3347,93 @@
     haltReplay(keepScrub);
   }
 
+  function makeDemoBuffer() {
+    ensureAnalyser();
+    const sr = audioCtx.sampleRate;
+    const dur = 8;
+    const n = Math.floor(sr * dur);
+    const buf = audioCtx.createBuffer(1, n, sr);
+    const data = buf.getChannelData(0);
+    const twoPi = 2 * Math.PI;
+    function addTone(freq, start, length, amp) {
+      const i0 = Math.floor(start * sr);
+      const i1 = Math.min(n, Math.floor((start + length) * sr));
+      const decay = length * 0.8;
+      for (let i = i0; i < i1; i++) {
+        const t = i / sr - start;
+        const env = (t < 0.05 ? t / 0.05 : 1) * Math.exp(-t / decay);
+        const ph = twoPi * freq * t;
+        data[i] += amp * env * (Math.sin(ph) + 0.45 * Math.sin(ph + ph));
+      }
+    }
+    addTone(65.41, 0, 8, 0.35);
+    addTone(196.00, 0.5, 3, 0.25);
+    addTone(261.63, 3.5, 3, 0.25);
+    addTone(329.63, 0.5, 1.8, 0.18);
+    addTone(493.88, 0.5, 1.8, 0.18);
+    addTone(349.23, 2.5, 1.8, 0.18);
+    addTone(440.00, 2.5, 1.8, 0.18);
+    addTone(392.00, 4.5, 1.8, 0.18);
+    addTone(587.33, 4.5, 1.8, 0.18);
+    addTone(329.63, 6.5, 1.8, 0.18);
+    let peak = 0.0001;
+    for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(data[i]));
+    const g = 0.9 / peak;
+    for (let i = 0; i < n; i++) data[i] *= g;
+    return buf;
+  }
+
+  function demoPeaks(buf, bins) {
+    const data = buf.getChannelData(0);
+    const peaks = new Float32Array(bins);
+    const step = data.length / bins;
+    for (let i = 0; i < bins; i++) {
+      let m = 0;
+      const a = Math.floor(i * step);
+      const b = Math.min(data.length, Math.floor((i + 1) * step));
+      for (let j = a; j < b; j++) m = Math.max(m, Math.abs(data[j]));
+      peaks[i] = m;
+    }
+    return peaks;
+  }
+
+  function adoptBuffer(buf) {
+    sampleBuffer = buf;
+    sampleDuration = buf.duration;
+    if (!wavePeaks) {
+      wavePeaks = demoPeaks(buf, 900);
+      drawRuler();
+      drawWave();
+    }
+    updateScrubUi(true);
+    return buf;
+  }
+
   async function loadSample() {
     if (sampleBuffer) return sampleBuffer;
     if (sampleLoad) return sampleLoad;
     sampleLoad = (async function () {
-      let arr = waveBuf;
-      if (!arr) {
-        const res = await fetch(SAMPLE_URL);
-        if (!res.ok) {
-          throw new Error(
-            "WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL +
-            " — from repo root: cp captures/final_song.wav web/samples/final_song.wav"
-          );
+      try {
+        let arr = waveBuf;
+        if (!arr) {
+          const res = await fetch(SAMPLE_URL);
+          if (!res.ok) throw new Error("missing wav");
+          arr = await res.arrayBuffer();
+          waveBuf = arr;
         }
-        arr = await res.arrayBuffer();
-        waveBuf = arr;
+        if (!wavePeaks) {
+          wavePeaks = wavPeaks(arr, 900);
+          drawRuler();
+          drawWave();
+        }
+        ensureAnalyser();
+        sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
+        sampleDuration = sampleBuffer.duration;
+        updateScrubUi(true);
+        return sampleBuffer;
+      } catch (e) {
+        return adoptBuffer(makeDemoBuffer());
       }
-      if (!wavePeaks) {
-        wavePeaks = wavPeaks(arr, 900);
-        drawRuler();
-        drawWave();
-      }
-      ensureAnalyser();
-      sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
-      sampleDuration = sampleBuffer.duration;
-      updateScrubUi(true);
-      return sampleBuffer;
     })();
     try {
       return await sampleLoad;
@@ -3519,15 +3652,44 @@
     lastChipKey = "";
   }
 
-  function loop() {
-    raf = 0;
-    if (!analyser) {
-      loopOn = false;
-      return;
+  function paintClock(dt) {
+    const snap = mode !== "replay" || scrubbing || reduceMotion;
+    paintPlayhead(snap, dt);
+    if (mode !== "replay") return;
+    const t = sampleNow();
+    const text = fmtTime(t);
+    if (text !== lastClockText) {
+      lastClockText = text;
+      $clock.textContent = text;
+      $arrange.setAttribute("aria-valuenow", String(Math.round(t)));
+      $arrange.setAttribute("aria-valuetext", text);
     }
-    if (mode === "idle" && heldVoices.size === 0) {
-      loopOn = false;
-      drawSpecPlot(lastSpecClusters);
+  }
+
+  function loop(now) {
+    raf = 0;
+    now = now || performance.now();
+    const dt = lastLoopNow ? Math.min(0.05, (now - lastLoopNow) / 1000) : 1 / 60;
+    lastLoopNow = now;
+    loopFpsFrames += 1;
+    if (!loopFpsAt) loopFpsAt = now;
+    if (now - loopFpsAt >= 400) {
+      loopFps = loopFpsFrames * 1000 / (now - loopFpsAt);
+      loopFpsFrames = 0;
+      loopFpsAt = now;
+      window.__CRAYON_FPS = Math.round(loopFps * 10) / 10;
+    }
+    window.__CRAYON_LOOP_ON = true;
+    const canAnalyse = !!(analyser && spec && audioCtx && (mode !== "idle" || heldVoices.size > 0));
+    if (!canAnalyse) {
+      pushTrackHist(now);
+      drawWave(true, { playhead: false });
+      paintClock(dt);
+      if (loopWantsFrames()) raf = requestAnimationFrame(loop);
+      else {
+        loopOn = false;
+        window.__CRAYON_LOOP_ON = false;
+      }
       return;
     }
     analyser.getFloatFrequencyData(spec);
@@ -3536,10 +3698,10 @@
     const clustered = densityClusterFunds(groupHarmonicFunds(extractClusterPeaks(spec, binHz)));
     lastSpecClusters = clustered;
     drawSpecPlot(clustered);
-    matchLiveTracks(clustered, performance.now());
+    matchLiveTracks(clustered, now);
     syncTrackUi();
-    pushTrackHist();
-    drawWave(true);
+    pushTrackHist(now);
+    drawWave(true, { playhead: false });
     if (performance.now() - lastLabelAt > LABEL_EVERY_MS) requestLabels(false);
     const mixed = isTous();
     const useBands = !mixed;
@@ -3694,23 +3856,14 @@
       $hzLive.textContent = "";
     }
 
-    if (mode === "replay") {
-      paintPlayhead(false);
-      const t = sampleNow();
-      const text = fmtTime(t);
-      if (text !== lastClockText) {
-        lastClockText = text;
-        $clock.textContent = text;
-        $arrange.setAttribute("aria-valuenow", String(Math.round(t)));
-        $arrange.setAttribute("aria-valuetext", text);
-      }
-    }
+    paintClock(dt);
 
-    if (mode === "idle") {
+    if (loopWantsFrames()) {
+      raf = requestAnimationFrame(loop);
+    } else {
       loopOn = false;
-      return;
+      window.__CRAYON_LOOP_ON = false;
     }
-    raf = requestAnimationFrame(loop);
   }
 
   buildLegend();

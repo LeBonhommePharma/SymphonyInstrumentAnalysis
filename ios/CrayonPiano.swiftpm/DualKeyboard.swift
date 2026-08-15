@@ -65,9 +65,9 @@ enum DualBoards {
 
     static func canAccept(_ held: [HeldDual], incoming: HeldDual) -> Bool {
         if held.contains(incoming) { return true }
+        if held.count < maxFingers { return true }
         let before = cluster(held).count
         let after = cluster(held + [incoming]).count
-        if after <= maxFingers { return true }
         return after <= before
     }
 
