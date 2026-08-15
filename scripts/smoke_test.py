@@ -213,6 +213,11 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML typing must not slide-type neighboring keys")
     if "fingerGate" not in html or "MAX_FINGERS" not in (SCRIPTS.parent / "web" / "dual_keyboard.js").read_text(encoding="utf-8"):
         raise SystemExit("HTML piano must gate 10 fingers unless keys are well clustered")
+    gate_js = (SCRIPTS.parent / "web" / "dual_keyboard.js").read_text(encoding="utf-8")
+    if "if (after <= MAX_FINGERS) return true" in gate_js:
+        raise SystemExit("10-finger gate must count touches, not clusters")
+    if "if (held.length < MAX_FINGERS) return true" not in gate_js:
+        raise SystemExit("10-finger gate must allow keys until ten fingers are down")
     if "Canadien français" not in html:
         raise SystemExit("HTML piano must label the Canadian French CSA board")
     if "getDisplayMedia" not in html:
@@ -223,6 +228,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano FFT must stay light enough for display-rate drawing")
     if "WAVE_WINDOW_SEC" not in html:
         raise SystemExit("HTML piano waveform must scroll in seconds, not frames")
+    if "makeDemoBuffer" not in html:
+        raise SystemExit("HTML Rejouer must fall back to a built-in synth demo when the WAV is missing")
     if re.search(r'if\s*\(\s*mode\s*===\s*"idle"\s*\)\s*\{\s*loopOn\s*=\s*false', html):
         raise SystemExit("HTML piano must not freeze the draw loop when idle keys are held")
     if "16384" in html:

@@ -2404,7 +2404,7 @@
   function onKbPointerDown(ev) {
     ev.preventDefault();
     const el = ev.currentTarget;
-    el.setPointerCapture(ev.pointerId);
+    try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
     activeBoard = el.dataset.board;
     const key = { board: el.dataset.board, kid: el.dataset.kid };
     const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, key); });
@@ -2525,14 +2525,13 @@
       }
       el.addEventListener("pointerdown", function (ev) {
         ev.preventDefault();
-        el.setPointerCapture(ev.pointerId);
+        try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
         startHeldKey(m);
         el.classList.add("on");
         paintEl(el, crayonOf(m));
       });
       el.addEventListener("pointerup", releasePianoPointer);
       el.addEventListener("pointercancel", releasePianoPointer);
-      el.addEventListener("lostpointercapture", releasePianoPointer);
       $board.appendChild(el);
       keys.set(m, el);
     }
@@ -3348,32 +3347,93 @@
     haltReplay(keepScrub);
   }
 
+  function makeDemoBuffer() {
+    ensureAnalyser();
+    const sr = audioCtx.sampleRate;
+    const dur = 8;
+    const n = Math.floor(sr * dur);
+    const buf = audioCtx.createBuffer(1, n, sr);
+    const data = buf.getChannelData(0);
+    const twoPi = 2 * Math.PI;
+    function addTone(freq, start, length, amp) {
+      const i0 = Math.floor(start * sr);
+      const i1 = Math.min(n, Math.floor((start + length) * sr));
+      const decay = length * 0.8;
+      for (let i = i0; i < i1; i++) {
+        const t = i / sr - start;
+        const env = (t < 0.05 ? t / 0.05 : 1) * Math.exp(-t / decay);
+        const ph = twoPi * freq * t;
+        data[i] += amp * env * (Math.sin(ph) + 0.45 * Math.sin(ph + ph));
+      }
+    }
+    addTone(65.41, 0, 8, 0.35);
+    addTone(196.00, 0.5, 3, 0.25);
+    addTone(261.63, 3.5, 3, 0.25);
+    addTone(329.63, 0.5, 1.8, 0.18);
+    addTone(493.88, 0.5, 1.8, 0.18);
+    addTone(349.23, 2.5, 1.8, 0.18);
+    addTone(440.00, 2.5, 1.8, 0.18);
+    addTone(392.00, 4.5, 1.8, 0.18);
+    addTone(587.33, 4.5, 1.8, 0.18);
+    addTone(329.63, 6.5, 1.8, 0.18);
+    let peak = 0.0001;
+    for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(data[i]));
+    const g = 0.9 / peak;
+    for (let i = 0; i < n; i++) data[i] *= g;
+    return buf;
+  }
+
+  function demoPeaks(buf, bins) {
+    const data = buf.getChannelData(0);
+    const peaks = new Float32Array(bins);
+    const step = data.length / bins;
+    for (let i = 0; i < bins; i++) {
+      let m = 0;
+      const a = Math.floor(i * step);
+      const b = Math.min(data.length, Math.floor((i + 1) * step));
+      for (let j = a; j < b; j++) m = Math.max(m, Math.abs(data[j]));
+      peaks[i] = m;
+    }
+    return peaks;
+  }
+
+  function adoptBuffer(buf) {
+    sampleBuffer = buf;
+    sampleDuration = buf.duration;
+    if (!wavePeaks) {
+      wavePeaks = demoPeaks(buf, 900);
+      drawRuler();
+      drawWave();
+    }
+    updateScrubUi(true);
+    return buf;
+  }
+
   async function loadSample() {
     if (sampleBuffer) return sampleBuffer;
     if (sampleLoad) return sampleLoad;
     sampleLoad = (async function () {
-      let arr = waveBuf;
-      if (!arr) {
-        const res = await fetch(SAMPLE_URL);
-        if (!res.ok) {
-          throw new Error(
-            "WAV introuvable / Sample missing (" + res.status + "): " + SAMPLE_URL +
-            " — from repo root: cp captures/final_song.wav web/samples/final_song.wav"
-          );
+      try {
+        let arr = waveBuf;
+        if (!arr) {
+          const res = await fetch(SAMPLE_URL);
+          if (!res.ok) throw new Error("missing wav");
+          arr = await res.arrayBuffer();
+          waveBuf = arr;
         }
-        arr = await res.arrayBuffer();
-        waveBuf = arr;
+        if (!wavePeaks) {
+          wavePeaks = wavPeaks(arr, 900);
+          drawRuler();
+          drawWave();
+        }
+        ensureAnalyser();
+        sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
+        sampleDuration = sampleBuffer.duration;
+        updateScrubUi(true);
+        return sampleBuffer;
+      } catch (e) {
+        return adoptBuffer(makeDemoBuffer());
       }
-      if (!wavePeaks) {
-        wavePeaks = wavPeaks(arr, 900);
-        drawRuler();
-        drawWave();
-      }
-      ensureAnalyser();
-      sampleBuffer = await audioCtx.decodeAudioData(arr.slice(0));
-      sampleDuration = sampleBuffer.duration;
-      updateScrubUi(true);
-      return sampleBuffer;
     })();
     try {
       return await sampleLoad;
