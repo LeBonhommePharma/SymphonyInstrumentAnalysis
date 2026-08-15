@@ -28,16 +28,14 @@ struct ContentView: View {
                                     }
                                 }
                                 trackRow
-                                if session.mode != .live {
-                                    HStack(alignment: .center, spacing: 10) {
-                                        WaveformTrackView(session: session)
-                                        Text(clock)
-                                            .font(.caption.monospacedDigit().weight(.semibold))
-                                            .foregroundStyle(session.scene.ink)
-                                            .fixedSize()
-                                    }
-                                    .frame(height: 68)
+                                HStack(alignment: .center, spacing: 10) {
+                                    WaveformTrackView(session: session)
+                                    Text(clock)
+                                        .font(.caption.monospacedDigit().weight(.semibold))
+                                        .foregroundStyle(session.scene.ink)
+                                        .fixedSize()
                                 }
+                                .frame(height: session.waveStackHeight)
                                 if !session.tuneLine.isEmpty {
                                     Text(session.tuneLine)
                                         .font(.subheadline.weight(.semibold).monospacedDigit())
@@ -61,9 +59,10 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 200)
                         }
+                        DualKeyboardView(session: session)
                         Spacer(minLength: 0)
                         piano
-                            .frame(height: pianoH)
+                            .frame(height: min(140, pianoH * 0.42))
                     }
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
@@ -215,11 +214,17 @@ struct ContentView: View {
     private var trackRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-            Text("\(session.liveTracks.count)")
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(session.scene.muted)
-                .frame(width: 28, height: 44)
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Button {
+                session.selectAllTracks()
+            } label: {
+                Text("\(session.liveTracks.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(session.scene.muted)
+                    .frame(width: 28, height: 44)
+                    .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Toutes les pistes")
             if session.liveTracks.isEmpty {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
@@ -237,10 +242,10 @@ struct ContentView: View {
                             .background(track.pitchClass.color.opacity(track.energy > 0.18 ? 1 : 0.28), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .opacity(track.energy > 0.18 ? 1 : 0.4)
+                    .opacity(session.trackIsOn(track.id) ? (track.energy > 0.18 ? 1 : 0.4) : 0.28)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(session.selectedTrackId == track.id || session.isTous ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
+                            .stroke(session.trackIsOn(track.id) ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
                     )
                     .accessibilityLabel("\(track.caption) \(Int(track.f0.rounded())) Hz")
                 }

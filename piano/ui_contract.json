@@ -17,11 +17,12 @@
     "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
     "actions: Rejouer | Écouter | clock | La/A readout",
     "toggles: Sensibilité, Accords, Entendre, Auto-accord",
-    "tracks: Tous + 5 musician chips",
-    "daw: stacked color waveform lanes (one per selected musician)",
+    "tracks: count badge + one color chip per density cluster (Tous = all on)",
+    "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
     "chroma: 12 pitch-class bars labeled Do..Si",
     "lit: current notes as crayon chips + Hz",
-    "keyboard: La0–Do8 (88 keys)"
+    "keyboards: US ANSI + Canadian French CSA side by side (10 fingers; extras only if well clustered)",
+    "keyboard: compact La0–Do8 (88 keys) under the typing boards"
   ],
   "crayons": {
     "C":  { "fr": "Do",  "pencil": "Maraschino", "rgb": [251, 2, 7] },
@@ -45,17 +46,18 @@
     { "id": "nylon",   "fr": "Nylon",       "en": "High",        "lo": 600, "hi": 2500, "rgb": [128, 0, 255] }
   ],
   "tracks": {
-    "default": "all selected (Tous)",
-    "clickMusicianWhileTous": "solo that musician",
-    "clickMore": "union / stack those lanes",
-    "clickTous": "all five",
+    "default": "all density clusters selected (Tous)",
+    "clickChipWhileTous": "solo that cluster",
+    "clickMore": "union / stack those clusters; keyboard lights only the selection",
+    "clickCount": "all live clusters",
     "empty": "snap back to Tous",
-    "chipLabel": "French name only; Hz range is the second line",
-    "laneColor": "musician rgb, not pitch crayon, not lane-index palette"
+    "chipLabel": "heuristic/FM name or crayon+octave; Hz in the title",
+    "laneColor": "pitch-class crayon of the cluster f0",
+    "stackCount": "one stacked DAW lane per density cluster (equals live cluster count)"
   },
   "waveform": {
     "style": "GarageBand stacked lanes, filled mirrored envelope",
-    "oneLanePer": "selected musician (Tous = five stacked lanes)",
+    "oneLanePer": "density cluster (Tous = every live cluster stacked)",
     "noSlider": true,
     "replay": {
       "playhead": "fixed at ~34% width",
@@ -75,7 +77,7 @@
   "actions": {
     "listen": "Écouter / Stop — mic FFT, silent analyser (do not tap speakers)",
     "replay": "Rejouer / Stop — sample or 8s synth demo; muted until Entendre",
-    "keyboard": "La0–Do8 (88 keys) lights with crayon of pitch class; click/hold to play a tone",
+    "keyboard": "US + Canadian French CSA type; 10 independent fingers, extra keys only if well clustered. Compact La0–Do8 strip still lights from listen/replay.",
     "chroma": "12 bars are the color key; height follows energy",
     "sensitivity": "gate for lighting keys",
     "chords": "on = up to 8 notes; off = 1",

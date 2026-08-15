@@ -444,6 +444,63 @@ def _group_harmonics(peaks: list[tuple[float, float]]) -> list[tuple[float, floa
     return funds
 
 
+def freq_matches_cluster(freq: float, f0: float, *, cents: float = 45.0) -> bool:
+    """True when `freq` is the cluster fundamental or one of its first 8 harmonics."""
+    if f0 <= 0 or freq <= 0:
+        return False
+    for n in range(1, 9):
+        ratio = freq / (n * f0)
+        if ratio <= 0:
+            continue
+        if abs(1200.0 * np.log2(ratio)) < cents:
+            return True
+    return False
+
+
+class ClusterTrackSet:
+    """Tous / solo-from-Tous / union over density-clustered track ids.
+
+    Empty selection means every live cluster (Tous). Lane count follows the
+    live id list, not a fixed instrument parameter.
+    """
+
+    def __init__(self) -> None:
+        self.selected: set[int] = set()
+
+    def is_tous(self) -> bool:
+        return not self.selected
+
+    def select_all(self) -> None:
+        self.selected.clear()
+
+    def prune(self, live_ids: set[int]) -> None:
+        self.selected &= live_ids
+
+    def click(self, ident: int) -> None:
+        if self.is_tous():
+            self.selected = {ident}
+        elif ident in self.selected:
+            self.selected.discard(ident)
+        else:
+            self.selected.add(ident)
+
+    def is_on(self, ident: int) -> bool:
+        return self.is_tous() or ident in self.selected
+
+    def active_ids(self, live_ids: list[int]) -> list[int]:
+        if self.is_tous():
+            return list(live_ids)
+        return [i for i in live_ids if i in self.selected]
+
+    def freq_in_active(self, freq: float, tracks: list[dict]) -> bool:
+        if self.is_tous() or not tracks:
+            return MIXED_LO_HZ <= freq <= MIXED_HI_HZ
+        return any(
+            int(t["id"]) in self.selected and freq_matches_cluster(freq, float(t["f0"]))
+            for t in tracks
+        )
+
+
 class TrackSet:
     """Tous / solo-from-Tous / union, snapping empty back to all five."""
 

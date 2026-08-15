@@ -187,6 +187,20 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must not idle five hardcoded musician chips")
     if "groupHarmonicFunds" not in html or "densityClusterFunds" not in html:
         raise SystemExit("HTML piano must density-cluster independent tracks")
+    if "selectedTrackIds" not in html:
+        raise SystemExit("HTML piano must multi-select density-clustered tracks")
+    if 'id="arrangeHeads"' not in html or "pushTrackHist" not in html:
+        raise SystemExit("HTML piano must stack one waveform lane per density cluster")
+    if 'id="dualBoards"' not in html or "dual_keyboard.js" not in html:
+        raise SystemExit("HTML piano must expose side-by-side US and Canadian French keyboards")
+    if 'id="kbMeta"' not in html:
+        raise SystemExit("HTML piano must show live finger / cluster counts")
+    if "onKbPointerEnter" in html:
+        raise SystemExit("HTML typing must not slide-type neighboring keys")
+    if "fingerGate" not in html or "MAX_FINGERS" not in (SCRIPTS.parent / "web" / "dual_keyboard.js").read_text(encoding="utf-8"):
+        raise SystemExit("HTML piano must gate 10 fingers unless keys are well clustered")
+    if "Canadien français" not in html:
+        raise SystemExit("HTML piano must label the Canadian French CSA board")
     if "getDisplayMedia" not in html:
         raise SystemExit("HTML piano must capture tab/system audio for listen")
     if 'id="stealth"' in html:
@@ -223,6 +237,26 @@ def check_crayon_piano() -> None:
     if proc.returncode != 0:
         raise SystemExit(f"density_cluster.py failed:\n{proc.stdout}\n{proc.stderr}")
     print((proc.stdout or "").strip() or "density_cluster.py: OK")
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPTS / "dual_keyboard.py")],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"dual_keyboard.py failed:\n{proc.stdout}\n{proc.stderr}")
+    print((proc.stdout or "").strip() or "dual_keyboard.py: OK")
+    try:
+        node = subprocess.run(
+            ["node", str(SCRIPTS.parent / "web" / "dual_keyboard.js")],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        node = None
+    if node is not None:
+        if node.returncode != 0:
+            raise SystemExit(f"dual_keyboard.js failed:\n{node.stdout}\n{node.stderr}")
+        print((node.stdout or "").strip() or "dual_keyboard.js: OK")
 
 
 

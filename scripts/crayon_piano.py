@@ -33,11 +33,13 @@ from crayon_piano_lib import (
     BLACK_MIDIS,
     SCENES,
     COLS_PER_SEC,
+    ClusterTrackSet,
     current_scene,
     FFT_SIZE,
     MIDI_LO,
     MUSICIANS,
     SENS_DEFAULT,
+    SPEC_F_LO,
     THEME_BG,
     THEME_INK,
     THEME_MUTED,
@@ -58,6 +60,7 @@ from crayon_piano_lib import (
     dim_rgb,
     envelope_at,
     fmt_time,
+    freq_matches_cluster,
     lab_rgb,
     mix_rgb,
     midi_to_hz,
@@ -65,6 +68,7 @@ from crayon_piano_lib import (
     pc_of,
     playhead_frac,
     rfft_db,
+    spec_x_of,
     synthesize_demo,
     tune_line,
     window_at,
@@ -1157,10 +1161,39 @@ def self_test() -> int:
     tracks.click_musician("cello")
     if not tracks.is_tous():
         raise SystemExit("empty selection should snap to Tous")
+    clusters = ClusterTrackSet()
+    if not clusters.is_tous():
+        raise SystemExit("density tracks default to Tous")
+    clusters.click(1)
+    if clusters.selected != {1}:
+        raise SystemExit("Tous + cluster should solo")
+    clusters.click(2)
+    if clusters.selected != {1, 2}:
+        raise SystemExit("second cluster should union")
+    clusters.click(1)
+    clusters.click(2)
+    if not clusters.is_tous():
+        raise SystemExit("empty cluster selection should snap to Tous")
+    clusters.click(3)
+    clusters.prune({1, 2})
+    if not clusters.is_tous():
+        raise SystemExit("dropping the last selected cluster should return to Tous")
+    live = [{"id": 1, "f0": 110.0}, {"id": 2, "f0": 523.25}]
+    clusters.click(1)
+    if not freq_matches_cluster(220.0, 110.0):
+        raise SystemExit("octave harmonic should match its cluster")
+    if clusters.freq_in_active(523.25, live):
+        raise SystemExit("solo bass cluster must not light the treble cluster")
+    if not clusters.freq_in_active(110.0, live):
+        raise SystemExit("solo bass cluster must keep its fundamental")
+    if len(clusters.active_ids([1, 2, 3])) != 1:
+        raise SystemExit("stacked lane count while soloing must follow the selection")
+    clusters.select_all()
+    if len(clusters.active_ids([1, 2, 3])) != 3:
+        raise SystemExit("Tous stacked lane count must equal live cluster count")
     app = CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes)
     if app.mode != "idle" or "bass" not in app.envelopes:
         raise SystemExit("app did not instantiate with demo envelopes")
-    from crayon_piano_lib import SPEC_F_LO, spec_x_of
 
     x440 = spec_x_of(440.0)
     x_a0 = spec_x_of(SPEC_F_LO)
