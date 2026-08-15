@@ -189,6 +189,14 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must include day/light/dark/night/stealth scenes")
     if "MIDI_LO = 21" not in html or "MIDI_HI = 108" not in html:
         raise SystemExit("HTML piano must be the full 88-key range (A0 to C8)")
+    if 'id="spec"' not in html or "drawSpecPlot" not in html:
+        raise SystemExit("HTML piano must draw the regrouped log-Hz spectrum")
+    if '["440", 440]' not in html and "[440, \"440\"]" not in html:
+        raise SystemExit("HTML spectrum must label the 440 Hz tick")
+    if "data-theme-auto" not in html:
+        raise SystemExit("HTML piano must include an Auto lighting control")
+    if "calc(52 * 28px)" not in html:
+        raise SystemExit("HTML piano must be full-size 88-key (52 white keys × 28px min)")
     if ">Nuit<" in html:
         raise SystemExit("HTML piano must not use the Nuit checkbox label")
     proc = subprocess.run(
