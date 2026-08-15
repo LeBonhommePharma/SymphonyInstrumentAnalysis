@@ -15,6 +15,7 @@ final class PianoSession: ObservableObject {
     @Published var lit: [LitNote] = []
     @Published var harmonics: Set<Int> = []
     @Published var pressed: Set<Int> = []
+    @Published var boundPressed: Set<Int> = []
     @Published var chroma: [NoteName: Float] = [:]
     @Published var concertA: Double = PitchMath.a4Ref
     @Published var tuneReady = false
@@ -333,8 +334,8 @@ final class PianoSession: ObservableObject {
 
     var layoutHint: String {
         kbLayout == "csa"
-            ? "Canadien français · 10 doigts, plus si bien groupés"
-            : "US · 10 doigts, plus si bien groupés"
+            ? "Canadien français · Z=Do3 · D=Do4 · Q=La4"
+            : "US · Z=Do3 · D=Do4 · Q=La4"
     }
 
     func clearTyped() {
@@ -352,6 +353,7 @@ final class PianoSession: ObservableObject {
         fingerGate.clear()
         fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+        syncBoundNotes()
     }
 
     @discardableResult
@@ -380,6 +382,7 @@ final class PianoSession: ObservableObject {
         }
         fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+        syncBoundNotes()
         armDisplayPulse()
     }
 
@@ -390,6 +393,7 @@ final class PianoSession: ObservableObject {
         fingerGate.up(pointer: pointer)
         fingerCaption = Self.caption(for: fingerGate)
         publishSpatialTracks()
+        syncBoundNotes()
         armDisplayPulse()
     }
 
@@ -410,15 +414,21 @@ final class PianoSession: ObservableObject {
             let pts = members.map { DualBoards.point($0) }
             let cx = pts.map(\.0).reduce(0, +) / Double(max(1, pts.count))
             let glyphs = members.compactMap { DualBoards.layout($0.board).key($0.kid)?.base }.joined()
+            let midis = members.compactMap { DualNoteMap.midi(for: $0.kid) }
+            let midi0 = midis.min()
+            let concert = autotune ? concertA : PitchMath.a4Ref
+            let f0 = midi0.map { PitchMath.midiToHz($0, concertA: concert) }
+                ?? (110 * pow(2, (cx.truncatingRemainder(dividingBy: 12)) / 12))
+            let label = midi0.map { DualNoteMap.labelFr($0) + " · " + glyphs } ?? glyphs
             var t = LiveTrack(
                 id: nextTrackId,
-                f0: 110 * pow(2, (cx.truncatingRemainder(dividingBy: 12)) / 12),
+                f0: f0,
                 db: -12,
                 harm: 0.4,
                 energy: 1,
                 born: now,
                 lastSeen: now,
-                label: glyphs,
+                label: label,
                 labelSource: "keys"
             )
             if let existing = liveTracks.first(where: { abs(($0.f0) - t.f0) < 8 }) {
@@ -446,29 +456,51 @@ final class PianoSession: ObservableObject {
 
     func noteOn(_ midi: Int) {
         pressed.insert(midi)
-        if voices.count >= 96, let oldest = voiceOrder.first {
-            fadeOut(oldest)
-        }
-        ensureTone(midi)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        let name = NoteName.pitchClass(of: midi)
-        statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
-        publishHeld()
-        armDisplayPulse()
+        syncSounding()
     }
 
     func noteOff(_ midi: Int) {
         pressed.remove(midi)
-        fadeOut(midi)
-        publishHeld()
-        armDisplayPulse()
+        syncSounding()
     }
 
     func setPressed(_ midis: Set<Int>) {
-        let added = midis.subtracting(pressed)
-        let removed = pressed.subtracting(midis)
-        for m in added { noteOn(m) }
-        for m in removed { noteOff(m) }
+        pressed = midis
+        syncSounding()
+    }
+
+    func syncBoundNotes() {
+        boundPressed = Set(fingerGate.held.compactMap { DualNoteMap.midi(for: $0.kid) })
+        syncSounding()
+    }
+
+    var keyBinds: [Int: String] {
+        var out: [Int: String] = [:]
+        for midi in PitchMath.midiLo...PitchMath.midiHi {
+            if let glyph = DualNoteMap.glyph(midi: midi, layoutId: kbLayout) {
+                out[midi] = glyph
+            }
+        }
+        return out
+    }
+
+    private func syncSounding() {
+        let want = pressed.union(boundPressed)
+        let have = Set(voices.keys)
+        for midi in want.subtracting(have) {
+            if voices.count >= 96, let oldest = voiceOrder.first {
+                fadeOut(oldest)
+            }
+            ensureTone(midi)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            let name = NoteName.pitchClass(of: midi)
+            statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
+        }
+        for midi in have.subtracting(want) {
+            fadeOut(midi)
+        }
+        publishHeld()
+        armDisplayPulse()
     }
 
     private func ensureTone(_ midi: Int) {

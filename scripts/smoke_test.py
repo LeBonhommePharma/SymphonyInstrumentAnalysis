@@ -188,6 +188,10 @@ def check_public_site() -> None:
         raise SystemExit("public piano must show one layout at a time, not two side-by-side boards")
     if "MAX_FINGERS" not in piano_js or "CLUSTER_EPS" not in piano_js:
         raise SystemExit("public piano must include the clustered 10-finger gate")
+    if "midiForKid" not in piano_js or "noteLabelFr" not in piano_js:
+        raise SystemExit("public piano must bind typing keys to crayon notes")
+    if "function holdMidi" not in piano or "syncPianoBinds" not in piano:
+        raise SystemExit("public piano must light the 88-key from the computer keyboard")
     if "pages-crumb" not in piano:
         raise SystemExit("public piano must link back to the Pages hub")
     if "loopWantsFrames" not in piano or "FFT_SIZE = 8192" not in piano:
@@ -234,8 +238,12 @@ def check_crayon_piano() -> None:
         raise SystemExit("10-finger gate must count touches, not clusters")
     if "if (held.length < MAX_FINGERS) return true" not in gate_js:
         raise SystemExit("10-finger gate must allow keys until ten fingers are down")
-    if "this.extras = new Map()" not in gate_js and "this.extras = new Map();" not in gate_js:
-        raise SystemExit("clustered extra keys must be keyed by pointer so lifting them releases them")
+    if "midiForKid" not in gate_js or "noteLabelFr" not in gate_js:
+        raise SystemExit("typing keys must map to crayon notes")
+    if "function holdMidi" not in html or "syncPianoBinds" not in html:
+        raise SystemExit("HTML piano must play and label the computer-key note map")
+    if 'note.className = "note"' not in html or 'bind.className = "bind"' not in html:
+        raise SystemExit("HTML piano must show the note on the typing key and the glyph on the 88-key")
     if "class=\"act\"" not in html or ">Rejouer<" not in html or ">Écouter<" not in html:
         raise SystemExit("HTML piano must label Rejouer and Écouter")
     if ">Accords<" not in html or ">La auto<" not in html:
@@ -289,6 +297,12 @@ def check_crayon_piano() -> None:
         raise SystemExit("iOS piano must persist the chosen typing layout")
     if "hardwareDown" not in session_swift:
         raise SystemExit("iOS piano must remap hardware keys to the chosen layout")
+    if "DualNoteMap" not in (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "DualKeyboard.swift").read_text(
+        encoding="utf-8"
+    ):
+        raise SystemExit("iOS piano must bind typing keys to crayon notes")
+    if "boundPressed" not in session_swift or "syncBoundNotes" not in session_swift:
+        raise SystemExit("iOS piano must sound and light notes from the computer keyboard")
     if 'id="stealth"' in html:
         raise SystemExit("HTML piano must use the 5-scene picker, not a stealth checkbox")
     if 'data-theme-set="stealth"' not in html or 'data-theme-set="day"' not in html:
