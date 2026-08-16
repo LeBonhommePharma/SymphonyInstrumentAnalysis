@@ -157,6 +157,12 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must density-cluster live sources (no fixed instrument count)")
     if "groupHarmonicFunds" not in app_js:
         raise SystemExit("tutorial must fold harmonics before counting tracks")
+    if "extractClusterPeaks" not in app_js or "pickLitMidis" not in app_js:
+        raise SystemExit("tutorial hub must use the piano float-dB peak-picker")
+    if "fftSize = 16384" not in app_js:
+        raise SystemExit("tutorial hub FFT size must match the web piano")
+    if "CODE_TO_MIDI" not in app_js:
+        raise SystemExit("tutorial hub must map computer keys to piano midis")
     if "theme.js" not in tutorial:
         raise SystemExit("tutorial must load the shared theme switch")
     if "data-theme-auto" not in tutorial:
