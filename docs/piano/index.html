@@ -2042,12 +2042,12 @@
           if (core[j]) {
             const nb2 = neighbors(j);
             for (let k = 0; k < nb2.length; k++) {
-            if (seed.indexOf(nb2[k]) < 0) seed.push(nb2[k]);
+              if (seed.indexOf(nb2[k]) < 0) seed.push(nb2[k]);
+            }
           }
         }
       }
       cid += 1;
-    }
     }
     for (let i = 0; i < n; i++) {
       if (labels[i] === -1) labels[i] = cid++;
