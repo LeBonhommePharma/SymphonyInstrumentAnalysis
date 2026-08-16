@@ -177,10 +177,13 @@ final class DualBoardView: UIView {
             let midi = DualNoteMap.midi(for: key.kid)
             let mappedOn = midi.map { session.boundPressed.contains($0) || session.pressed.contains($0) } ?? false
             let on = held.contains(key.kid) || mappedOn
+            let needed = Set(session.lit.map(\.midi))
+            let pressed = session.pressed.union(session.boundPressed)
+            let state = midi.map { KeyboardLayout.highlight(midi: $0, needed: needed, pressed: pressed) } ?? KeyHighlight.idle
             var fill = session.scene.whiteKey
             if let midi {
                 let crayon = NoteName.pitchClass(of: midi).uiColor
-                fill = on ? crayon : crayon.withAlphaComponent(0.28)
+                fill = (state == .need || state == .hit || on) ? crayon : crayon.withAlphaComponent(0.28)
             } else if on {
                 fill = NoteName.c.uiColor
             }
@@ -188,8 +191,19 @@ final class DualBoardView: UIView {
             let path = UIBezierPath(roundedRect: frame, cornerRadius: 4)
             ctx.addPath(path.cgPath)
             ctx.fillPath()
+            if state == .hit {
+                ctx.setStrokeColor(UIColor(red: 0.72, green: 1.0, blue: 0.38, alpha: 1).cgColor)
+                ctx.setLineWidth(3)
+                ctx.addPath(path.cgPath)
+                ctx.strokePath()
+            } else if state == .held {
+                ctx.setStrokeColor(UIColor(session.scene.ink).cgColor)
+                ctx.setLineWidth(2)
+                ctx.addPath(path.cgPath)
+                ctx.strokePath()
+            }
             let glyph = key.kind == "char" || key.kind == "space" ? key.base : key.base
-            let ink = on ? UIColor.white : UIColor(session.scene.ink)
+            let ink = (on || state == .need || state == .hit) ? UIColor.white : UIColor(session.scene.ink)
             let glyphFont = UIFont.systemFont(ofSize: key.w > 1.6 ? 9 : 11, weight: .semibold)
             let glyphAttrs: [NSAttributedString.Key: Any] = [
                 .font: glyphFont,

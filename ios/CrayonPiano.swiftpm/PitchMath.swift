@@ -7,7 +7,7 @@ enum PitchMath {
     static let a4Min = 415.0
     static let a4Max = 466.0
     static let mixedLoHz = 27.5
-    static let mixedHiHz = 2500.0
+    static let mixedHiHz = 5000.0
 
     static let blackPitchClasses: Set<Int> = [1, 3, 6, 8, 10]
 

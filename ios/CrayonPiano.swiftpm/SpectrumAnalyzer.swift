@@ -107,8 +107,8 @@ final class SpectrumAnalyzer {
         }
 
         var mixPeaks: [SpecPeak] = []
-        let mix0 = max(2, Int(27.5 / binHz))
-        let mix1 = min(dbSpectrum.count - 2, Int(ceil(5000.0 / binHz)))
+        let mix0 = max(2, Int(PitchMath.mixedLoHz / binHz))
+        let mix1 = min(dbSpectrum.count - 2, Int(ceil(PitchMath.mixedHiHz / binHz)))
         if mix1 > mix0 {
             var floorSamples: [Float] = []
             let step = max(1, (mix1 - mix0) / 72)
@@ -128,7 +128,7 @@ final class SpectrumAnalyzer {
                     let denom = dbSpectrum[i - 1] - 2 * db + dbSpectrum[i + 1]
                     let delta: Float = denom != 0 ? 0.5 * (dbSpectrum[i - 1] - dbSpectrum[i + 1]) / denom : 0
                     let pf = (Double(i) + Double(delta)) * binHz
-                    if pf >= 27.5 && pf <= 5000 {
+                    if pf >= PitchMath.mixedLoHz && pf <= PitchMath.mixedHiHz {
                         mixPeaks.append(SpecPeak(f: pf, db: db))
                     }
                 }

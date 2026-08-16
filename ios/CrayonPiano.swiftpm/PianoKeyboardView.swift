@@ -137,27 +137,50 @@ final class PianoBoardView: UIView {
 
     private func paint(ctx: CGContext, midi: Int, frame: CGRect, isBlack: Bool) {
         let name = NoteName.pitchClass(of: midi)
-        let on = litVel[midi] != nil || pressed.contains(midi)
-        let harm = !on && harmonics.contains(midi)
+        let needed = Set(litVel.keys)
+        let state = KeyboardLayout.highlight(midi: midi, needed: needed, pressed: pressed)
+        let harm = state == .idle && harmonics.contains(midi)
         let idle = isBlack ? scene.blackKey : scene.whiteKey
         let fill: UIColor
-        if on {
+        switch state {
+        case .hit:
             fill = name.uiColor
-        } else if harm {
-            fill = name.uiColor.withAlphaComponent(isBlack ? 0.35 : 0.18).blended(with: idle) ?? idle
-        } else {
-            fill = idle
+        case .need:
+            fill = name.uiColor
+        case .held:
+            fill = (isBlack ? UIColor.white : UIColor(scene.ink)).withAlphaComponent(0.22).blended(with: idle) ?? idle
+        case .idle:
+            if harm {
+                fill = name.uiColor.withAlphaComponent(isBlack ? 0.35 : 0.18).blended(with: idle) ?? idle
+            } else {
+                fill = idle
+            }
         }
         ctx.setFillColor(fill.cgColor)
         let path = UIBezierPath(roundedRect: frame.insetBy(dx: 0.4, dy: 0), cornerRadius: isBlack ? 3 : 5)
         ctx.addPath(path.cgPath)
         ctx.fillPath()
-        ctx.setStrokeColor((isBlack ? UIColor.black : UIColor.white).withAlphaComponent(0.12).cgColor)
+        if state == .held {
+            ctx.setStrokeColor(UIColor(scene.ink).withAlphaComponent(0.85).cgColor)
+            ctx.setLineWidth(2)
+        } else if state == .hit {
+            ctx.setStrokeColor(UIColor(red: 0.72, green: 1.0, blue: 0.38, alpha: 1).cgColor)
+            ctx.setLineWidth(3)
+        } else if state == .need {
+            ctx.setStrokeColor(name.uiColor.withAlphaComponent(0.95).cgColor)
+            ctx.setLineWidth(1.5)
+            ctx.setLineDash(phase: 0, lengths: [3, 2])
+        } else {
+            ctx.setStrokeColor((isBlack ? UIColor.black : UIColor.white).withAlphaComponent(0.12).cgColor)
+            ctx.setLineWidth(1)
+        }
         ctx.addPath(path.cgPath)
         ctx.strokePath()
+        ctx.setLineDash(phase: 0, lengths: [])
 
+        let on = state == .need || state == .hit
         let label: String
-        if on {
+        if on || state == .held {
             label = "\(name.french)\(PitchMath.octave(of: midi))"
         } else if isBlack {
             label = "♯"

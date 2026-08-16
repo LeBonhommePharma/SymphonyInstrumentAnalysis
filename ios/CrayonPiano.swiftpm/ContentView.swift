@@ -76,6 +76,9 @@ struct ContentView: View {
             Text("Piano-crayon")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(session.scene.ink)
+            Text("\(session.scoreValue) · best \(session.bestScore) · \(session.kbLayout.uppercased())")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(session.scene.muted)
             Spacer(minLength: 8)
             scenePicker
         }

@@ -35,7 +35,7 @@ enum DensityCluster {
             var attached = false
             for i in funds.indices {
                 let n = (p.f / funds[i].f0).rounded()
-                if n < 2 || n > 8 { continue }
+                if n < 2 || n > 16 { continue }
                 let cents = 1200 * log2(p.f / (n * funds[i].f0))
                 if abs(cents) < 35 {
                     funds[i].members.append(p)

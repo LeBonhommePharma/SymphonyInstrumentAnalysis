@@ -63,6 +63,11 @@ final class PianoSession: ObservableObject {
     let histLen = 240
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
+    @Published var scoreValue = 0
+    @Published var bestScore = 0
+    @Published var layoutId: KeyboardLayoutId = KeyboardLayout.detect()
+    let scoreKeeper = ScoreKeeper()
+    let scoreStore = ScoreStore()
     @Published var sceneAuto = UserDefaults.standard.object(forKey: "crayon-theme-auto") as? Bool ?? true {
         didSet { UserDefaults.standard.set(sceneAuto, forKey: "crayon-theme-auto") }
     }
@@ -242,7 +247,25 @@ final class PianoSession: ObservableObject {
         }
     }
 
+    func persistScore(source: String) {
+        if scoreKeeper.score > 0 {
+            scoreStore.record(source: source, score: scoreKeeper.score)
+        }
+        bestScore = scoreStore.best(for: source)
+        scoreKeeper.resetSession()
+        scoreValue = 0
+    }
+
+    func handleHardwareCharacters(_ chars: String, down: Bool) {
+        if let guessed = KeyboardLayout.infer(code: "", key: chars) {
+            layoutId = guessed
+        }
+        guard let midi = KeyboardLayout.midi(forCharacters: chars) else { return }
+        if down { noteOn(midi) } else { noteOff(midi) }
+    }
+
     func stopLive() {
+        persistScore(source: "live")
         engine.inputNode.removeTap(onBus: 0)
         didInstallTap = false
         mode = .idle
@@ -287,6 +310,7 @@ final class PianoSession: ObservableObject {
     }
 
     func stopReplay(keepScrub: Bool) {
+        persistScore(source: "demo")
         if mode == .replay {
             replayOffset = keepScrub ? sampleNow() : 0
         }
@@ -456,6 +480,8 @@ final class PianoSession: ObservableObject {
 
     func noteOn(_ midi: Int) {
         pressed.insert(midi)
+        scoreKeeper.press(midi)
+        scoreValue = scoreKeeper.score
         syncSounding()
     }
 
@@ -631,6 +657,9 @@ final class PianoSession: ObservableObject {
         syncClusters(clustered, now: now)
         publishSpectrum(clusters: clustered, peaks: result.mixPeaks)
         lit = result.lit
+        scoreKeeper.setNeeded(Set(result.lit.map(\.midi)))
+        for midi in pressed.union(boundPressed) { scoreKeeper.press(midi) }
+        scoreValue = scoreKeeper.score
         harmonics = result.harmonics
         chroma = result.chroma
         concertA = autotune ? analyzer.concertA : PitchMath.a4Ref
