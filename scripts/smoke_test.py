@@ -582,15 +582,23 @@ def check_visualize_cli() -> None:
         )
         if proc.returncode != 0:
             raise SystemExit(f"visualize_chords without WAV failed:\n{proc.stdout}\n{proc.stderr}")
-        if "skipping chroma heatmap" not in proc.stdout:
-            raise SystemExit("visualize_chords must skip the heatmap when the default WAV is missing")
         if not (vis_out / "chord_progression_stacks.png").is_file():
             raise SystemExit("visualize_chords should still write stack/sync/network without a WAV")
         vis_md = (vis_out / "chord_visual_analysis.md").read_text(encoding="utf-8")
-        if "(skipped — no WAV)" not in vis_md:
-            raise SystemExit("visualize_chords markdown must say the heatmap was skipped")
         if "smoke_chords.json" not in vis_md:
             raise SystemExit("visualize_chords markdown must name the --chords file")
+        # #46: default captures/*.wav is gitignored; skip heatmap when absent.
+        # A local capture must not fail smoke.
+        from visualize_chords import WAV as DEFAULT_WAV  # noqa: E402
+
+        if DEFAULT_WAV.is_file():
+            if "skipping chroma heatmap" in proc.stdout:
+                raise SystemExit("visualize_chords must use the default WAV when it exists")
+        else:
+            if "skipping chroma heatmap" not in proc.stdout:
+                raise SystemExit("visualize_chords must skip the heatmap when the default WAV is missing")
+            if "(skipped — no WAV)" not in vis_md:
+                raise SystemExit("visualize_chords markdown must say the heatmap was skipped")
         proc = subprocess.run(
             [
                 py,
