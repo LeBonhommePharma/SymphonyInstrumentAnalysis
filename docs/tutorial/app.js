@@ -9,8 +9,10 @@
   const LANE_CSS_PX = 64;
   const RULER_CSS_PX = 28;
   const DROP_AFTER_MS = 1800;
-  const CLUSTER_CENTS = 85;
-  const PRACTICAL_LANE_SOFT_MAX = 64;
+  const MIXED_LO_HZ = 27.5;
+  const MIXED_HI_HZ = 5000;
+  const MIDI_LO = 21;
+  const MIDI_HI = 108;
   const LANE_COLORS = [
     "#f97316", "#2dd4bf", "#a78bfa", "#60a5fa", "#f472b6",
     "#fbbf24", "#34d399", "#fb7185", "#38bdf8", "#c084fc",
@@ -71,6 +73,19 @@
   let specDb = new Float32Array(2048);
   let time = new Uint8Array(2048);
   let pianoKeys = [];
+  let keySmooth = [];
+  let neededMidis = new Set();
+  let computerHeld = new Set();
+  let scoreNow = 0;
+  let scoreStreak = 0;
+  let scoreAwarded = new Set();
+  const CODE_TO_MIDI = {
+    KeyZ: 48, KeyS: 49, KeyX: 50, KeyD: 51, KeyC: 52, KeyV: 53, KeyG: 54,
+    KeyB: 55, KeyH: 56, KeyN: 57, KeyJ: 58, KeyM: 59, KeyQ: 60, Digit2: 61,
+    KeyW: 62, Digit3: 63, KeyE: 64, KeyR: 65, Digit5: 66, KeyT: 67, Digit6: 68,
+    KeyY: 69, Digit7: 70, KeyU: 71, KeyI: 72, Digit9: 73, KeyO: 74, Digit0: 75,
+    KeyP: 76
+  };
   let specSizeKey = "";
   let listenStartedAt = 0;
   let heardSound = false;
@@ -280,11 +295,52 @@
     pianoKeys = Array.prototype.slice.call(pianoEl.querySelectorAll("[data-midi]"));
   }
 
+  function highlightOf(midi) {
+    const want = neededMidis.has(midi);
+    const have = computerHeld.has(midi);
+    if (want && have) return "hit";
+    if (want) return "need";
+    if (have) return "held";
+    return "";
+  }
+
   function lightPiano(midiSet) {
     const set = midiSet instanceof Set ? midiSet : new Set(midiSet == null ? [] : [midiSet]);
+    neededMidis = set;
+    scoreAwarded.forEach(function (m) {
+      if (!neededMidis.has(m)) scoreAwarded.delete(m);
+    });
+    computerHeld.forEach(function (m) {
+      if (neededMidis.has(m) && !scoreAwarded.has(m)) {
+        scoreAwarded.add(m);
+        scoreNow += 10 + scoreStreak;
+        scoreStreak += 1;
+      }
+    });
     for (let i = 0; i < pianoKeys.length; i += 1) {
       const el = pianoKeys[i];
-      el.classList.toggle("on", set.has(Number(el.dataset.midi)));
+      const midi = Number(el.dataset.midi);
+      const st = highlightOf(midi);
+      el.classList.toggle("on", st === "need" || st === "hit");
+      el.classList.toggle("need", st === "need");
+      el.classList.toggle("held", st === "held");
+      el.classList.toggle("hit", st === "hit");
+    }
+    const scoreEl = document.getElementById("scoreLine");
+    if (scoreEl) {
+      let best = 0;
+      try {
+        const data = JSON.parse(localStorage.getItem("crayon-piano-scores") || "{}");
+        best = Math.max(data.allTime || 0, scoreNow);
+        if (scoreNow > (data.allTime || 0)) {
+          data.allTime = scoreNow;
+          data.bestBySource = data.bestBySource || {};
+          data.bestBySource.live = Math.max(data.bestBySource.live || 0, scoreNow);
+          localStorage.setItem("crayon-piano-scores", JSON.stringify(data));
+        }
+        best = Math.max(data.allTime || 0, (data.bestBySource || {}).live || 0);
+      } catch (e) {}
+      scoreEl.textContent = scoreNow + " · best " + best;
     }
   }
 
@@ -313,38 +369,72 @@
     }
   }
 
-  function extractPeaks(sampleRate, gain) {
-    const n = freq.length;
-    const nyquist = sampleRate / 2;
+  function bandNoiseFloor(specArr, i0, i1) {
+    const step = Math.max(1, Math.floor((i1 - i0) / 72));
+    const samples = [];
+    for (let i = i0; i <= i1; i += step) samples.push(specArr[i]);
+    if (!samples.length) return -90;
+    samples.sort(function (a, b) { return a - b; });
+    return samples[Math.floor(samples.length * 0.5)];
+  }
+
+  function extractClusterPeaks(specArr, binHz) {
+    const i0 = Math.max(2, Math.floor(MIXED_LO_HZ / binHz));
+    const i1 = Math.min(specArr.length - 2, Math.ceil(MIXED_HI_HZ / binHz));
+    const floor = bandNoiseFloor(specArr, i0, i1);
+    const minDb = Math.max(-78, floor + 10);
     const peaks = [];
-    let energy = 0;
-    for (let i = 2; i < n - 2; i += 1) {
-      const f = i * (nyquist / n);
-      if (f < 27.5 || f > 6000) continue;
-      const mag = Math.min(255, freq[i] * gain);
-      energy += mag;
-      if (
-        mag > freq[i - 1] * gain &&
-        mag > freq[i + 1] * gain &&
-        mag >= freq[i - 2] * gain &&
-        mag >= freq[i + 2] * gain &&
-        mag > 10
-      ) {
-        peaks.push({ f: f, mag: mag, logF: Math.log2(f) });
+    for (let i = i0; i <= i1; i++) {
+      const db = specArr[i];
+      if (db < minDb) continue;
+      if (db > specArr[i - 1] && db >= specArr[i + 1] && db > specArr[i - 2] && db >= specArr[i + 2]) {
+        const denom = specArr[i - 1] - 2 * db + specArr[i + 1];
+        const delta = denom ? 0.5 * (specArr[i - 1] - specArr[i + 1]) / denom : 0;
+        const f = (i + delta) * binHz;
+        if (f >= MIXED_LO_HZ && f <= MIXED_HI_HZ) {
+          peaks.push({ f: f, db: db, logF: Math.log2(f) });
+        }
       }
     }
-    peaks.sort(function (a, b) {
-      return b.mag - a.mag;
-    });
-    // De-duplicate harmonics within ~1 semitone before clustering.
-    const uniq = [];
-    peaks.forEach(function (p) {
-      if (uniq.some(function (q) {
-        return Math.abs(p.logF - q.logF) < 1 / 12;
-      })) return;
-      uniq.push(p);
-    });
-    return { peaks: uniq.slice(0, 48), energy: energy };
+    peaks.sort(function (a, b) { return b.db - a.db; });
+    return peaks.slice(0, 512);
+  }
+
+  function pickLitMidis(specArr, binHz) {
+    const nKeys = MIDI_HI - MIDI_LO + 1;
+    if (keySmooth.length !== nKeys) {
+      keySmooth = [];
+      for (let i = 0; i < nKeys; i++) keySmooth[i] = -120;
+    }
+    const i0 = Math.max(2, Math.floor(MIXED_LO_HZ / binHz));
+    const i1 = Math.min(specArr.length - 2, Math.ceil(MIXED_HI_HZ / binHz));
+    const score = [];
+    for (let i = 0; i < nKeys; i++) score[i] = -120;
+    for (let i = i0; i <= i1; i++) {
+      const freq = i * binHz;
+      const db = specArr[i];
+      const midi = Math.round(69 + 12 * Math.log2(freq / 440));
+      if (midi >= MIDI_LO && midi <= MIDI_HI && db > score[midi - MIDI_LO]) {
+        score[midi - MIDI_LO] = db;
+      }
+    }
+    let loudest = -120;
+    for (let i = 0; i < nKeys; i++) {
+      keySmooth[i] = 0.62 * keySmooth[i] + 0.38 * score[i];
+      if (keySmooth[i] > loudest) loudest = keySmooth[i];
+    }
+    const noise = bandNoiseFloor(specArr, i0, i1);
+    const gate = Math.max(Math.max(-78, noise + 12), loudest - 16);
+    const candidates = [];
+    for (let i = 0; i < nKeys; i++) {
+      const s = keySmooth[i];
+      if (s < gate) continue;
+      const left = i > 0 ? keySmooth[i - 1] : -999;
+      const right = i < nKeys - 1 ? keySmooth[i + 1] : -999;
+      if (s >= left && s >= right) candidates.push({ midi: i + MIDI_LO, s: s });
+    }
+    candidates.sort(function (a, b) { return b.s - a.s; });
+    return candidates.slice(0, 8).map(function (c) { return c.midi; });
   }
 
   function groupHarmonicFunds(peaks) {
@@ -354,7 +444,7 @@
       for (let k = 0; k < funds.length; k++) {
         const f0 = funds[k].f0;
         const n = Math.round(p.f / f0);
-        if (n < 2 || n > 8) continue;
+        if (n < 2 || n > 16) continue;
         const cents = 1200 * Math.log2(p.f / (n * f0));
         if (Math.abs(cents) < 35) {
           funds[k].members.push(p);
@@ -475,32 +565,23 @@
    */
   function densityCluster(peaks) {
     if (!peaks.length) return [];
-    const withDb = peaks.map(function (p) {
-      const minD = analyser ? analyser.minDecibels : -100;
-      const maxD = analyser ? analyser.maxDecibels : -20;
-      const byte = Math.max(0, Math.min(255, p.mag));
-      return {
-        f: p.f,
-        mag: p.mag,
-        db: minD + (byte / 255) * (maxD - minD),
-        logF: p.logF,
-      };
-    });
-    return densityClusterFunds(groupHarmonicFunds(withDb)).map(function (c) {
+    return densityClusterFunds(groupHarmonicFunds(peaks)).map(function (c) {
       return {
         f: c.f0,
-        mag: Math.min(255, Math.max(12, Math.pow(10, c.db / 20) * 255)),
+        f0: c.f0,
+        mag: Math.min(255, Math.max(12, Math.pow(10, (c.db + 90) / 90) * 255)),
         db: c.db,
         harm: c.harm,
+        centroid: c.centroid,
       };
     });
   }
 
-  function liveKind(rms, clusters) {
+  function liveKind(rms, clusters, litMidis) {
     const boosted = rms * softGain;
-    if (boosted < 0.006 && (!clusters.length || clusters[0].mag < 14)) return "quiet";
-    if (!clusters.length || clusters[0].mag < 18) return "noise";
-    return "pitch";
+    if ((litMidis && litMidis.length) || clusters.length) return "pitch";
+    if (boosted < 0.006) return "quiet";
+    return "noise";
   }
 
   function matchCluster(cluster, usedIds) {
@@ -523,8 +604,8 @@
     });
   }
 
-  function syncInstruments(clusters, rms, now) {
-    const kind = liveKind(rms, clusters);
+  function syncInstruments(clusters, rms, now, litMidis) {
+    const kind = liveKind(rms, clusters, litMidis);
     lastClusters = clusters;
     if (kind === "quiet") {
       // Still keep a faint room lane so the UI never looks frozen.
@@ -572,12 +653,12 @@
         used.add(match.id);
         match.hz = cluster.f * 0.4 + match.hz * 0.6;
         match.family = familyForHz(match.hz);
-        match.pendingAmp = Math.min(1, (cluster.mag / 255) * softGain * 1.5);
+        match.pendingAmp = Math.min(1, ((cluster.db + 80) / 50) * 1.15);
         match.lastSeen = now;
         return;
       }
       const inst = makeInstrument(cluster.f, familyForHz(cluster.f));
-      inst.pendingAmp = Math.min(1, (cluster.mag / 255) * softGain * 1.5);
+      inst.pendingAmp = Math.min(1, ((cluster.db + 80) / 50) * 1.15);
       inst.lastSeen = now;
       used.add(inst.id);
       instruments.push(inst);
@@ -595,7 +676,13 @@
     });
     const elapsed = (performance.now() - colStart) / 1000;
     const colDur = WINDOW_SEC / colCount;
-    if (elapsed < colDur) return;
+    if (elapsed < colDur) {
+      instruments.forEach(function (inst) {
+        if (inst.history.length !== colCount) inst.history = new Float32Array(colCount);
+        inst.history[writeCol] = Math.min(1, inst.accum);
+      });
+      return;
+    }
     instruments.forEach(function (inst) {
       if (inst.history.length !== colCount) inst.history = new Float32Array(colCount);
       inst.history[writeCol] = Math.min(1, inst.accum);
@@ -867,10 +954,12 @@
     analyser.getByteTimeDomainData(time);
     const rms = rmsOfTime();
     updateAutoGain(rms);
-    const extracted = extractPeaks(audioCtx.sampleRate, softGain);
+    const binHz = audioCtx.sampleRate / analyser.fftSize;
+    const extracted = { peaks: extractClusterPeaks(specDb, binHz) };
     const clusters = densityCluster(extracted.peaks);
+    const litMidis = pickLitMidis(specDb, binHz);
     const now = performance.now();
-    const kind = syncInstruments(clusters, rms, now);
+    const kind = syncInstruments(clusters, rms, now, litMidis);
     pushColumn();
     maybeRelayout();
     lastElapsed = (now - listenStartedAt) / 1000;
@@ -883,12 +972,7 @@
       const f = clusters[0].f;
       noteEl.textContent = hzToNote(f);
       hzEl.textContent = f.toFixed(1) + " Hz";
-      const midiSet = new Set(
-        clusters.slice(0, 6).map(function (c) {
-          return Math.round(69 + 12 * Math.log2(c.f / 440));
-        })
-      );
-      lightPiano(midiSet);
+      lightPiano(new Set(litMidis));
       peaksEl.textContent = clusters
         .slice(0, 10)
         .map(function (c) {
@@ -973,10 +1057,10 @@
     audioCtx = makeAudioContext();
     if (audioCtx.state === "suspended") await audioCtx.resume();
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 4096;
-    analyser.smoothingTimeConstant = 0.55;
-    analyser.minDecibels = -100;
-    analyser.maxDecibels = -20;
+    analyser.fftSize = 16384;
+    analyser.smoothingTimeConstant = 0.78;
+    analyser.minDecibels = -95;
+    analyser.maxDecibels = -30;
     freq = new Uint8Array(analyser.frequencyBinCount);
     specDb = new Float32Array(analyser.frequencyBinCount);
     time = new Uint8Array(analyser.fftSize);
@@ -1023,17 +1107,16 @@
         analyser.getByteTimeDomainData(time);
         const rms = rmsOfTime();
         updateAutoGain(rms);
-        const extracted = extractPeaks(audioCtx.sampleRate, softGain);
+        analyser.getFloatFrequencyData(specDb);
+        const extracted = extractClusterPeaks(specDb, audioCtx.sampleRate / analyser.fftSize);
         const boosted = rms * softGain;
         if (boosted > peakRms) peakRms = boosted;
-        if (extracted.peaks.length && extracted.peaks[0].mag > peakMag) {
-          peakMag = extracted.peaks[0].mag;
-        }
+        if (extracted.length) peakMag = extracted.length;
         if (performance.now() - t0 < durationMs) {
           raf = requestAnimationFrame(step);
           return;
         }
-        resolve(peakRms > 0.018 || peakMag > 18);
+        resolve(peakRms > 0.012 || extracted.length > 0);
       }
       raf = requestAnimationFrame(step);
     });
@@ -1240,6 +1323,25 @@
     updateTracksHeading();
     setListeningUi(false);
     lightPiano(new Set([60, 64, 67]));
+    window.addEventListener("keydown", function (ev) {
+      if (ev.repeat || ev.metaKey || ev.ctrlKey) return;
+      const midi = CODE_TO_MIDI[ev.code];
+      if (midi == null) return;
+      ev.preventDefault();
+      computerHeld.add(midi);
+      if (neededMidis.has(midi) && !scoreAwarded.has(midi)) {
+        scoreAwarded.add(midi);
+        scoreNow += 10 + scoreStreak;
+        scoreStreak += 1;
+      }
+      lightPiano(neededMidis);
+    });
+    window.addEventListener("keyup", function (ev) {
+      const midi = CODE_TO_MIDI[ev.code];
+      if (midi == null) return;
+      computerHeld.delete(midi);
+      lightPiano(neededMidis);
+    });
     if (new URLSearchParams(window.location.search).has("demo")) {
       fillExampleTracks();
     }

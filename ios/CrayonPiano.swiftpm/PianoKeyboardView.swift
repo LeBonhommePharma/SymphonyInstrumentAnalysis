@@ -5,19 +5,20 @@ struct PianoKeyboardView: UIViewRepresentable {
     var lit: [LitNote]
     var harmonics: Set<Int>
     var pressed: Set<Int>
+    var binds: [Int: String]
     var scene: SceneStyle
     var onPressed: (Set<Int>) -> Void
 
     func makeUIView(context: Context) -> PianoScrollView {
         let view = PianoScrollView()
         view.board.onPressed = onPressed
-        view.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
+        view.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, binds: binds, scene: scene)
         return view
     }
 
     func updateUIView(_ uiView: PianoScrollView, context: Context) {
         uiView.board.onPressed = onPressed
-        uiView.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, scene: scene)
+        uiView.board.apply(lit: lit, harmonics: harmonics, pressed: pressed, binds: binds, scene: scene)
     }
 }
 
@@ -64,6 +65,7 @@ final class PianoBoardView: UIView {
     private var litVel: [Int: CGFloat] = [:]
     private var harmonics: Set<Int> = []
     private var pressed: Set<Int> = []
+    private var binds: [Int: String] = [:]
     private var scene: SceneStyle = .stealth
     private var whiteFrames: [(midi: Int, frame: CGRect)] = []
     private var blackFrames: [(midi: Int, frame: CGRect)] = []
@@ -82,7 +84,7 @@ final class PianoBoardView: UIView {
         isMultipleTouchEnabled = true
     }
 
-    func apply(lit: [LitNote], harmonics: Set<Int>, pressed: Set<Int>, scene: SceneStyle) {
+    func apply(lit: [LitNote], harmonics: Set<Int>, pressed: Set<Int>, binds: [Int: String], scene: SceneStyle) {
         var vel: [Int: CGFloat] = [:]
         let maxDb = lit.map(\.db).max() ?? -60
         for note in lit {
@@ -92,6 +94,7 @@ final class PianoBoardView: UIView {
         litVel = vel
         self.harmonics = harmonics
         self.pressed = pressed
+        self.binds = binds
         self.scene = scene
         setNeedsDisplay()
     }
@@ -175,6 +178,19 @@ final class PianoBoardView: UIView {
             y: frame.maxY - size.height - (isBlack ? 6 : 8)
         )
         (label as NSString).draw(at: point, withAttributes: attrs)
+        if let bind = binds[midi], !bind.isEmpty {
+            let bindColor: UIColor = on ? UIColor(name.labelColor) : (isBlack ? UIColor.white.withAlphaComponent(0.4) : UIColor(scene.muted))
+            let bindFont = UIFont.monospacedSystemFont(ofSize: isBlack ? 7 : 8, weight: .bold)
+            let bindAttrs: [NSAttributedString.Key: Any] = [
+                .font: bindFont,
+                .foregroundColor: bindColor
+            ]
+            let bindSize = (bind as NSString).size(withAttributes: bindAttrs)
+            (bind as NSString).draw(
+                at: CGPoint(x: frame.midX - bindSize.width / 2, y: frame.minY + (isBlack ? 3 : 5)),
+                withAttributes: bindAttrs
+            )
+        }
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
