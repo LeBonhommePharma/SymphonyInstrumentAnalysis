@@ -3008,9 +3008,9 @@
       analyser.fftSize = FFT_SIZE;
       spec = new Float32Array(analyser.frequencyBinCount);
     }
-    analyser.smoothingTimeConstant = 0.48;
+    analyser.smoothingTimeConstant = 0;
     analyser.minDecibels = -95;
-    analyser.maxDecibels = -18;
+    analyser.maxDecibels = 0;
     if (!spec || spec.length !== analyser.frequencyBinCount) {
       spec = new Float32Array(analyser.frequencyBinCount);
     }
@@ -3704,19 +3704,18 @@
         const t = i / sr - start;
         const env = (t < 0.05 ? t / 0.05 : 1) * Math.exp(-t / decay);
         const ph = twoPi * freq * t;
-        data[i] += amp * env * (Math.sin(ph) + 0.45 * Math.sin(ph + ph));
+        data[i] += amp * env * (Math.sin(ph) + 0.5 * Math.sin(2 * ph) + 0.25 * Math.sin(3 * ph));
       }
     }
     addTone(65.41, 0, 8, 0.35);
     addTone(196.00, 0.5, 3, 0.25);
     addTone(261.63, 3.5, 3, 0.25);
-    addTone(329.63, 0.5, 1.8, 0.18);
-    addTone(493.88, 0.5, 1.8, 0.18);
-    addTone(349.23, 2.5, 1.8, 0.18);
-    addTone(440.00, 2.5, 1.8, 0.18);
-    addTone(392.00, 4.5, 1.8, 0.18);
-    addTone(587.33, 4.5, 1.8, 0.18);
-    addTone(329.63, 6.5, 1.8, 0.18);
+    [[0.5, [329.63, 415.30, 493.88]], [2.5, [349.23, 440.00, 523.25]],
+     [4.5, [392.00, 493.88, 587.33]], [6.5, [329.63, 415.30, 493.88]]].forEach(function (row) {
+      row[1].forEach(function (hz) { addTone(hz, row[0], 1.8, 0.18); });
+    });
+    addTone(1046.50, 1.0, 0.3, 0.08);
+    addTone(1318.51, 5.0, 0.3, 0.08);
     let peak = 0.0001;
     for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(data[i]));
     const g = 0.9 / peak;
@@ -4091,9 +4090,9 @@
       if (smooth[i] > loudest) loudest = smooth[i];
     }
 
-    const noise = bandNoiseFloor(spec, i0, i1);
-    const absGate = Math.max(-78, noise + 12);
-    const relDb = 16;
+    const sens = 0.58;
+    const absGate = -48 - sens * 36;
+    const relDb = 10 + sens * 18;
     const gate = Math.max(absGate, loudest - relDb);
     const maxN = $chords.checked ? 8 : 1;
 

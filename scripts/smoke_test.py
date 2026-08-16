@@ -7,6 +7,7 @@ and checks that the capture scripts exit cleanly when no devices exist.
 """
 from __future__ import annotations
 
+import json
 import math
 import re
 import subprocess
@@ -188,8 +189,10 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must fold harmonics before counting tracks")
     if "extractClusterPeaks" not in app_js or "pickLitMidis" not in app_js:
         raise SystemExit("tutorial hub must use the piano float-dB peak-picker")
-    if "fftSize = 16384" not in app_js:
+    if "fftSize = 8192" not in app_js:
         raise SystemExit("tutorial hub FFT size must match the web piano")
+    if "maxDecibels = 0" not in app_js or "smoothingTimeConstant = 0" not in app_js:
+        raise SystemExit("tutorial analyser must be true dBFS with no extra smoothing")
     if "midiForKid" not in app_js:
         raise SystemExit("tutorial hub must map computer keys with the kid crayon map")
     if "dual_keyboard.js" not in tutorial:
@@ -300,6 +303,15 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must keep a vsync rAF loop while keys, listen, or replay are active")
     if "FFT_SIZE = 8192" not in html:
         raise SystemExit("HTML piano FFT must stay light enough for display-rate drawing")
+    if "maxDecibels = 0" not in html or "smoothingTimeConstant = 0" not in html:
+        raise SystemExit("HTML analyser must be true dBFS with no extra smoothing")
+    if "const absGate = -48 - sens * 36" not in html:
+        raise SystemExit("HTML key gate must match Python/iOS −48−s·36")
+    if "1046.50" not in html or "0.5 * Math.sin(2 * ph)" not in html:
+        raise SystemExit("HTML demo must match the Python/Swift 3-partial phrase")
+    dsp = json.loads((SCRIPTS.parent / "piano" / "dsp_contract.json").read_text(encoding="utf-8"))
+    if dsp.get("fftSize") != 8192 or dsp.get("maxDecibels") != 0 or dsp.get("analyserSmoothing") != 0:
+        raise SystemExit("piano/dsp_contract.json must pin FFT 8192 / 0 dBFS / no smoothing")
     if "WAVE_WINDOW_SEC" not in html:
         raise SystemExit("HTML piano waveform must scroll in seconds, not frames")
     if "makeDemoBuffer" not in html:
