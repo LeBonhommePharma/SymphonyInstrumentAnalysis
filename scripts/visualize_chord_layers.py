@@ -8,7 +8,6 @@ Kid-genius bilingual crayon legend via chord_pitch_colors.
 from __future__ import annotations
 
 import json
-import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,13 +21,12 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from chord_pitch_colors import (  # noqa: E402
-    NOTE_NAMES,
     PC_FR,
-    PC_HZ,
     draw_color_legend,
     legend_markdown_rows,
     pc_rgb,
 )
+from voicing import assign_five_layers  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CHORD_JSON = ROOT / "analysis_out" / "final_song_chords.json"
@@ -52,7 +50,6 @@ def chord_duration(data: dict) -> float:
         duration = max(duration, float(timeline[-1]["end"]))
     return duration
 
-PC_INDEX = {pc: i for i, pc in enumerate(NOTE_NAMES)}
 
 @dataclass(frozen=True)
 class LayerSpec:
@@ -103,92 +100,14 @@ LAYERS: list[LayerSpec] = [
 ]
 
 
-def parse_chord_root(chord: str | None) -> str | None:
-    if not chord:
-        return None
-    m = re.match(r"^([A-G]#?)", chord)
-    return m.group(1) if m else None
-
-
-def hz_in_range(pc: str, lo: float, hi: float) -> float:
-    base = PC_HZ[pc]
-    target = (lo * hi) ** 0.5
-    best = base
-    best_dist = abs(np.log2(base / target))
-    for oct_shift in range(-3, 4):
-        f = base * (2.0**oct_shift)
-        if f < lo * 0.85 or f > hi * 1.15:
-            continue
-        d = abs(np.log2(f / target))
-        if d < best_dist:
-            best = f
-            best_dist = d
-    return float(np.clip(best, lo * 0.9, hi * 1.1))
-
-
 def assign_pcs_to_layers(
     pcs: list[str],
     chord: str | None,
     *,
     seg_index: int = 0,
 ) -> dict[str, list[tuple[str, float]]]:
-    """Distribute chord tones by register so lanes don't all show the same stack.
-
-    Returns layer_key → list of (pitch_class, hz).
-    """
-    clean = [p for p in pcs if p in PC_HZ][:5]
-    out: dict[str, list[tuple[str, float]]] = {L.key: [] for L in LAYERS}
-    if not clean:
-        return out
-
-    root = parse_chord_root(chord)
-    if root not in PC_HZ:
-        root = clean[0]
-
-    uniq = list(dict.fromkeys(clean))
-    sorted_pcs = sorted(uniq, key=lambda p: PC_INDEX[p])
-    if root in sorted_pcs:
-        sorted_pcs = [root] + [p for p in sorted_pcs if p != root]
-
-    n = len(sorted_pcs)
-    bass, cello, gA, gB, high = LAYERS
-
-    def put(key: str, pc: str, lo: float, hi: float) -> None:
-        hz = hz_in_range(pc, lo, hi)
-        out[key].append((pc, hz))
-
-    put("upright_bass", sorted_pcs[0], *bass.freq_range_hz)
-
-    if n == 1:
-        put("cello", sorted_pcs[0], *cello.freq_range_hz)
-        return out
-
-    if n == 2:
-        put("cello", sorted_pcs[1], *cello.freq_range_hz)
-        # alternate sparse mid between A / B so neither guitar lane is empty forever
-        g = gA if (seg_index % 2 == 0) else gB
-        put(g.key, sorted_pcs[1], *g.freq_range_hz)
-        return out
-
-    put("cello", sorted_pcs[1], *cello.freq_range_hz)
-    mid = list(sorted_pcs[2:])
-
-    # Highest extension → nylon/high; remaining mids split across guitar A / B
-    if n >= 4 and mid:
-        top = mid.pop()
-        put("nylon_high", top, *high.freq_range_hz)
-    elif n == 3 and mid:
-        # light high sparkle on the lone mid when chords are thin
-        put("nylon_high", mid[-1], *high.freq_range_hz)
-
-    guitars = [gA, gB]
-    # phase the round-robin so Guitar B isn't chronically starved
-    phase = seg_index % 2
-    for i, pc in enumerate(mid):
-        g = guitars[(i + phase) % 2]
-        put(g.key, pc, *g.freq_range_hz)
-
-    return out
+    """Five visual lanes; nylon_high folds nylon + viola from voicing.py."""
+    return assign_five_layers(pcs, chord, seg_index=seg_index)
 
 
 def style_fig(fig: plt.Figure) -> None:

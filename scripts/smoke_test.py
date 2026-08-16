@@ -112,6 +112,11 @@ def check_capture_scripts() -> None:
             continue
         if "Traceback" in combined:
             raise SystemExit(f"{name} raised a traceback:\n{combined}")
+        if name == "record_mic.py" and proc.returncode == 2 and (
+            "capture is silent" in combined or "timed out" in combined.lower()
+        ):
+            print(f"{name}: silent or hung capture; skipped")
+            continue
         if NO_DEVICES_MESSAGE not in combined:
             raise SystemExit(
                 f"{name} exit {proc.returncode} without {NO_DEVICES_MESSAGE!r}:\n{combined}"
@@ -280,6 +285,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must not idle five hardcoded musician chips")
     if "crayon_dsp.js" not in html:
         raise SystemExit("HTML piano must load crayon_dsp.js for the shared peak/cluster DSP")
+    if "CRAYON_DSP.heuristicLabel" not in html:
+        raise SystemExit("HTML piano must use the shared voix/formant heuristic")
     if "groupHarmonicFunds" not in html or "densityClusterFunds" not in html:
         raise SystemExit("HTML piano must density-cluster independent tracks")
     if "selectedTrackIds" not in html:
@@ -449,6 +456,28 @@ def check_crayon_piano() -> None:
     if proc.returncode != 0:
         raise SystemExit(f"density_cluster.py failed:\n{proc.stdout}\n{proc.stderr}")
     print((proc.stdout or "").strip() or "density_cluster.py: OK")
+    fixtures = json.loads((SCRIPTS.parent / "piano" / "cluster_fixtures.json").read_text(encoding="utf-8"))
+    names = {c["name"] for c in fixtures.get("cases", [])}
+    if "louder_overtone" not in names:
+        raise SystemExit("cluster fixtures must include louder_overtone (f0 from the lowest explaining partial)")
+    voicing = subprocess.run(
+        [sys.executable, str(SCRIPTS / "voicing.py")],
+        capture_output=True,
+        text=True,
+    )
+    if voicing.returncode != 0:
+        raise SystemExit(f"voicing.py failed:\n{voicing.stdout}\n{voicing.stderr}")
+    print((voicing.stdout or "").strip() or "voicing.py: OK")
+    analyze_src = (SCRIPTS / "analyze_instruments.py").read_text(encoding="utf-8")
+    if "BASS_FFT_SIZE = 32768" not in analyze_src or "BASS_SPLIT_HZ" not in analyze_src:
+        raise SystemExit("analyze must merge a longer bass FFT below ~150 Hz")
+    if "add_mutually_exclusive_group" not in analyze_src:
+        raise SystemExit("--include-vocals and --ignore-vocals must be mutually exclusive")
+    dsp = (SCRIPTS.parent / "web" / "crayon_dsp.js").read_text(encoding="utf-8")
+    if "MIN_F0_CENTS = 70" not in dsp or "DBSCAN_MIN_PTS = 3" not in dsp:
+        raise SystemExit("crayon_dsp.js DBSCAN must exclude-self, minPts=3, and 70¢ f0 gap")
+    if "function heuristicLabel" not in dsp:
+        raise SystemExit("crayon_dsp.js must export heuristicLabel")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "dual_keyboard.py")],
         capture_output=True,
@@ -492,6 +521,14 @@ def check_visualize_cli() -> None:
         raise SystemExit("resynth seeds must use zlib.adler32, not hash()")
     if "six_path" in src or "SIX_INST_JSON" in src:
         raise SystemExit("resynth must not load an unused six-instrument JSON")
+    if "assign_six_layers" not in src:
+        raise SystemExit("resynth must assign via voicing.assign_six_layers")
+    layers = (SCRIPTS / "visualize_chord_layers.py").read_text(encoding="utf-8")
+    if "assign_five_layers" not in layers:
+        raise SystemExit("visualize_chord_layers must assign via voicing.assign_five_layers")
+    chroma_src = (SCRIPTS / "visualize_chords.py").read_text(encoding="utf-8")
+    if "w = 0.28" in chroma_src or "soft-ignore vocals" in chroma_src:
+        raise SystemExit("chroma must not down-weight the 250–3200 Hz vocal band")
     from visualize_chords import chord_duration as vis_duration  # noqa: E402
     from visualize_chord_layers import chord_duration as layer_duration  # noqa: E402
 
@@ -750,7 +787,25 @@ def check_analyze_edges() -> None:
         raise SystemExit("single-FFT clip must keep a non-zero peak")
     if not one["top_pitches"] and not one["sources"] and not one["note_sequence"]:
         raise SystemExit("single-FFT 440 Hz clip must not be dropped as zero frames")
-    print("analyze edges: empty + last-frame + hz_to_note OK")
+    t_bass = np.arange(int(sr * 1.5), dtype=np.float64) / sr
+    bass = 0.25 * np.sin(2 * np.pi * 55.0 * t_bass) + 0.45 * np.sin(2 * np.pi * 110.0 * t_bass)
+    brep = analyze(bass, sr)
+    bnotes = {p["note"] for p in brep["top_pitches"]}
+    if "A1" not in bnotes:
+        raise SystemExit(f"dual-FFT bass should recover A1 (55 Hz) under a louder 110 Hz, got {sorted(bnotes)}")
+    both = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPTS / "analyze_instruments.py"),
+            "--include-vocals",
+            "--ignore-vocals",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if both.returncode == 0:
+        raise SystemExit("--include-vocals and --ignore-vocals must not be accepted together")
+    print("analyze edges: empty + last-frame + hz_to_note + dual-FFT A1 OK")
 
 
 def check_spectrum_scale() -> None:

@@ -705,6 +705,7 @@ final class PianoSession: ObservableObject {
                 liveTracks[idx].f0 = liveTracks[idx].f0 * 0.55 + c.f0 * 0.45
                 liveTracks[idx].db = c.db
                 liveTracks[idx].harm = c.harm
+                liveTracks[idx].centroid = c.centroid
                 liveTracks[idx].energy = min(1, Double((c.db + 80) / 50))
                 liveTracks[idx].lastSeen = now
             } else {
@@ -715,7 +716,8 @@ final class PianoSession: ObservableObject {
                     harm: c.harm,
                     energy: min(1, Double((c.db + 80) / 50)),
                     born: now,
-                    lastSeen: now
+                    lastSeen: now,
+                    centroid: c.centroid
                 )
                 nextTrackId += 1
                 liveTracks.append(t)

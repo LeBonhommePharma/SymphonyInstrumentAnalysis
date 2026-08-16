@@ -12,6 +12,7 @@ struct LiveTrack: Identifiable, Hashable {
     var energy: Double
     var born: Double
     var lastSeen: Double
+    var centroid: Double = 0
     var label: String = ""
     var labelSource: String = ""
 
@@ -34,7 +35,10 @@ enum ClusterLabeler {
     static func heuristic(_ t: LiveTrack) -> String {
         if t.harm < 0.18 && t.f0 > 180 { return "bruit" }
         if t.f0 < 90 { return "grave" }
-        if t.f0 < 280 && t.harm >= 0.35 { return "voix" }
+        // voix needs a formant-ish centroid so a cello stack is not a singer.
+        let voiceLike = t.f0 >= 85 && t.f0 <= 280 && t.harm >= 0.45
+            && t.centroid >= 250 && t.centroid <= 1400 && t.centroid > t.f0 * 1.8
+        if voiceLike { return "voix" }
         if t.f0 < 450 { return "corps" }
         if t.harm >= 0.55 { return "nylon" }
         if t.f0 > 1400 { return "air" }

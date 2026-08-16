@@ -18,6 +18,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from crayon_piano_lib import (  # noqa: E402
     FFT_SIZE,
+    MIXED_LO_HZ,
     band_energy_db,
     extract_cluster_peaks,
     rfft_db,
@@ -25,6 +26,10 @@ from crayon_piano_lib import (  # noqa: E402
 from density_cluster import cluster_peaks, heuristic_label  # noqa: E402
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+# 8192 @ 48 kHz is ~5.9 Hz/bin — too coarse for A0–C3. A longer bass FFT
+# (~1.5 Hz/bin) is merged in below BASS_SPLIT_HZ.
+BASS_FFT_SIZE = 32768
+BASS_SPLIT_HZ = 150.0
 
 
 def load_wav(path: Path) -> tuple[np.ndarray, int]:
@@ -57,6 +62,24 @@ def frame_starts(n: int, hop: int, fft_size: int = FFT_SIZE) -> list[int]:
     if last >= 0:
         return list(range(0, last + 1, hop))
     return [0] if n > 16 else []
+
+
+def mixed_resolution_peaks(
+    x: np.ndarray, start: int, sr: int
+) -> tuple[list[dict], np.ndarray, float]:
+    """8192 mid/high peaks + 32768 bass peaks, same hop."""
+    seg = x[start : start + FFT_SIZE]
+    spec, bin_hz = rfft_db(seg, sr, FFT_SIZE)
+    mid = [p for p in extract_cluster_peaks(spec, bin_hz) if p["f"] >= BASS_SPLIT_HZ]
+    bass_end = min(int(x.size), start + FFT_SIZE)
+    bass_start = max(0, bass_end - BASS_FFT_SIZE)
+    spec_b, bin_b = rfft_db(x[bass_start:bass_end], sr, BASS_FFT_SIZE)
+    bass = [
+        p
+        for p in extract_cluster_peaks(spec_b, bin_b)
+        if MIXED_LO_HZ <= p["f"] < BASS_SPLIT_HZ
+    ]
+    return bass + mid, spec, bin_hz
 
 
 def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
@@ -105,10 +128,9 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
         e = float(np.sqrt(np.mean(seg * seg)))
         if e < thr * 0.5:
             continue
-        spec, bin_hz = rfft_db(seg, sr, FFT_SIZE)
+        mix, spec, bin_hz = mixed_resolution_peaks(x, start, sr)
         for name, (lo, hi) in band_hz.items():
             band_lin[name] += band_energy_db(spec, bin_hz, lo, hi)
-        mix = extract_cluster_peaks(spec, bin_hz)
         clusters = cluster_peaks(mix, merge_nearby=False)
         t_sec = start / sr
         pitches = []
@@ -127,11 +149,12 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
             midi = int(round(69 + 12 * math.log2(f0 / 440.0)))
             bucket = source_acc.setdefault(
                 midi,
-                {"f0s": [], "dbs": [], "harms": [], "n": 0},
+                {"f0s": [], "dbs": [], "harms": [], "centroids": [], "n": 0},
             )
             bucket["f0s"].append(f0)
             bucket["dbs"].append(c["db"])
             bucket["harms"].append(c["harm"])
+            bucket["centroids"].append(float(c.get("centroid") or f0))
             bucket["n"] += 1
         if pitches:
             sequence.append({"t_sec": round(t_sec, 2), "pitches": pitches})
@@ -147,7 +170,8 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
         f0 = float(np.median(acc["f0s"]))
         harm = float(np.mean(acc["harms"]))
         db = float(np.max(acc["dbs"]))
-        label = heuristic_label(f0, harm)
+        centroid = float(np.median(acc["centroids"])) if acc["centroids"] else None
+        label = heuristic_label(f0, harm, centroid)
         if ignore_vocals and label == "voix":
             continue
         note = hz_to_note(f0)
@@ -253,8 +277,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("wav", type=Path)
     ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--include-vocals", action="store_true", help="default; vocals are first-class")
-    ap.add_argument("--ignore-vocals", action="store_true", help="drop sources labeled voix")
+    vocals = ap.add_mutually_exclusive_group()
+    vocals.add_argument("--include-vocals", action="store_true", help="default; vocals are first-class")
+    vocals.add_argument("--ignore-vocals", action="store_true", help="drop sources labeled voix")
     args = ap.parse_args()
 
     x, sr = load_wav(args.wav)
