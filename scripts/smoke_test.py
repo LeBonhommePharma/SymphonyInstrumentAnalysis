@@ -385,6 +385,15 @@ def check_crayon_piano() -> None:
     tui = (SCRIPTS / "crayon_piano.py").read_text(encoding="utf-8")
     if "avfoundation" not in tui or "mic_ffmpeg_cmds" not in tui:
         raise SystemExit("TUI listen must capture via AVFoundation on macOS")
+    if "read1(4096)" not in tui:
+        raise SystemExit("TUI first mic read must use read1 so a short packet cannot block")
+    rec = (SCRIPTS / "record_mic.py").read_text(encoding="utf-8")
+    if "highpass=f=70" in rec:
+        raise SystemExit("record_mic default highpass must not cut A0–C2")
+    if "highpass=f=25" not in rec:
+        raise SystemExit("record_mic default highpass should only cut rumble (~25 Hz)")
+    if "if args.denoise" not in rec:
+        raise SystemExit("record_mic denoise must be opt-in")
     if "ClusterTrackSet" not in tui or "cluster_peaks" not in tui:
         raise SystemExit("TUI must density-cluster live tracks instead of five musician bands")
     if "for mus in MUSICIANS" in tui and "track-{mus.id}" in tui:

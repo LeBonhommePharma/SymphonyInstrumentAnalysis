@@ -43,7 +43,12 @@ def main() -> None:
     ap.add_argument("--device", type=int, default=None, help="AVFoundation audio index")
     ap.add_argument("--seconds", type=float, default=90.0)
     ap.add_argument("--out", type=Path, default=None)
-    ap.add_argument("--no-denoise", action="store_true")
+    ap.add_argument(
+        "--denoise",
+        action="store_true",
+        help="afftdn after capture (off by default so peak-picking keeps bass and partials)",
+    )
+    ap.add_argument("--no-denoise", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--probe-seconds", type=float, default=2.0)
     args = ap.parse_args()
 
@@ -60,9 +65,10 @@ def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = args.out or captures / f"capture_{stamp}_dev{device}.wav"
 
+    # Rumble-only highpass so A0–C2 stay in the 27.5–5000 Hz analysis range.
     # Keep lowpass under Nyquist for devices that capture at 24 kHz (e.g. Shannon).
-    af = "highpass=f=70,lowpass=f=10000"
-    if not args.no_denoise:
+    af = "highpass=f=25,lowpass=f=10000"
+    if args.denoise:
         af += ",afftdn=nr=12:nf=-30"
 
     cmd = [
