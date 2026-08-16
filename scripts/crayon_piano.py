@@ -228,7 +228,7 @@ class MicStream:
                 proc.kill()
                 last_err = MIC_ERR
                 continue
-            raw = stdout.read(4096)
+            raw = stdout.read1(4096) if hasattr(stdout, "read1") else stdout.read(4096)
             if not raw:
                 proc.kill()
                 last_err = MIC_ERR
