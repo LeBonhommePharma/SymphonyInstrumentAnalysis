@@ -56,7 +56,7 @@ def compute_chroma(x: np.ndarray, sr: int, hop_sec: float = 0.125, n_fft: int = 
     times = []
     rms_list = []
     freqs = np.fft.rfftfreq(n_fft, 1.0 / sr)
-    for start in range(0, max(0, len(x) - n_fft), hop):
+    for start in range(0, max(0, len(x) - n_fft + 1), hop):
         seg = x[start : start + n_fft]
         rms = float(np.sqrt(np.mean(seg * seg)))
         mag = np.abs(np.fft.rfft(seg * win))

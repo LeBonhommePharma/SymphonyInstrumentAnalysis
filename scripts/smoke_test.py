@@ -19,13 +19,14 @@ import numpy as np
 
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
-from analyze_instruments import analyze, load_wav  # noqa: E402
+from analyze_instruments import analyze, frame_starts, hz_to_note, load_wav  # noqa: E402
 from list_mics import (  # noqa: E402
     NO_DEVICES_MESSAGE,
     is_unreliable_audio_device,
     ranked_audio_devices,
 )
 from crayon_piano_lib import (  # noqa: E402
+    FFT_SIZE,
     MIXED_HI_HZ,
     extract_cluster_peaks,
     peak_hz_of_db,
@@ -496,6 +497,29 @@ def check_keyboard_layout() -> None:
     print((proc.stdout or "").strip() or "keyboard_layout.py: OK")
 
 
+def check_analyze_edges() -> None:
+    if hz_to_note(0.0) is not None or hz_to_note(-3.0) is not None:
+        raise SystemExit("hz_to_note must reject non-positive frequencies")
+    if hz_to_note(440.0) != "A4":
+        raise SystemExit(f"440 Hz should be A4, got {hz_to_note(440.0)}")
+    if frame_starts(FFT_SIZE, 3840) != [0]:
+        raise SystemExit(f"exactly one FFT window must be analyzed, got {frame_starts(FFT_SIZE, 3840)}")
+    if frame_starts(0, 3840):
+        raise SystemExit("empty audio must not invent frames")
+    empty = analyze(np.zeros(0), 48000)
+    if empty["peak"] != 0 or empty["sources"] or empty["note_sequence"]:
+        raise SystemExit(f"empty WAV must return a silent report, got {empty}")
+    sr = 48000
+    t = np.arange(FFT_SIZE, dtype=np.float64) / sr
+    tone = 0.5 * np.sin(2 * np.pi * 440.0 * t)
+    one = analyze(tone, sr)
+    if one["peak"] <= 0:
+        raise SystemExit("single-FFT clip must keep a non-zero peak")
+    if not one["top_pitches"] and not one["sources"] and not one["note_sequence"]:
+        raise SystemExit("single-FFT 440 Hz clip must not be dropped as zero frames")
+    print("analyze edges: empty + last-frame + hz_to_note OK")
+
+
 def check_spectrum_scale() -> None:
     sr = 44100
     n = 4096
@@ -528,6 +552,7 @@ def main() -> None:
     check_mic_device_rank()
     check_capture_scripts()
     check_public_site()
+    check_analyze_edges()
     check_spectrum_scale()
     with tempfile.TemporaryDirectory() as td:
         out_dir = Path(td)

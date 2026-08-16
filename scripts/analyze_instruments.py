@@ -44,9 +44,21 @@ def load_wav(path: Path) -> tuple[np.ndarray, int]:
     return x, sr
 
 
-def hz_to_note(f: float) -> str:
+def hz_to_note(f: float) -> str | None:
+    if not math.isfinite(f) or f <= 0:
+        return None
     midi = int(round(69 + 12 * math.log2(f / 440.0)))
     return NOTE_NAMES[midi % 12] + str(midi // 12 - 1)
+
+
+def frame_starts(n: int, hop: int, fft_size: int = FFT_SIZE) -> list[int]:
+    """Inclusive last full window; one padded start if the clip is shorter."""
+    if n <= 0 or hop <= 0:
+        return []
+    last = n - fft_size
+    if last >= 0:
+        return list(range(0, last + 1, hop))
+    return [0] if n > 16 else []
 
 
 def _band_name(f: float) -> str:
@@ -64,13 +76,21 @@ def _band_name(f: float) -> str:
 
 
 def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
-    dur = len(x) / sr
-    rms = float(np.sqrt(np.mean(x * x)))
-    peak = float(np.max(np.abs(x)))
+    if sr <= 0:
+        raise SystemExit("sample rate must be positive")
+    n = int(x.size)
+    dur = n / sr
+    if n == 0:
+        rms = 0.0
+        peak = 0.0
+    else:
+        rms = float(np.sqrt(np.mean(x * x)))
+        peak = float(np.max(np.abs(x)))
 
     hop = max(1, int(0.08 * sr))
+    env_starts = list(range(0, max(0, n - hop + 1), hop)) if n else []
     env = np.array(
-        [np.sqrt(np.mean(x[i : i + hop] ** 2)) for i in range(0, max(0, len(x) - hop), hop)]
+        [np.sqrt(np.mean(x[i : i + hop] ** 2)) for i in env_starts]
     )
     thr = max(0.008, float(np.percentile(env, 55)) * 0.35) if env.size else 0.008
     active = np.where(env >= thr)[0]
@@ -89,8 +109,10 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
     sequence: list[dict] = []
     now = 0.0
 
-    for start in range(0, max(0, len(x) - FFT_SIZE), hop):
+    for start in frame_starts(n, hop, FFT_SIZE):
         seg = x[start : start + FFT_SIZE]
+        if seg.size == 0:
+            continue
         e = float(np.sqrt(np.mean(seg * seg)))
         if e < thr * 0.5:
             picker.smooth *= 0.85
@@ -112,6 +134,8 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
         pitches = []
         for note in frame.lit:
             name = hz_to_note(note.freq)
+            if not name:
+                continue
             w = max(0.0, note.score + 80.0)
             pitch_salience[name] += w
             pitch_class["".join(c for c in name if not c.isdigit())] += w
@@ -121,7 +145,10 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
         if pitches:
             sequence.append({"t_sec": round(t_sec, 2), "pitches": pitches})
         for c in clusters:
-            midi = int(round(69 + 12 * math.log2(c["f0"] / 440.0))) if c["f0"] > 0 else 0
+            f0 = float(c["f0"])
+            if f0 <= 0 or not math.isfinite(f0):
+                continue
+            midi = int(round(69 + 12 * math.log2(f0 / 440.0)))
             bucket = source_acc.setdefault(
                 midi,
                 {"f0s": [], "dbs": [], "harms": [], "n": 0},
@@ -147,6 +174,8 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
         if ignore_vocals and label == "voix":
             continue
         note = hz_to_note(f0)
+        if not note:
+            continue
         sources.append(
             {
                 "note": note,
