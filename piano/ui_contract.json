@@ -104,5 +104,22 @@
         "x": "log Hz, A0 27.5 → C8 4186, tick 440 at A4",
         "y": "dBFS −90…0",
         "sources": "unbounded clustered funds + held keys on the same axes"
+    },
+    "highlights": {
+        "held": "IS PRESSED — user is holding the key; ink outline, no crayon fill",
+        "need": "NEEDS TO BE PRESSED — peak-picker target from the current music; crayon fill",
+        "hit": "PROPER KEY PRESSED — needed and pressed; crayon fill + bright ring; scores"
+    },
+    "computerKeys": {
+        "physical": "KeyboardEvent.code / scan-code. Same piano midi on US and Canadian French CSA.",
+        "glyphs": "layout-specific keycaps (CSA Slash=é, Backquote=/, BracketLeft=^)",
+        "detect": "Keyboard Map API / macOS HIToolbox / infer from code+key / fr_CA",
+        "map": "Z–M = C3–B3 with S D G H J sharps; Q–P = C4–E5 with 2 3 5 6 7 9 0 sharps"
+    },
+    "scoring": {
+        "chart": "current peak-picker lit midis from whatever the user is listening to",
+        "hit": "10 + streak; one award per needed-note appearance",
+        "persist": "web localStorage crayon-piano-scores; iOS UserDefaults; TUI ~/.crayon_piano_scores.json",
+        "keys": "score, allTime, bestBySource (live / demo / wav name)"
     }
 }

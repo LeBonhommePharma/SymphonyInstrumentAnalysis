@@ -26,6 +26,11 @@ from crayon_piano_lib import (  # noqa: E402
     rfft_db,
     spec_x_of,
 )
+from keyboard_layout import (  # noqa: E402
+    infer_layout,
+    midi_for_char,
+    midi_for_code,
+)
 
 SR = 48000
 # Analyzer FFT size is 4096, so pick bin-centered tones (bin * sr / 4096).
@@ -226,6 +231,22 @@ def check_crayon_piano() -> None:
 
 
 
+
+def check_keyboard_layout() -> None:
+    if midi_for_code("KeyQ") != 60 or midi_for_char("q", "csa") != midi_for_char("q", "us"):
+        raise SystemExit("CSA and US letter keys must share piano midis")
+    if infer_layout("Slash", "é") != "csa" or infer_layout("Slash", "/") != "us":
+        raise SystemExit("layout infer failed")
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPTS / "keyboard_layout.py")],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"keyboard_layout.py failed:\n{proc.stdout}\n{proc.stderr}")
+    print((proc.stdout or "").strip() or "keyboard_layout.py: OK")
+
+
 def check_spectrum_scale() -> None:
     sr = 44100
     n = 4096
@@ -288,6 +309,7 @@ def main() -> None:
     if missing:
         raise SystemExit(f"analyzer missed expected notes: {missing}; found {sorted(notes)}")
     print("SMOKE OK: recovered E2, A4, and C5")
+    check_keyboard_layout()
     check_crayon_piano()
 
 

@@ -29,6 +29,13 @@ if str(_SCRIPTS) not in sys.path:
 
 from analyze_instruments import load_wav
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
+from keyboard_layout import (
+    ScoreKeeper,
+    ScoreStore,
+    detect_layout,
+    highlight_state,
+    midi_for_char,
+)
 from crayon_piano_lib import (
     BLACK_MIDIS,
     SCENES,
@@ -70,7 +77,7 @@ from crayon_piano_lib import (
     window_at,
 )
 
-FOOTER = "l Écouter  r Rejouer  0 Tous  1–5  c Accords  u Entendre  a Auto  t Scène  [ ] Sens  ← →  q"
+FOOTER = "l Écouter  r Rejouer  0 Tous  1–5  c Accords  u Entendre  a Auto  t Scène  [ ] Sens  ← →  q  ·  Z–M / Q–P play along"
 MIC_ERR = "Pas de micro / No mic — replay still works"
 
 
@@ -530,30 +537,41 @@ class PianoBoard(Widget):
         ww = max(1, width // len(WHITE_MIDIS))
         idle_white = (42, 42, 46)
         idle_black = (26, 26, 28)
-        lit_set = {n.midi for n in app.lit} | set(app.held)
+        needed = {n.midi for n in app.lit}
+        pressed = set(app.held)
         rows: list[list[tuple[str, Style]]] = [
             [(" ", rgb_style(bg=THEME_PAPER)) for _ in range(width)] for _ in range(height)
         ]
 
         def paint_span(x0: int, w: int, y0: int, y1: int, ch: str, rgb: RGB, bg: RGB) -> None:
-            sty = rgb_style(fg=lab_rgb(rgb) if ch != "█" else rgb, bg=rgb if ch == "█" else bg)
             fill = rgb_style(fg=rgb, bg=bg)
             for y in range(y0, min(height, y1)):
                 for x in range(x0, min(width, x0 + w)):
-                    rows[y][x] = ("█", fill)
+                    rows[y][x] = (ch, fill)
+
+        def key_look(midi: int, idle: RGB) -> tuple[str, RGB, RGB]:
+            state = highlight_state(midi, needed, pressed)
+            crayon = crayon_of(midi)
+            if state == "hit":
+                return ("◆", crayon, crayon)
+            if state == "need":
+                return ("█", crayon, crayon)
+            if state == "held":
+                return ("○", THEME_INK, mix_rgb(THEME_INK, idle, 0.35))
+            return ("█", idle, idle)
 
         for wi, midi in enumerate(WHITE_MIDIS):
             x0 = wi * ww
-            rgb = crayon_of(midi) if midi in lit_set else idle_white
-            paint_span(x0, ww, 1 if height >= 3 else 0, height, "█", rgb, rgb)
+            ch, rgb, bg = key_look(midi, idle_white)
+            paint_span(x0, ww, 1 if height >= 3 else 0, height, ch, rgb, bg)
             if midi % 12 == 0 and ww >= 2 and height >= 2:
                 octv = octave_of(midi)
                 lab = f"Do{octv}" if ww >= 3 else str(octv)
-                sty = rgb_style(fg=lab_rgb(rgb) if midi in lit_set else THEME_MUTED, bg=rgb)
+                sty = rgb_style(fg=lab_rgb(rgb) if ch != "█" or rgb != idle_white else THEME_MUTED, bg=bg)
                 y = height - 1
-                for k, ch in enumerate(lab[:ww]):
+                for k, glyph in enumerate(lab[:ww]):
                     if x0 + k < width:
-                        rows[y][x0 + k] = (ch, sty)
+                        rows[y][x0 + k] = (glyph, sty)
 
         if height >= 2:
             bw = max(1, int(ww * 0.6) or 1)
@@ -566,8 +584,8 @@ class PianoBoard(Widget):
                     continue
                 wi = white_index[prev]
                 x0 = (wi + 1) * ww - bw // 2
-                rgb = crayon_of(midi) if midi in lit_set else idle_black
-                paint_span(x0, bw, 0, max(1, height - 1), "█", rgb, rgb)
+                ch, rgb, bg = key_look(midi, idle_black)
+                paint_span(x0, bw, 0, max(1, height - 1), ch, rgb, bg)
 
         lines: list[Content] = []
         for y in range(height):
@@ -725,6 +743,7 @@ class CrayonPianoApp(App[None]):
         audio: np.ndarray,
         sr: int,
         envelopes: dict[str, np.ndarray] | None = None,
+        source_name: str = "demo",
     ) -> None:
         super().__init__()
         self.audio = np.asarray(audio, dtype=np.float64)
@@ -752,6 +771,11 @@ class CrayonPianoApp(App[None]):
         self.mic = MicStream(self.sr)
         self.player = QuietPlayer()
         self._last_seek_play = 0.0
+        self.source_name = source_name
+        self.layout = detect_layout()
+        self.score = ScoreKeeper()
+        self.score_store = ScoreStore()
+        self._key_held: dict[int, float] = {}
 
     def compose(self) -> ComposeResult:
         yield Static("Piano-crayon", id="title")
@@ -760,13 +784,14 @@ class CrayonPianoApp(App[None]):
             yield Chip("Écouter", id="btn-listen")
             yield Static(clock_text("idle", 0.0, self.duration, 0.0), id="clock")
             yield Static("La/A ≈ 440 Hz", id="tune")
+            yield Static("", id="score")
         with HorizontalGroup(id="toggles"):
             yield Chip(self._sens_label(), id="tog-sens")
             yield Chip("c Accords", id="tog-chords", classes="-on")
             yield Chip("u Entendre", id="tog-unmute")
             yield Chip("a Auto-accord", id="tog-auto", classes="-on")
         with HorizontalGroup(id="tracks"):
-            yield Chip("Tous\n60–2500 Hz", id="track-all", classes="track -on")
+            yield Chip("Tous\n27.5–5000 Hz", id="track-all", classes="track -on")
             for mus in MUSICIANS:
                 yield Chip(
                     f"{mus.fr}\n{int(mus.lo)}–{int(mus.hi)} Hz",
@@ -959,12 +984,14 @@ class CrayonPianoApp(App[None]):
 
     def hold_key(self, midi: int) -> None:
         self.held.add(midi)
+        self.score.press(midi)
         try:
             self.player.play_tone(midi_to_hz(midi, self.picker.concert_a(self.autotune_on)), self.sr)
         except Exception:
             pass
         self.query_one("#board", PianoBoard).refresh()
         self._paint_lit()
+        self._paint_score()
 
     def release_key(self, midi: int) -> None:
         self.held.discard(midi)
@@ -972,6 +999,8 @@ class CrayonPianoApp(App[None]):
         self._paint_lit()
 
     def _stop_live(self) -> None:
+        self._persist_score()
+        self.score.reset_session()
         self.mic.stop()
         self.mode = "idle"
         self.lit = []
@@ -982,6 +1011,8 @@ class CrayonPianoApp(App[None]):
         self.query_one("#board", PianoBoard).refresh()
 
     def _stop_replay(self, *, keep: bool) -> None:
+        self._persist_score()
+        self.score.reset_session()
         if self.mode == "replay":
             self.sample_offset = self.view_time() if keep else 0.0
         self.player.stop()
@@ -1055,6 +1086,7 @@ class CrayonPianoApp(App[None]):
         self.query_one("#tog-unmute", Chip).set_class(self.unmute_on, "-on")
         self.query_one("#tog-auto", Chip).set_class(self.autotune_on, "-on")
         self._paint_lit()
+        self._paint_score()
 
     def _paint_lit(self) -> None:
         try:
@@ -1082,6 +1114,31 @@ class CrayonPianoApp(App[None]):
             )
         widget.update(Content.assemble(*parts))
 
+    def _paint_score(self) -> None:
+        try:
+            widget = self.query_one("#score", Static)
+        except Exception:
+            return
+        src = "live" if self.mode == "live" else self.source_name
+        best = self.score_store.best_for(src)
+        widget.update(f"{self.score.score} · best {best} · {self.layout.upper()}")
+
+    def _persist_score(self) -> None:
+        src = "live" if self.mode == "live" else self.source_name
+        if self.score.score > 0:
+            self.score_store.record(src, self.score.score)
+
+    def on_key(self, event: events.Key) -> None:
+        ch = event.character or ""
+        if ch.lower() in "lrcuatq012345":
+            return
+        midi = midi_for_char(ch, self.layout) if ch else None
+        if midi is None:
+            return
+        if midi not in self.held:
+            self.hold_key(midi)
+        self._key_held[midi] = time.monotonic()
+
     def _tick(self) -> None:
         if self.mode == "replay" and self.view_time() >= self.duration - 0.02:
             self.sample_offset = self.duration
@@ -1092,6 +1149,11 @@ class CrayonPianoApp(App[None]):
             self._stop_live()
             self._show_err(self.mic_error)
             return
+        now = time.monotonic()
+        for midi, seen in list(self._key_held.items()):
+            if now - seen > 0.18:
+                self.release_key(midi)
+                del self._key_held[midi]
         if self.mode in ("live", "replay"):
             self._analyze()
         self._refresh_chrome()
@@ -1121,6 +1183,9 @@ class CrayonPianoApp(App[None]):
         self.lit = frame.lit
         self.chroma = frame.chroma
         self.abs_gate = frame.abs_gate
+        self.score.set_needed({n.midi for n in frame.lit})
+        for midi in list(self.held):
+            self.score.press(midi)
         if self.mode == "live":
             peak = max(frame.band_energy.values()) or 1e-9
             for mus in MUSICIANS:
@@ -1170,7 +1235,11 @@ def self_test() -> int:
     expect = 4.0 / np.log2((440.0 * (2.0 ** (39.0 / 12.0))) / SPEC_F_LO)
     if abs(x440 - expect) > 1e-9:
         raise SystemExit(f"440 Hz log-x {x440} != {expect}")
-    print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK")
+    if highlight_state(60, {60}, {60}) != "hit":
+        raise SystemExit("highlight hit missing")
+    if midi_for_char("q", "us") != midi_for_char("q", "csa"):
+        raise SystemExit("CSA and US must share letter-key midis")
+    print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK, layout OK")
     return 0
 
 
@@ -1183,10 +1252,12 @@ def main() -> None:
         raise SystemExit(self_test())
     if args.wav is not None:
         audio, sr = load_wav(args.wav)
+        source_name = args.wav.name
     else:
         audio, sr = synthesize_demo()
+        source_name = "demo"
     envelopes = compute_band_envelopes(audio, sr)
-    CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes).run()
+    CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes, source_name=source_name).run()
 
 
 if __name__ == "__main__":
