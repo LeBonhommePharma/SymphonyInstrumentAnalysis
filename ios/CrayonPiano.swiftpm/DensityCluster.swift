@@ -16,8 +16,17 @@ enum DensityCluster {
     /// Ports scripts/density_cluster.py. Shared cases live in piano/cluster_fixtures.json.
     /// No count cap — every independent fund stays a source. Harmonics already folded.
 
-    static func cluster(peaks: [SpecPeak]) -> [SpectralCluster] {
-        densityClusterFunds(groupHarmonicFunds(peaks))
+    static func cluster(peaks: [SpecPeak], mergeNearby: Bool = true) -> [SpectralCluster] {
+        let funds = groupHarmonicFunds(peaks)
+        if !mergeNearby { return fundsAsClusters(funds) }
+        return densityClusterFunds(funds)
+    }
+
+    private static func fundsAsClusters(_ funds: [Fund]) -> [SpectralCluster] {
+        funds
+            .filter { $0.db > -90 }
+            .sorted { $0.db > $1.db }
+            .map { SpectralCluster(f0: $0.f0, db: $0.db, harm: $0.harm, centroid: $0.centroid) }
     }
 
     private struct Fund {
