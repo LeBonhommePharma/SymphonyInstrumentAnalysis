@@ -12,6 +12,7 @@ final class SpectrumAnalyzer {
     private var smooth: [Float]
     private let log2n: vDSP_Length
     private let fftSetup: FFTSetup
+    private var windowSum: Float = 0
     private var centsWindow: [(t: Double, cents: Double)] = []
     private(set) var concertA: Double = PitchMath.a4Ref
     private(set) var tuneReady = false
@@ -26,7 +27,8 @@ final class SpectrumAnalyzer {
         }
         fftSetup = setup
         window = [Float](repeating: 0, count: fftSize)
-        vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
+        vDSP_blkman_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_DENORM))
+        windowSum = window.reduce(0, +)
         real = [Float](repeating: 0, count: fftSize / 2)
         imag = [Float](repeating: 0, count: fftSize / 2)
         magnitudes = [Float](repeating: 0, count: fftSize / 2)
@@ -84,11 +86,13 @@ final class SpectrumAnalyzer {
             }
         }
 
-        // Match Python rfft_db: amp = |bin| / (N/2), dB = 20·log10(amp), clip −95…0 dBFS.
-        // Previous code did 10·log10(|z|² / N) which sat ~30 dB too hot and pinned the plot to 0 dB.
-        let halfN = Float(fftSize / 2)
+        // Match Python rfft_db: coherent-gain-corrected single-sided amplitude,
+        // amp = 2·|bin| / Σ(window), dB = 20·log10(amp), clip −95…0 dBFS.
+        // A full-scale sine at a bin center reads 0 dBFS (same 0 dB reference as
+        // the Web AnalyserNode). The old /(N/2) skipped the Blackman coherent
+        // gain (~0.42) and under-reported every bin by ~7.5 dB.
         for i in 0..<magnitudes.count {
-            let amp = sqrt(max(magnitudes[i], 0)) / halfN
+            let amp = sqrt(max(magnitudes[i], 0)) * 2.0 / windowSum
             let db = 20 * log10(amp + 1e-12)
             dbSpectrum[i] = min(0, max(-95, db))
         }

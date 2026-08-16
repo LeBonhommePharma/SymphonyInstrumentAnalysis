@@ -32,19 +32,21 @@ enum DensityCluster {
     private static func groupHarmonicFunds(_ peaks: [SpecPeak]) -> [Fund] {
         var funds: [Fund] = []
         for p in peaks.sorted(by: { $0.db > $1.db }) {
-            var attached = false
+            var bestIdx: Int? = nil
+            var bestCents = 35.0
             for i in funds.indices {
                 let n = (p.f / funds[i].f0).rounded()
                 if n < 2 || n > 16 { continue }
-                let cents = 1200 * log2(p.f / (n * funds[i].f0))
-                if abs(cents) < 35 {
-                    funds[i].members.append(p)
-                    funds[i].db = max(funds[i].db, p.db)
-                    attached = true
-                    break
+                let cents = abs(1200 * log2(p.f / (n * funds[i].f0)))
+                if cents < bestCents {
+                    bestIdx = i
+                    bestCents = cents
                 }
             }
-            if !attached {
+            if let idx = bestIdx {
+                funds[idx].members.append(p)
+                funds[idx].db = max(funds[idx].db, p.db)
+            } else {
                 funds.append(Fund(f0: p.f, db: p.db, members: [p]))
             }
         }
@@ -88,8 +90,11 @@ enum DensityCluster {
             if best < 1e9 { gaps.append(best) }
         }
         gaps.sort()
-        let median = gaps.isEmpty ? 0.55 : gaps[gaps.count / 2]
-        let eps = max(0.28, min(0.85, median * 1.35))
+        let median = gaps.isEmpty ? 0.28 : gaps[gaps.count / 2]
+        // Scale eps *below* the median nearest-neighbor gap (was 1.35×) so two
+        // distinct fundamentals stay separate; the old inflation let the
+        // single-linkage expansion chain A~B~C into one cluster.
+        let eps = max(0.28, min(0.85, median * 0.9))
         let n = pts.count
         var labels = Array(repeating: -1, count: n)
 
@@ -104,9 +109,14 @@ enum DensityCluster {
             return out
         }
 
+        // Proper DBSCAN with minPts = 2: only core points (>= 2 points incl.
+        // self within eps) seed a cluster. Isolated funds stay their own track.
+        var core = Array(repeating: false, count: n)
+        for i in 0..<n { core[i] = neighbors(i).count + 1 >= 2 }
+
         var cid = 0
         for i in 0..<n {
-            if labels[i] != -1 { continue }
+            if labels[i] != -1 || !core[i] { continue }
             labels[i] = cid
             var seed = neighbors(i)
             var s = 0
@@ -115,11 +125,17 @@ enum DensityCluster {
                 s += 1
                 if labels[j] == -1 {
                     labels[j] = cid
-                    for k in neighbors(j) where !seed.contains(k) {
-                        seed.append(k)
+                    if core[j] {
+                        for k in neighbors(j) where !seed.contains(k) {
+                            seed.append(k)
+                        }
                     }
                 }
             }
+            cid += 1
+        }
+        for i in 0..<n where labels[i] == -1 {
+            labels[i] = cid
             cid += 1
         }
 

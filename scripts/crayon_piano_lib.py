@@ -39,6 +39,8 @@ MIXED_LO_HZ = 27.5
 MIXED_HI_HZ = 5000.0
 MAX_MIX_PEAKS = 512
 PEAK_FLOOR_OFFSET_DB = 10.0
+# Absolute dB thresholds are true dBFS (0 dB = full-scale sine); rfft_db is
+# coherent-gain corrected so these match the Web/Swift float-dB contract.
 PEAK_MIN_DB = -78.0
 FFT_SIZE = 8192
 # Shared spectrum plot: log-Hz A0–C8, dBFS. Same math as iOS/web/tutorial.
@@ -334,14 +336,24 @@ def _column_blocks_cached(amp: float, rows: int) -> tuple[str, ...]:
     return tuple(chars)
 
 
+@lru_cache(maxsize=None)
+def _blackman_window(n: int) -> np.ndarray:
+    return np.blackman(n)
+
+
 def rfft_db(window: np.ndarray, sr: int, n: int = FFT_SIZE) -> tuple[np.ndarray, float]:
     buf = np.zeros(n, dtype=np.float64)
     if window.size >= n:
         buf[:] = window[-n:]
     elif window.size:
         buf[-window.size :] = window
-    spec = np.fft.rfft(buf * np.blackman(n))
-    mag = np.abs(spec) / (n / 2.0)
+    win = _blackman_window(n)
+    spec = np.fft.rfft(buf * win)
+    # Coherent-gain-corrected single-sided amplitude: a full-scale sine at a
+    # bin center reads 0 dBFS (same 0 dB reference as Web getFloatFrequencyData
+    # and the Swift port). The old /(n/2) ignored the Blackman coherent gain
+    # (~0.42) and under-reported every bin by ~7.5 dB.
+    mag = 2.0 * np.abs(spec) / win.sum()
     db = 20.0 * np.log10(mag + 1e-12)
     db = np.clip(db, -95.0, 0.0)
     return db, sr / n

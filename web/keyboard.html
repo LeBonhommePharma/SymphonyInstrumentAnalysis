@@ -1931,20 +1931,24 @@
   function groupHarmonicFunds(peaks) {
     const funds = [];
     peaks.forEach(function (p) {
-      let attached = false;
+      let bestIdx = -1;
+      let bestCents = 35;
       for (let k = 0; k < funds.length; k++) {
         const f0 = funds[k].f0;
         const n = Math.round(p.f / f0);
         if (n < 2 || n > 16) continue;
-        const cents = 1200 * Math.log2(p.f / (n * f0));
-        if (Math.abs(cents) < 35) {
-          funds[k].members.push(p);
-          if (p.db > funds[k].db) funds[k].db = p.db;
-          attached = true;
-          break;
+        const cents = Math.abs(1200 * Math.log2(p.f / (n * f0)));
+        if (cents < bestCents) {
+          bestCents = cents;
+          bestIdx = k;
         }
       }
-      if (!attached) funds.push({ f0: p.f, db: p.db, members: [p] });
+      if (bestIdx >= 0) {
+        funds[bestIdx].members.push(p);
+        if (p.db > funds[bestIdx].db) funds[bestIdx].db = p.db;
+      } else {
+        funds.push({ f0: p.f, db: p.db, members: [p] });
+      }
     });
     funds.forEach(function (g) {
       let w = 0;
@@ -1991,8 +1995,8 @@
       if (best < 1e9) gaps.push(best);
     }
     gaps.sort(function (a, b) { return a - b; });
-    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0.55;
-    const eps = Math.max(0.28, Math.min(0.85, (medianGap * 1.35) || 0.55));
+    const medianGap = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0.28;
+    const eps = Math.max(0.28, Math.min(0.85, (medianGap * 0.9) || 0.28));
     const n = pts.length;
     const labels = new Array(n).fill(-1);
     function neighbors(i) {
@@ -2002,9 +2006,11 @@
       }
       return out;
     }
+    const core = new Array(n).fill(false);
+    for (let i = 0; i < n; i++) core[i] = neighbors(i).length + 1 >= 2;
     let cid = 0;
     for (let i = 0; i < n; i++) {
-      if (labels[i] !== -1) continue;
+      if (labels[i] !== -1 || !core[i]) continue;
       labels[i] = cid;
       const seed = neighbors(i).slice();
       let s = 0;
@@ -2012,13 +2018,18 @@
         const j = seed[s++];
         if (labels[j] === -1) {
           labels[j] = cid;
-          const nb2 = neighbors(j);
-          for (let k = 0; k < nb2.length; k++) {
-            if (seed.indexOf(nb2[k]) < 0) seed.push(nb2[k]);
+          if (core[j]) {
+            const nb2 = neighbors(j);
+            for (let k = 0; k < nb2.length; k++) {
+              if (seed.indexOf(nb2[k]) < 0) seed.push(nb2[k]);
+            }
           }
         }
       }
       cid += 1;
+    }
+    for (let i = 0; i < n; i++) {
+      if (labels[i] === -1) labels[i] = cid++;
     }
     const buckets = [];
     for (let i = 0; i < n; i++) {

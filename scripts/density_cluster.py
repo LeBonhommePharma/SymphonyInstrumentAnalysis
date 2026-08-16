@@ -13,18 +13,20 @@ import sys
 def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
     funds: list[dict] = []
     for p in sorted(peaks, key=lambda x: -x["db"]):
-        attached = False
+        best: dict | None = None
+        best_cents = 35.0
         for g in funds:
             n = round(p["f"] / g["f0"])
             if n < 2 or n > 16:
                 continue
-            cents = 1200 * math.log2(p["f"] / (n * g["f0"]))
-            if abs(cents) < 35:
-                g["members"].append(p)
-                g["db"] = max(g["db"], p["db"])
-                attached = True
-                break
-        if not attached:
+            cents = abs(1200 * math.log2(p["f"] / (n * g["f0"])))
+            if cents < best_cents:
+                best = g
+                best_cents = cents
+        if best is not None:
+            best["members"].append(p)
+            best["db"] = max(best["db"], p["db"])
+        else:
             funds.append({"f0": p["f"], "db": p["db"], "members": [p]})
     for g in funds:
         w = 0.0
@@ -48,6 +50,17 @@ def dist(a: tuple[float, ...], b: tuple[float, ...]) -> float:
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
 
 
+DBSCAN_MIN_PTS = 2
+EPS_FLOOR = 0.28
+EPS_CAP = 0.85
+# eps is scaled *below* the median nearest-neighbor gap so two genuinely
+# distinct fundamentals (already harmonic-folded) stay separate. The old
+# 1.35× inflation made eps larger than the typical inter-source gap, which let
+# the single-linkage expansion chain A~B~C into one cluster even when A and C
+# were far apart in feature space.
+EPS_NEIGHBOR_SCALE = 0.9
+
+
 def density_cluster_funds(funds: list[dict]) -> list[dict]:
     if not funds:
         return []
@@ -64,17 +77,21 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
         if best < 1e9:
             gaps.append(best)
     gaps.sort()
-    median = gaps[len(gaps) // 2] if gaps else 0.55
-    eps = max(0.28, min(0.85, (median * 1.35) if median else 0.55))
+    median = gaps[len(gaps) // 2] if gaps else EPS_FLOOR
+    eps = max(EPS_FLOOR, min(EPS_CAP, median * EPS_NEIGHBOR_SCALE))
     n = len(pts)
     labels = [-1] * n
 
     def neighbors(i: int) -> list[int]:
         return [j for j in range(n) if dist(pts[i]["x"], pts[j]["x"]) <= eps]
 
+    # Proper DBSCAN: only core points (>= minPts points incl. self within eps)
+    # seed a cluster. The previous flood fill treated every point as a core
+    # point, i.e. single-linkage chaining.
+    core = [len(neighbors(i)) + 1 >= DBSCAN_MIN_PTS for i in range(n)]
     cid = 0
     for i in range(n):
-        if labels[i] != -1:
+        if labels[i] != -1 or not core[i]:
             continue
         labels[i] = cid
         seed = list(neighbors(i))
@@ -84,10 +101,17 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
             s += 1
             if labels[j] == -1:
                 labels[j] = cid
-                for k in neighbors(j):
-                    if k not in seed:
-                        seed.append(k)
+                if core[j]:
+                    for k in neighbors(j):
+                        if k not in seed:
+                            seed.append(k)
         cid += 1
+
+    # Isolated funds (no core neighbor) still become their own track.
+    for i in range(n):
+        if labels[i] == -1:
+            labels[i] = cid
+            cid += 1
 
     buckets: dict[int, list] = {}
     for i, lab in enumerate(labels):
@@ -150,6 +174,18 @@ def main() -> None:
             f"two independent sources must be 2 tracks, got {len(two)} {[round(c['f0'], 1) for c in two]}"
         )
 
+    # Two distinct sources where one has an exact octave harmonic: 200 Hz must
+    # fold into 100 Hz, leaving 141 Hz (inharmonic, ~600 cents up) as its own
+    # track. Single-linkage used to chain these into one cluster.
+    distinct = cluster_peaks(
+        [{"f": 100.0, "db": -20.0}, {"f": 200.0, "db": -24.0}, {"f": 141.0, "db": -22.0}]
+    )
+    if len(distinct) != 2:
+        raise SystemExit(
+            f"octave-folded source + inharmonic neighbor must be 2 tracks, "
+            f"got {len(distinct)} {[round(c['f0'], 1) for c in distinct]}"
+        )
+
     chordish = cluster_peaks(
         tone_stack(130.81, -18.0, 4) + tone_stack(164.81, -20.0, 4) + tone_stack(196.0, -21.0, 3)
     )
@@ -175,7 +211,7 @@ def main() -> None:
 
     print(
         f"solo={len(solo)} voice_span={len(voice_span)} two={len(two)} "
-        f"chord={len(chordish)} psy={len(psy)}"
+        f"chord={len(chordish)} psy={len(psy)} distinct={len(distinct)}"
     )
     print("density_cluster: OK")
 

@@ -36,7 +36,8 @@ from keyboard_layout import (  # noqa: E402
 )
 
 SR = 48000
-# Analyzer FFT size is 4096, so pick bin-centered tones (bin * sr / 4096).
+# Tones are bin-centered for FFT_SIZE = 8192 (bin = SR / 8192); the 4096 form
+# below is the same frequency because k*SR/4096 == (2k)*SR/8192.
 TONES = [
     ("E2", 7 * SR / 4096),    # 82.03 Hz
     ("A4", 38 * SR / 4096),   # 445.31 Hz
@@ -461,6 +462,13 @@ def check_spectrum_scale() -> None:
     peak_f = peak_hz_of_db(db, bin_hz)
     if abs(peak_f - 440.0) > bin_hz * 1.5:
         raise SystemExit(f"440 Hz tone peaked at {peak_f:.2f} Hz (bin {bin_hz:.3f} Hz)")
+    # Coherent-gain check: a full-scale bin-centered sine must read ~0 dBFS.
+    k = round(440.0 / bin_hz)
+    f_c = k * bin_hz
+    tone_c = np.sin(2 * np.pi * f_c * t)
+    db_c, _ = rfft_db(tone_c, sr, n)
+    if abs(db_c[k] - 0.0) > 0.5:
+        raise SystemExit(f"full-scale bin-centered sine should read ~0 dBFS, got {db_c[k]:.2f} dB")
     x440 = spec_x_of(440.0)
     x_left = spec_x_of(27.5)
     x_right = spec_x_of(440.0 * (2.0 ** (39.0 / 12.0)))
