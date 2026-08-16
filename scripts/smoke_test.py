@@ -189,8 +189,12 @@ def check_public_site() -> None:
         raise SystemExit("tutorial hub must use the piano float-dB peak-picker")
     if "fftSize = 16384" not in app_js:
         raise SystemExit("tutorial hub FFT size must match the web piano")
-    if "CODE_TO_MIDI" not in app_js:
-        raise SystemExit("tutorial hub must map computer keys to piano midis")
+    if "midiForKid" not in app_js:
+        raise SystemExit("tutorial hub must map computer keys with the kid crayon map")
+    if "dual_keyboard.js" not in tutorial:
+        raise SystemExit("tutorial must load dual_keyboard.js for the shared key map")
+    if "CODE_TO_MIDI" in app_js:
+        raise SystemExit("tutorial must not keep the leftover piano-roll CODE_TO_MIDI")
     if "theme.js" not in tutorial:
         raise SystemExit("tutorial must load the shared theme switch")
     if "data-theme-auto" not in tutorial:
@@ -348,8 +352,12 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must include day/light/dark/night/stealth scenes")
     if "MIDI_LO = 21" not in html or "MIDI_HI = 108" not in html:
         raise SystemExit("HTML piano must be the full 88-key range (A0 to C8)")
-    if "CODE_TO_MIDI" not in html or "key.need" not in html or "key.hit" not in html:
+    if "onComputerKey" in html or "CODE_TO_MIDI" in html:
+        raise SystemExit("HTML piano must not keep the leftover piano-roll CODE_TO_MIDI handler")
+    if "key.need" not in html or "key.hit" not in html:
         raise SystemExit("HTML piano must have layout-aware keys and three highlight states")
+    if "midiForKid" not in html and "DUAL.midiForKid" not in html:
+        raise SystemExit("HTML piano must play notes through midiForKid")
     if "crayon-piano-scores" not in html:
         raise SystemExit("HTML piano must persist high scores")
     if 'id="spec"' not in html or "drawSpecPlot" not in html:
@@ -461,8 +469,10 @@ def check_discrimination() -> None:
 
 
 def check_keyboard_layout() -> None:
-    if midi_for_code("KeyQ") != 60 or midi_for_char("q", "csa") != midi_for_char("q", "us"):
-        raise SystemExit("CSA and US letter keys must share piano midis")
+    if midi_for_code("KeyZ") != 48 or midi_for_code("KeyD") != 60 or midi_for_code("KeyQ") != 69:
+        raise SystemExit("shared map must be Z=Do3 D=Do4 Q=La4")
+    if midi_for_char("q", "csa") != midi_for_char("q", "us") or midi_for_char("q", "us") != 69:
+        raise SystemExit("CSA and US letter keys must share the kid-map midis")
     if infer_layout("Slash", "é") != "csa" or infer_layout("Slash", "/") != "us":
         raise SystemExit("layout infer failed")
     proc = subprocess.run(

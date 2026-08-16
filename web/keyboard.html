@@ -1432,25 +1432,6 @@
 
   const keys = new Map();
   const heldVoices = new Map();
-  const CODE_TO_MIDI = {
-    KeyZ: 48, KeyS: 49, KeyX: 50, KeyD: 51, KeyC: 52, KeyV: 53, KeyG: 54,
-    KeyB: 55, KeyH: 56, KeyN: 57, KeyJ: 58, KeyM: 59, KeyQ: 60, Digit2: 61,
-    KeyW: 62, Digit3: 63, KeyE: 64, KeyR: 65, Digit5: 66, KeyT: 67, Digit6: 68,
-    KeyY: 69, Digit7: 70, KeyU: 71, KeyI: 72, Digit9: 73, KeyO: 74, Digit0: 75,
-    KeyP: 76
-  };
-  const LAYOUT_GLYPH = {
-    us: { Slash: "/", Backquote: "`", BracketLeft: "[", Quote: "'" },
-    csa: { Slash: "é", Backquote: "/", BracketLeft: "^", Quote: "`", IntlBackslash: "ù" }
-  };
-  const PC_ROWS = [
-    ["Digit2", "Digit3", "Digit5", "Digit6", "Digit7", "Digit9", "Digit0"],
-    ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"],
-    ["KeyS", "KeyD", "KeyG", "KeyH", "KeyJ"],
-    ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM"]
-  ];
-  let kbLayout = localStorage.getItem("crayon-keyboard-layout") || "auto";
-  let kbResolved = "us";
   let neededMidis = new Set();
   let computerHeld = new Set();
   let scoreNow = 0;
@@ -1458,9 +1439,6 @@
   let scoreAwarded = new Set();
   let scoreSource = "demo";
   const $scoreLine = document.getElementById("scoreLine");
-  const $layoutBtn = document.getElementById("layoutBtn");
-  const $pcKeys = document.getElementById("pcKeys");
-  const pcKeyEls = new Map();
 
   function scoreStore() {
     try {
@@ -1513,65 +1491,6 @@
     if ($scoreLine) {
       $scoreLine.textContent = scoreNow + " · best " + bestFor(scoreSource);
     }
-    if ($layoutBtn) $layoutBtn.textContent = kbResolved.toUpperCase();
-  }
-  function inferLayout(code, key) {
-    if (code === "Slash" && key === "é") return "csa";
-    if (code === "Slash" && key === "/") return "us";
-    if (code === "Backquote" && (key === "/" || key === "#")) return "csa";
-    if (code === "Backquote" && (key === "`" || key === "~")) return "us";
-    if (code === "BracketLeft" && key === "^") return "csa";
-    if (code === "BracketLeft" && key === "[") return "us";
-    return "";
-  }
-  function resolveLayout() {
-    if (kbLayout === "us" || kbLayout === "csa") {
-      kbResolved = kbLayout;
-      return;
-    }
-    kbResolved = /fr-CA/i.test(navigator.language || "") ? "csa" : "us";
-    if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
-      navigator.keyboard.getLayoutMap().then(function (map) {
-        const slash = map.get("Slash");
-        const bq = map.get("Backquote");
-        const br = map.get("BracketLeft");
-        if (slash === "é" || bq === "/" || br === "^") kbResolved = "csa";
-        else if (slash === "/" || bq === "`" || br === "[") kbResolved = "us";
-        paintPcKeys();
-        paintScore();
-      }).catch(function () {});
-    }
-  }
-  function glyphFor(code) {
-    const extra = LAYOUT_GLYPH[kbResolved] || {};
-    if (extra[code]) return extra[code];
-    if (code.indexOf("Key") === 0) return code.slice(3);
-    if (code.indexOf("Digit") === 0) return code.slice(5);
-    return code;
-  }
-  function paintPcKeys() {
-    if (!$pcKeys) return;
-    $pcKeys.innerHTML = "";
-    pcKeyEls.clear();
-    PC_ROWS.forEach(function (row) {
-      const el = document.createElement("div");
-      el.className = "pc-row";
-      row.forEach(function (code) {
-        const midi = CODE_TO_MIDI[code];
-        if (midi == null) return;
-        const btn = document.createElement("span");
-        btn.className = "pc-key";
-        btn.dataset.code = code;
-        btn.dataset.midi = String(midi);
-        btn.textContent = glyphFor(code);
-        const rgb = crayonOf(midi).rgb;
-        btn.style.setProperty("--crayon", "rgb(" + rgb.join(",") + ")");
-        el.appendChild(btn);
-        pcKeyEls.set(midi, btn);
-      });
-      $pcKeys.appendChild(el);
-    });
-    paintHighlights();
   }
   function highlightOf(midi) {
     const want = neededMidis.has(midi);
@@ -1583,12 +1502,6 @@
   }
   function paintHighlights() {
     keys.forEach(function (el, midi) {
-      const st = highlightOf(midi);
-      el.classList.toggle("need", st === "need");
-      el.classList.toggle("held", st === "held");
-      el.classList.toggle("hit", st === "hit");
-    });
-    pcKeyEls.forEach(function (el, midi) {
       const st = highlightOf(midi);
       el.classList.toggle("need", st === "need");
       el.classList.toggle("held", st === "held");
@@ -4283,35 +4196,6 @@
     }
   }
 
-  function onComputerKey(ev, down) {
-    if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;
-    const tag = (ev.target && ev.target.tagName) || "";
-    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-    const guessed = inferLayout(ev.code, ev.key);
-    if (guessed && kbLayout === "auto") {
-      kbResolved = guessed;
-      paintPcKeys();
-      paintScore();
-    }
-    const midi = CODE_TO_MIDI[ev.code];
-    if (midi == null) return;
-    ev.preventDefault();
-    if (down) startHeldKey(midi);
-    else stopHeldKey(midi);
-  }
-  window.addEventListener("keydown", function (ev) { onComputerKey(ev, true); });
-  window.addEventListener("keyup", function (ev) { onComputerKey(ev, false); });
-  if ($layoutBtn) {
-    $layoutBtn.addEventListener("click", function () {
-      kbLayout = kbLayout === "auto" ? "us" : kbLayout === "us" ? "csa" : "auto";
-      localStorage.setItem("crayon-keyboard-layout", kbLayout);
-      resolveLayout();
-      paintPcKeys();
-      paintScore();
-    });
-  }
-  resolveLayout();
-  paintPcKeys();
   paintScore();
 
   buildLegend();

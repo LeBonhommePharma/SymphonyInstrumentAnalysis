@@ -83,7 +83,7 @@ from crayon_piano_lib import (
     window_at,
 )
 
-FOOTER = "l Écouter  r Rejouer  0 Tous  1–5  c Accords  u Entendre  a Auto  t Scène  [ ] Sens  ← →  q  ·  Z–M / Q–P play along"
+FOOTER = "^L Écouter  ^R Rejouer  ^0 Tous  ^1–5  ^K Accords  ^U Entendre  ^A Auto  ^T Scène  PgUp/Dn Sens  ← →  Esc  ·  Z=Do3 D=Do4 Q=La4"
 MIC_ERR = "Pas de micro / No mic — replay still works"
 
 
@@ -744,23 +744,23 @@ class CrayonPianoApp(App[None]):
     }
     """
     BINDINGS = [
-        Binding("l", "listen", "Écouter", show=False, priority=True),
-        Binding("r", "replay", "Rejouer", show=False, priority=True),
-        Binding("0", "tous", "Tous", show=False, priority=True),
-        Binding("1", "musician('bass')", "1", show=False, priority=True),
-        Binding("2", "musician('cello')", "2", show=False, priority=True),
-        Binding("3", "musician('guitarA')", "3", show=False, priority=True),
-        Binding("4", "musician('guitarB')", "4", show=False, priority=True),
-        Binding("5", "musician('nylon')", "5", show=False, priority=True),
-        Binding("c", "chords", "Accords", show=False, priority=True),
-        Binding("u", "unmute", "Entendre", show=False, priority=True),
-        Binding("a", "autotune", "Auto", show=False, priority=True),
-        Binding("t", "theme", "Scène", show=False, priority=True),
-        Binding("left_square_bracket,[", "sens_down", "[", show=False, priority=True),
-        Binding("right_square_bracket,]", "sens_up", "]", show=False, priority=True),
+        Binding("ctrl+l", "listen", "Écouter", show=False, priority=True),
+        Binding("ctrl+r", "replay", "Rejouer", show=False, priority=True),
+        Binding("ctrl+0", "tous", "Tous", show=False, priority=True),
+        Binding("ctrl+1", "musician('bass')", "1", show=False, priority=True),
+        Binding("ctrl+2", "musician('cello')", "2", show=False, priority=True),
+        Binding("ctrl+3", "musician('guitarA')", "3", show=False, priority=True),
+        Binding("ctrl+4", "musician('guitarB')", "4", show=False, priority=True),
+        Binding("ctrl+5", "musician('nylon')", "5", show=False, priority=True),
+        Binding("ctrl+k", "chords", "Accords", show=False, priority=True),
+        Binding("ctrl+u", "unmute", "Entendre", show=False, priority=True),
+        Binding("ctrl+a", "autotune", "Auto", show=False, priority=True),
+        Binding("ctrl+t", "theme", "Scène", show=False, priority=True),
+        Binding("pageup", "sens_down", "Sens−", show=False, priority=True),
+        Binding("pagedown", "sens_up", "Sens+", show=False, priority=True),
         Binding("left", "seek_left", "←", show=False, priority=True),
         Binding("right", "seek_right", "→", show=False, priority=True),
-        Binding("q", "quit", "Quit", show=False, priority=True),
+        Binding("escape", "quit", "Quit", show=False, priority=True),
     ]
 
     def __init__(
@@ -1154,9 +1154,9 @@ class CrayonPianoApp(App[None]):
             self.score_store.record(src, self.score.score)
 
     def on_key(self, event: events.Key) -> None:
-        ch = event.character or ""
-        if ch.lower() in "lrcuatq012345":
+        if event.key.startswith(("ctrl+", "alt+", "meta+")):
             return
+        ch = event.character or ""
         midi = midi_for_char(ch, self.layout) if ch else None
         if midi is None:
             return
@@ -1291,8 +1291,13 @@ def self_test() -> int:
         raise SystemExit(f"440 Hz log-x {x440} != {expect}")
     if highlight_state(60, {60}, {60}) != "hit":
         raise SystemExit("highlight hit missing")
+    if midi_for_char("q", "us") != 69 or midi_for_char("d", "us") != 60:
+        raise SystemExit("TUI play-along must use the kid map (Q=La4 D=Do4)")
     if midi_for_char("q", "us") != midi_for_char("q", "csa"):
         raise SystemExit("CSA and US must share letter-key midis")
+    bind_keys = {str(b.key) for b in CrayonPianoApp.BINDINGS}
+    if "q" in bind_keys or "escape" not in bind_keys:
+        raise SystemExit("TUI quit must be Escape so Q can play La4")
     if sys.platform == "darwin":
         cmds = mic_ffmpeg_cmds(48000)
         if not any("avfoundation" in cmd for cmd in cmds):

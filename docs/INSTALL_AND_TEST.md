@@ -53,7 +53,7 @@ Resize the window to at least ~120×40 cells so the 88-key row is readable.
 | `bash scripts/install_macos.sh` | prints `install_macos: OK` and `layout OK` |
 | `bash scripts/run_tui.sh` | piano, score line (`0 · best … · US` or `CSA`), chip **Tous 27.5–5000 Hz** |
 | **r** Rejouer | keys light from the built-in demo (no WAV needed) |
-| Play along on **Z–M** / **Q–P** (same MIDI on US and CSA) | **need** fill, **held** outline, **hit** + score |
+| Play along **Z=Do3**, **D=Do4**, **Q=La4** (same MIDI on US and CSA) | **need** fill, **held** outline, **hit** + score |
 | **l** Écouter, then sing or play psytrance / a cappella | low + high (or sung) sources, not a blank / noise-only row |
 | Quit and relaunch | best score restored |
 

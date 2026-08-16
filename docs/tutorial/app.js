@@ -79,13 +79,9 @@
   let scoreNow = 0;
   let scoreStreak = 0;
   let scoreAwarded = new Set();
-  const CODE_TO_MIDI = {
-    KeyZ: 48, KeyS: 49, KeyX: 50, KeyD: 51, KeyC: 52, KeyV: 53, KeyG: 54,
-    KeyB: 55, KeyH: 56, KeyN: 57, KeyJ: 58, KeyM: 59, KeyQ: 60, Digit2: 61,
-    KeyW: 62, Digit3: 63, KeyE: 64, KeyR: 65, Digit5: 66, KeyT: 67, Digit6: 68,
-    KeyY: 69, Digit7: 70, KeyU: 71, KeyI: 72, Digit9: 73, KeyO: 74, Digit0: 75,
-    KeyP: 76
-  };
+  function midiForKid(code) {
+    return window.DUAL && typeof DUAL.midiForKid === "function" ? DUAL.midiForKid(code) : null;
+  }
   let specSizeKey = "";
   let listenStartedAt = 0;
   let heardSound = false;
@@ -1336,7 +1332,7 @@
     lightPiano(new Set([60, 64, 67]));
     window.addEventListener("keydown", function (ev) {
       if (ev.repeat || ev.metaKey || ev.ctrlKey) return;
-      const midi = CODE_TO_MIDI[ev.code];
+      const midi = midiForKid(ev.code);
       if (midi == null) return;
       ev.preventDefault();
       computerHeld.add(midi);
@@ -1348,7 +1344,7 @@
       lightPiano(neededMidis);
     });
     window.addEventListener("keyup", function (ev) {
-      const midi = CODE_TO_MIDI[ev.code];
+      const midi = midiForKid(ev.code);
       if (midi == null) return;
       computerHeld.delete(midi);
       lightPiano(neededMidis);

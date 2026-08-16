@@ -14,17 +14,6 @@ enum KeyHighlight: String {
 }
 
 enum KeyboardLayout {
-    /// Physical KeyboardEvent.code → MIDI. Same on US and Canadian French CSA.
-    static let codeToMidi: [String: Int] = [
-        "KeyZ": 48, "KeyS": 49, "KeyX": 50, "KeyD": 51, "KeyC": 52,
-        "KeyV": 53, "KeyG": 54, "KeyB": 55, "KeyH": 56, "KeyN": 57,
-        "KeyJ": 58, "KeyM": 59,
-        "KeyQ": 60, "Digit2": 61, "KeyW": 62, "Digit3": 63, "KeyE": 64,
-        "KeyR": 65, "Digit5": 66, "KeyT": 67, "Digit6": 68, "KeyY": 69,
-        "Digit7": 70, "KeyU": 71, "KeyI": 72, "Digit9": 73, "KeyO": 74,
-        "Digit0": 75, "KeyP": 76
-    ]
-
     static let labels: [KeyboardLayoutId: [String: String]] = [
         .us: [
             "KeyZ": "Z", "KeyS": "S", "KeyX": "X", "KeyD": "D", "KeyC": "C",
@@ -85,18 +74,16 @@ enum KeyboardLayout {
     }
 
     static func midi(forCharacters chars: String) -> Int? {
+        let raw = chars
         let low = chars.lowercased()
-        let us: [String: String] = [
-            "z": "KeyZ", "s": "KeyS", "x": "KeyX", "d": "KeyD", "c": "KeyC",
-            "v": "KeyV", "g": "KeyG", "b": "KeyB", "h": "KeyH", "n": "KeyN",
-            "j": "KeyJ", "m": "KeyM", "q": "KeyQ", "2": "Digit2", "w": "KeyW",
-            "3": "Digit3", "e": "KeyE", "r": "KeyR", "5": "Digit5", "t": "KeyT",
-            "y": "KeyY", "6": "Digit6", "7": "Digit7", "u": "KeyU", "i": "KeyI",
-            "9": "Digit9", "o": "KeyO", "0": "Digit0", "p": "KeyP"
-        ]
-        if let code = us[low] { return codeToMidi[code] }
-        if low == "é" { return codeToMidi["Slash"] }
-        return nil
+        for layoutId in ["us", "csa"] {
+            for key in DualBoards.layout(layoutId).keys where key.kind == "char" {
+                if key.base == raw || key.base.lowercased() == low {
+                    return DualNoteMap.midi(for: key.kid)
+                }
+            }
+        }
+        return DualNoteMap.midi(for: chars)
     }
 }
 
