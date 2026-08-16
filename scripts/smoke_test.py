@@ -29,6 +29,11 @@ from crayon_piano_lib import (  # noqa: E402
     spec_x_of,
 )
 from density_cluster import cluster_peaks  # noqa: E402
+from keyboard_layout import (  # noqa: E402
+    infer_layout,
+    midi_for_char,
+    midi_for_code,
+)
 
 SR = 48000
 # Analyzer FFT size is 4096, so pick bin-centered tones (bin * sr / 4096).
@@ -370,7 +375,6 @@ def check_crayon_piano() -> None:
 
 
 
-
 def _write_pcm(path: Path, x: np.ndarray, sr: int) -> None:
     peak = float(np.max(np.abs(x))) or 1.0
     pcm = np.clip(x / peak * 0.85, -1.0, 1.0)
@@ -422,6 +426,21 @@ def check_discrimination() -> None:
         if len(cl_v) != 1:
             raise SystemExit(f"vocal harmonic stack must be 1 source, got {len(cl_v)}")
     print("discrimination: vocal A3 + 1 source; psytrance low+high clusters OK")
+
+
+def check_keyboard_layout() -> None:
+    if midi_for_code("KeyQ") != 60 or midi_for_char("q", "csa") != midi_for_char("q", "us"):
+        raise SystemExit("CSA and US letter keys must share piano midis")
+    if infer_layout("Slash", "é") != "csa" or infer_layout("Slash", "/") != "us":
+        raise SystemExit("layout infer failed")
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPTS / "keyboard_layout.py")],
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise SystemExit(f"keyboard_layout.py failed:\n{proc.stdout}\n{proc.stderr}")
+    print((proc.stdout or "").strip() or "keyboard_layout.py: OK")
 
 
 def check_spectrum_scale() -> None:
@@ -487,6 +506,7 @@ def main() -> None:
         raise SystemExit(f"analyzer missed expected notes: {missing}; found {sorted(notes)}")
     print("SMOKE OK: recovered E2, A4, and C5")
     check_discrimination()
+    check_keyboard_layout()
     check_crayon_piano()
 
 
