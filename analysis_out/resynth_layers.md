@@ -5,8 +5,7 @@ No mic capture WAV was used as an audio source.
 
 ## Ensemble guess (wooden chords, outdoor park)
 
-Consistent with `final_song_six_instruments.json` and user constraints
-(**no clarinet**; wooden chords; Parc Roland Beaudin outdoor vibe):
+Wooden-chord layers only (**no clarinet**; Parc Roland Beaudin outdoor vibe):
 
 | Stem file | Musician / instrument | Role | Freq range | Timbre notes |
 |-----------|----------------------|------|------------|--------------|
@@ -44,18 +43,18 @@ Example assignments (first segments):
 ## Outputs
 
 ### Individual mono stems
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/01_upright_bass.wav`
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/02_cello.wav`
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/03_guitar_a.wav`
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/04_guitar_b.wav`
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/05_nylon_guitar.wav`
-- `/Users/lp.more/Projects/SymphonyInstrumentAnalysis/analysis_out/resynth_layers/06_viola_sheen.wav`
+- `analysis_out/resynth_layers/01_upright_bass.wav`
+- `analysis_out/resynth_layers/02_cello.wav`
+- `analysis_out/resynth_layers/03_guitar_a.wav`
+- `analysis_out/resynth_layers/04_guitar_b.wav`
+- `analysis_out/resynth_layers/05_nylon_guitar.wav`
+- `analysis_out/resynth_layers/06_viola_sheen.wav`
 
 ### Mixes
 - `analysis_out/resynth_from_chords_stems.wav` — **stereo stems mix** (panned layers summed; play this)
 - `analysis_out/resynth_from_chords.wav` — mono sum of the same layers (legacy path)
 - `analysis_out/resynth_from_chords_preview.wav` — first 15s stereo preview
-- `resynth_layers_map.png` — optional layer map figure
+- `analysis_out/resynth_layers_map.png` — optional layer map figure
 
 ## Fidelity
 

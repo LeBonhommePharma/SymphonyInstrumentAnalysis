@@ -82,6 +82,6 @@ Lignes noires = tout le monde change ensemble ; lignes ambre = texture mince.
 
 ## Source
 
-- Accords: `final_song_chords.json`
-- Ensemble: `final_song_six_instruments.json` (bois seulement)
+- Accords: `analysis_out/final_song_chords.json`
+- Ensemble: wooden-chord layers only (no clarinet)
 - Couleurs: `scripts/chord_pitch_colors.py` (macOS Crayons.clr — même boîte que `chord_visual_analysis.md`)

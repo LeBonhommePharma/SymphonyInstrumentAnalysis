@@ -492,6 +492,13 @@ def check_visualize_cli() -> None:
         raise SystemExit("resynth seeds must use zlib.adler32, not hash()")
     if "six_path" in src or "SIX_INST_JSON" in src:
         raise SystemExit("resynth must not load an unused six-instrument JSON")
+    from visualize_chords import chord_duration as vis_duration  # noqa: E402
+    from visualize_chord_layers import chord_duration as layer_duration  # noqa: E402
+
+    if vis_duration({"timeline": [{"start": 0.0, "end": 1.25}]}) != 1.25:
+        raise SystemExit("visualize_chords must fall back to the last segment end")
+    if layer_duration({"duration_sec": 2.0, "timeline": [{"start": 0.0, "end": 2.5}]}) != 2.5:
+        raise SystemExit("visualize_chord_layers must keep duration at least the last end")
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         chords = root / "smoke_chords.json"
@@ -529,8 +536,6 @@ def check_visualize_cli() -> None:
                 str(SCRIPTS / "visualize_chords.py"),
                 "--chords",
                 str(chords),
-                "--wav",
-                str(missing_wav),
                 "--out-dir",
                 str(vis_out),
             ],
@@ -541,7 +546,7 @@ def check_visualize_cli() -> None:
         if proc.returncode != 0:
             raise SystemExit(f"visualize_chords without WAV failed:\n{proc.stdout}\n{proc.stderr}")
         if "skipping chroma heatmap" not in proc.stdout:
-            raise SystemExit("visualize_chords must skip the heatmap when the WAV is missing")
+            raise SystemExit("visualize_chords must skip the heatmap when the default WAV is missing")
         if not (vis_out / "chord_progression_stacks.png").is_file():
             raise SystemExit("visualize_chords should still write stack/sync/network without a WAV")
         vis_md = (vis_out / "chord_visual_analysis.md").read_text(encoding="utf-8")
@@ -549,6 +554,28 @@ def check_visualize_cli() -> None:
             raise SystemExit("visualize_chords markdown must say the heatmap was skipped")
         if "smoke_chords.json" not in vis_md:
             raise SystemExit("visualize_chords markdown must name the --chords file")
+        proc = subprocess.run(
+            [
+                py,
+                str(SCRIPTS / "visualize_chords.py"),
+                "--chords",
+                str(chords),
+                "--wav",
+                str(missing_wav),
+                "--out-dir",
+                str(root / "vis-missing-wav"),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if proc.returncode == 0:
+            raise SystemExit("visualize_chords must fail when an explicit --wav is missing")
+        if "missing WAV" not in (proc.stdout + proc.stderr):
+            raise SystemExit(
+                "visualize_chords must report a missing explicit --wav:\n"
+                f"{proc.stdout}{proc.stderr}"
+            )
         proc = subprocess.run(
             [
                 py,

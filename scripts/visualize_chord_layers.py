@@ -34,6 +34,24 @@ ROOT = Path(__file__).resolve().parents[1]
 CHORD_JSON = ROOT / "analysis_out" / "final_song_chords.json"
 OUT = ROOT / "analysis_out"
 
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def chord_duration(data: dict) -> float:
+    timeline = data.get("timeline") or []
+    listed = data.get("duration_sec")
+    duration = float(listed) if listed not in (None, "") else (
+        float(timeline[-1]["end"]) if timeline else 0.0
+    )
+    if timeline:
+        duration = max(duration, float(timeline[-1]["end"]))
+    return duration
+
 PC_INDEX = {pc: i for i, pc in enumerate(NOTE_NAMES)}
 
 @dataclass(frozen=True)
@@ -526,7 +544,7 @@ def main() -> None:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     data = json.loads(args.chords.read_text())
     timeline = data["timeline"]
-    duration = float(data["duration_sec"])
+    duration = chord_duration(data)
 
     p_timeline = args.out_dir / "chord_layers_timeline.png"
     p_sync = args.out_dir / "chord_layers_sync.png"
@@ -549,7 +567,7 @@ def main() -> None:
         full_times,
         thin_times,
         facet_paths,
-        chords=str(args.chords),
+        chords=display_path(args.chords),
     )
 
     print(f"wrote {p_timeline}")

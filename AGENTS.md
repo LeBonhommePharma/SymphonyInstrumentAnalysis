@@ -77,8 +77,12 @@ The web replay button, the iOS **Rejouer** control, and the TUI all fall back to
 8 s synth demo, so you do **not** need a WAV or a local server to demonstrate the piano.
 
 - `scripts/analyze_instruments.py <file.wav>` requires a **16-bit PCM** WAV.
-- `scripts/visualize_chords.py` and `scripts/visualize_chord_layers.py` hardcode
-  `captures/final_song.wav` (plus the committed `analysis_out/final_song_chords.json`).
+- `scripts/visualize_chords.py` takes `--wav` / `--chords` / `--out-dir`
+  (defaults: `captures/final_song.wav`, `analysis_out/final_song_chords.json`).
+  A missing default WAV skips the chroma heatmap; a missing explicit `--wav` is
+  an error.
+- `scripts/visualize_chord_layers.py` and `scripts/resynth_from_chords.py` take
+  `--chords` / `--out-dir` (same default chords JSON).
 
 If no real capture is available, generate a synthetic 16-bit PCM WAV with `wave` + `numpy` to
 exercise the Python pipeline.

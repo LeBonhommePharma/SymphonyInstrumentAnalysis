@@ -66,7 +66,7 @@ class LayerSpec:
     color: str
 
 
-# Outdoor park wooden-chord ensemble (matches final_song_six_instruments.json)
+# Outdoor park wooden-chord ensemble (no clarinet)
 LAYERS: list[LayerSpec] = [
     LayerSpec(
         key="upright_bass",
@@ -568,7 +568,7 @@ Each layer has a distinct envelope/harmonic recipe so ears can separate musician
 This audio is a **reconstruction synthesized from chord / pitch-class / frequency analysis only**,
 now as **separate musician/instrument layers** (not one flattened pad).
 
-- Source data: `{args.chords}`
+- Source data: `{display_path(args.chords)}`
 - Ensemble: upright bass, cello, acoustic guitar ×2, nylon guitar, viola/violin sheen
 - Constraints: wooden chords only; **no clarinet**; outdoor park guess
 - **No original recording** used as an audio source
