@@ -155,6 +155,17 @@ def check_i18n(docs: Path) -> None:
     print(f"i18n: OK ({len(en_keys)} en/fr keys)")
 
 
+def _assert_local_labeler_gate(html: str, name: str) -> None:
+    if "canUseLocalLabeler" not in html or 'host === "127.0.0.1"' not in html:
+        raise SystemExit(f"{name} must gate the 127.0.0.1 labeler to localhost")
+    if 'host === "localhost"' not in html:
+        raise SystemExit(f"{name} must allow hostname localhost")
+    if 'protocol === "file:"' not in html:
+        raise SystemExit(f"{name} must allow the file:// local labeler")
+    if 'host === "::1"' not in html:
+        raise SystemExit(f"{name} must treat IPv6 loopback as local")
+
+
 def check_public_site() -> None:
     docs = SCRIPTS.parent / "docs"
     required = [
@@ -249,6 +260,7 @@ def check_public_site() -> None:
         raise SystemExit("public piano must link back to the Pages hub")
     if "loopWantsFrames" not in piano or "FFT_SIZE = 8192" not in piano:
         raise SystemExit("public piano must draw on vsync (loopWantsFrames, 8192 FFT)")
+    _assert_local_labeler_gate(piano, "public piano")
     bootstrap = tutorial.split('id="bootstrap"', 1)[-1]
     if 'data-action="system"' in bootstrap:
         raise SystemExit("bootstrap must not offer a mic vs tab choice")
@@ -390,8 +402,7 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must have layout-aware keys and three highlight states")
     if "midiForKid" not in html and "DUAL.midiForKid" not in html:
         raise SystemExit("HTML piano must play notes through midiForKid")
-    if "canUseLocalLabeler" not in html or 'host === "127.0.0.1"' not in html:
-        raise SystemExit("HTML piano must gate the 127.0.0.1 labeler to localhost")
+    _assert_local_labeler_gate(html, "HTML piano")
     if "crayon-piano-scores" not in html:
         raise SystemExit("HTML piano must persist high scores")
     if 'id="spec"' not in html or "drawSpecPlot" not in html:
@@ -476,10 +487,40 @@ def check_visualize_cli() -> None:
         proc = subprocess.run([py, str(SCRIPTS / name), "--help"], capture_output=True, text=True)
         if proc.returncode != 0 or "--chords" not in (proc.stdout + proc.stderr):
             raise SystemExit(f"{name} must expose --chords: {proc.stdout}{proc.stderr}")
+    src = (SCRIPTS / "resynth_from_chords.py").read_text(encoding="utf-8")
+    if "hash(key)" in src or "zlib.adler32" not in src:
+        raise SystemExit("resynth seeds must use zlib.adler32, not hash()")
+    if "six_path" in src or "SIX_INST_JSON" in src:
+        raise SystemExit("resynth must not load an unused six-instrument JSON")
     with tempfile.TemporaryDirectory() as td:
-        out = Path(td)
-        chords = SCRIPTS.parent / "analysis_out" / "final_song_chords.json"
-        missing_wav = out / "nope.wav"
+        root = Path(td)
+        chords = root / "smoke_chords.json"
+        chords.write_text(
+            json.dumps(
+                {
+                    "duration_sec": 0.5,
+                    "timeline": [
+                        {
+                            "start": 0.0,
+                            "end": 0.22,
+                            "pcs": ["C", "E", "G"],
+                            "chord": "C",
+                        },
+                        {
+                            "start": 0.22,
+                            "end": 0.45,
+                            "pcs": ["A", "C", "E"],
+                            "chord": "Am",
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        missing_wav = root / "nope.wav"
+        vis_out = root / "vis-new"
+        layers_out = root / "layers-new"
+        resynth_out = root / "resynth-new"
         env = dict(os.environ)
         env["MPLBACKEND"] = "Agg"
         proc = subprocess.run(
@@ -491,7 +532,7 @@ def check_visualize_cli() -> None:
                 "--wav",
                 str(missing_wav),
                 "--out-dir",
-                str(out),
+                str(vis_out),
             ],
             capture_output=True,
             text=True,
@@ -501,16 +542,69 @@ def check_visualize_cli() -> None:
             raise SystemExit(f"visualize_chords without WAV failed:\n{proc.stdout}\n{proc.stderr}")
         if "skipping chroma heatmap" not in proc.stdout:
             raise SystemExit("visualize_chords must skip the heatmap when the WAV is missing")
-        if not (out / "chord_progression_stacks.png").is_file():
+        if not (vis_out / "chord_progression_stacks.png").is_file():
             raise SystemExit("visualize_chords should still write stack/sync/network without a WAV")
-        src = (SCRIPTS / "resynth_from_chords.py").read_text(encoding="utf-8")
-        if "hash(key)" in src or "zlib.adler32" not in src:
-            raise SystemExit("resynth seeds must use zlib.adler32, not hash()")
+        vis_md = (vis_out / "chord_visual_analysis.md").read_text(encoding="utf-8")
+        if "(skipped — no WAV)" not in vis_md:
+            raise SystemExit("visualize_chords markdown must say the heatmap was skipped")
+        if "smoke_chords.json" not in vis_md:
+            raise SystemExit("visualize_chords markdown must name the --chords file")
+        proc = subprocess.run(
+            [
+                py,
+                str(SCRIPTS / "visualize_chord_layers.py"),
+                "--chords",
+                str(chords),
+                "--out-dir",
+                str(layers_out),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(
+                f"visualize_chord_layers into a fresh out-dir failed:\n{proc.stdout}\n{proc.stderr}"
+            )
+        if not (layers_out / "chord_layers_timeline.png").is_file():
+            raise SystemExit("visualize_chord_layers must write the timeline plot")
+        layers_md = (layers_out / "chord_visual_layers.md").read_text(encoding="utf-8")
+        if "smoke_chords.json" not in layers_md:
+            raise SystemExit("visualize_chord_layers markdown must name the --chords file")
+        if "final_song_chords.json" in layers_md:
+            raise SystemExit("visualize_chord_layers markdown must not hardcode final_song_chords.json")
+        proc = subprocess.run(
+            [
+                py,
+                str(SCRIPTS / "resynth_from_chords.py"),
+                "--chords",
+                str(chords),
+                "--out-dir",
+                str(resynth_out),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(f"resynth_from_chords failed:\n{proc.stdout}\n{proc.stderr}")
+        if not (resynth_out / "resynth_from_chords_stems.wav").is_file():
+            raise SystemExit("resynth_from_chords must write the stereo mix")
+        resynth_md = (resynth_out / "resynth_from_chords.md").read_text(encoding="utf-8")
+        if "analysis_out/resynth_from_chords_stems.wav" in resynth_md:
+            raise SystemExit("resynth markdown must follow --out-dir, not hardcode analysis_out")
+        if str(resynth_out / "resynth_from_chords_stems.wav") not in resynth_md:
+            raise SystemExit("resynth markdown must name the mix written to --out-dir")
+        if "smoke_chords.json" not in resynth_md:
+            raise SystemExit("resynth markdown must name the --chords file")
     print("visualize/resynth CLI: OK")
 
 
 def check_swift_cluster_fixtures() -> None:
-    swiftc = subprocess.run(["swiftc", "--version"], capture_output=True, text=True)
+    try:
+        swiftc = subprocess.run(["swiftc", "--version"], capture_output=True, text=True)
+    except FileNotFoundError:
+        print("swiftc: skipped cluster fixtures")
+        return
     if swiftc.returncode != 0:
         print("swiftc: skipped cluster fixtures")
         return

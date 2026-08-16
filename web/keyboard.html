@@ -1369,8 +1369,10 @@
   const LABEL_URL = "http://127.0.0.1:4174/label";
   const LABEL_EVERY_MS = 1600;
   function canUseLocalLabeler() {
-    const host = (location && location.hostname) || "";
-    return host === "127.0.0.1" || host === "localhost";
+    const proto = (location && location.protocol) || "";
+    if (proto === "file:") return true;
+    const host = ((location && location.hostname) || "").replace(/^\[|\]$/g, "");
+    return host === "127.0.0.1" || host === "localhost" || host === "::1";
   }
   const FFT_SIZE = 8192;
   const WAVE_WINDOW_SEC = 6;
