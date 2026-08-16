@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import select
 import subprocess
 import sys
 import threading
@@ -29,7 +30,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from analyze_instruments import load_wav
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
-from list_mics import list_audio_devices
+from list_mics import ranked_audio_devices
 from keyboard_layout import (
     ScoreKeeper,
     ScoreStore,
@@ -174,7 +175,9 @@ def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
     head = ["ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error"]
     cmds: list[list[str]] = []
     if sys.platform == "darwin":
-        indices = [idx for idx, _name in list_audio_devices()] or [0]
+        # Built-in Mac mic first. Continuity/iPhone inputs hang ffmpeg open().
+        devices = ranked_audio_devices(include_unreliable=False) or ranked_audio_devices()
+        indices = [idx for idx, _name in devices] or [0]
         for idx in indices[:4]:
             cmds.append([*head, "-f", "avfoundation", "-i", f":{idx}", *pcm])
     cmds.extend(
@@ -185,6 +188,9 @@ def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
         ]
     )
     return cmds
+
+
+FIRST_AUDIO_WAIT_S = 1.25
 
 
 class MicStream:
@@ -210,10 +216,21 @@ class MicStream:
                 )
             except OSError:
                 continue
-            time.sleep(0.12)
-            if proc.poll() is not None:
+            stdout = proc.stdout
+            if stdout is None:
+                proc.kill()
+                continue
+            ready, _, _ = select.select([stdout], [], [], FIRST_AUDIO_WAIT_S)
+            if not ready or proc.poll() is not None:
+                proc.kill()
                 last_err = MIC_ERR
                 continue
+            raw = stdout.read(4096)
+            if not raw:
+                proc.kill()
+                last_err = MIC_ERR
+                continue
+            self.ring.push(np.frombuffer(raw, dtype="<i2").astype(np.float64) / 32768.0)
             self._proc = proc
             self.alive = True
             self.error = ""
@@ -1280,6 +1297,12 @@ def self_test() -> int:
         cmds = mic_ffmpeg_cmds(48000)
         if not any("avfoundation" in cmd for cmd in cmds):
             raise SystemExit("macOS TUI listen must capture via AVFoundation")
+        reliable = ranked_audio_devices(include_unreliable=False)
+        if reliable:
+            first_av = next(c for c in cmds if "avfoundation" in c)
+            want = f":{reliable[0][0]}"
+            if want not in first_av:
+                raise SystemExit(f"TUI must open {reliable[0][1]} before Continuity mics")
     print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK, layout OK")
     return 0
 
