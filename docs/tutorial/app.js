@@ -419,8 +419,10 @@
       keySmooth[i] = 0.62 * keySmooth[i] + 0.38 * score[i];
       if (keySmooth[i] > loudest) loudest = keySmooth[i];
     }
-    const noise = bandNoiseFloor(specArr, i0, i1);
-    const gate = Math.max(Math.max(-78, noise + 12), loudest - 16);
+    const sens = 0.58;
+    const absGate = -48 - sens * 36;
+    const relDb = 10 + sens * 18;
+    const gate = Math.max(absGate, loudest - relDb);
     const candidates = [];
     for (let i = 0; i < nKeys; i++) {
       const s = keySmooth[i];
@@ -1064,10 +1066,10 @@
     audioCtx = makeAudioContext();
     if (audioCtx.state === "suspended") await audioCtx.resume();
     analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 16384;
-    analyser.smoothingTimeConstant = 0.78;
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0;
     analyser.minDecibels = -95;
-    analyser.maxDecibels = -30;
+    analyser.maxDecibels = 0;
     freq = new Uint8Array(analyser.frequencyBinCount);
     specDb = new Float32Array(analyser.frequencyBinCount);
     time = new Uint8Array(analyser.fftSize);

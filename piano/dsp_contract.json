@@ -1,0 +1,35 @@
+{
+  "fftSize": 8192,
+  "minDecibels": -95,
+  "maxDecibels": 0,
+  "analyserSmoothing": 0,
+  "mixedLoHz": 27.5,
+  "mixedHiHz": 5000,
+  "peakMinDb": -78,
+  "peakFloorOffsetDb": 10,
+  "smoothPrev": 0.62,
+  "smoothNow": 0.38,
+  "sensitivityDefault": 58,
+  "absGateBase": -48,
+  "absGateSpan": 36,
+  "relDbBase": 10,
+  "relDbSpan": 18,
+  "demo": {
+    "sr": 44100,
+    "dur": 8,
+    "partials": [1.0, 0.5, 0.25],
+    "tones": [
+      { "hz": 65.41, "start": 0.0, "length": 8.0, "amp": 0.35 },
+      { "hz": 196.0, "start": 0.5, "length": 3.0, "amp": 0.25 },
+      { "hz": 261.63, "start": 3.5, "length": 3.0, "amp": 0.25 },
+      { "hz": 1046.5, "start": 1.0, "length": 0.3, "amp": 0.08 },
+      { "hz": 1318.51, "start": 5.0, "length": 0.3, "amp": 0.08 }
+    ],
+    "chords": [
+      { "start": 0.5, "length": 1.8, "amp": 0.18, "hz": [329.63, 415.3, 493.88] },
+      { "start": 2.5, "length": 1.8, "amp": 0.18, "hz": [349.23, 440.0, 523.25] },
+      { "start": 4.5, "length": 1.8, "amp": 0.18, "hz": [392.0, 493.88, 587.33] },
+      { "start": 6.5, "length": 1.8, "amp": 0.18, "hz": [329.63, 415.3, 493.88] }
+    ]
+  }
+}
