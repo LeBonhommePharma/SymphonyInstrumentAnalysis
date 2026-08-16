@@ -14,10 +14,12 @@ import FoundationModels
 
 let port: NWEndpoint.Port = 4174
 
-func heuristic(f0: Double, harm: Double) -> String {
+func heuristic(f0: Double, harm: Double, centroid: Double? = nil) -> String {
     if harm < 0.18 && f0 > 180 { return "bruit" }
     if f0 < 90 { return "grave" }
-    if f0 < 280 && harm >= 0.35 { return "voix" }
+    let voiceLike = f0 >= 85 && f0 <= 280 && harm >= 0.45
+        && centroid != nil && centroid! >= 250 && centroid! <= 1400 && centroid! > f0 * 1.8
+    if voiceLike { return "voix" }
     if f0 < 450 { return "corps" }
     if harm >= 0.55 { return "nylon" }
     if f0 > 1400 { return "air" }
@@ -84,6 +86,7 @@ func labelTracks(_ tracks: [[String: Any]]) async -> (fm: Bool, labels: [[String
             let f0 = row["f0"] as? Double ?? 0
             let harm = row["harmonicity"] as? Double ?? 0
             let mag = row["mag"] as? Double ?? 0
+            let centroid = row["centroid"] as? Double
             let prompt = """
             Name one live audio source from stats. Reply with one short noun only.
             Allowed: grave, voix, nylon, corde, bois, souffle, bruit, piano, air, corps, metal, basse
@@ -99,9 +102,9 @@ func labelTracks(_ tracks: [[String: Any]]) async -> (fm: Bool, labels: [[String
                     source = "fm"
                 }
             } catch {
-                name = heuristic(f0: f0, harm: harm)
+                name = heuristic(f0: f0, harm: harm, centroid: centroid)
             }
-            if name.isEmpty { name = heuristic(f0: f0, harm: harm) }
+            if name.isEmpty { name = heuristic(f0: f0, harm: harm, centroid: centroid) }
             if !name.isEmpty {
                 labels.append(["id": id, "name": name, "source": source])
             }
@@ -113,7 +116,8 @@ func labelTracks(_ tracks: [[String: Any]]) async -> (fm: Bool, labels: [[String
         let id = row["id"] as? Int ?? Int(row["id"] as? Double ?? 0)
         let f0 = row["f0"] as? Double ?? 0
         let harm = row["harmonicity"] as? Double ?? 0
-        let name = heuristic(f0: f0, harm: harm)
+        let centroid = row["centroid"] as? Double
+        let name = heuristic(f0: f0, harm: harm, centroid: centroid)
         if !name.isEmpty {
             labels.append(["id": id, "name": name, "source": "heuristic"])
         }

@@ -1691,13 +1691,7 @@
   }
 
   function heuristicName(t) {
-    if (t.harm < 0.18 && t.f0 > 180) return "bruit";
-    if (t.f0 < 90) return "grave";
-    if (t.f0 < 280 && t.harm >= 0.35) return "voix";
-    if (t.f0 < 450) return "corps";
-    if (t.harm >= 0.55) return "nylon";
-    if (t.f0 > 1400) return "air";
-    return "";
+    return CRAYON_DSP.heuristicLabel(t.f0, t.harm, t.centroid);
   }
 
   function syncTrackUi() {
@@ -1951,6 +1945,7 @@
         f0: Math.round(t.f0 * 10) / 10,
         bandwidth: 0,
         harmonicity: Math.round(t.harm * 100) / 100,
+        centroid: t.centroid != null ? Math.round(t.centroid * 10) / 10 : null,
         duration: (now - t.born) / 1000,
         mag: t.db
       };

@@ -1270,22 +1270,25 @@ class CrayonPianoApp(App[None]):
                 best["f0"] = float(best["f0"]) * 0.55 + f0 * 0.45
                 best["db"] = float(c["db"])
                 best["harm"] = float(c["harm"])
+                best["centroid"] = float(c.get("centroid") or f0)
                 best["energy"] = energy
                 best["last"] = now
-                name = heuristic_label(best["f0"], best["harm"])
+                name = heuristic_label(best["f0"], best["harm"], best.get("centroid"))
                 if name:
                     best["label"] = name
                 self.live_hist.setdefault(int(best["id"]), deque(maxlen=400)).append(energy)
             else:
                 tid = self.next_track_id
                 self.next_track_id += 1
-                label = heuristic_label(f0, float(c["harm"])) or hz_to_note(f0) or str(int(round(f0)))
+                centroid = float(c.get("centroid") or f0)
+                label = heuristic_label(f0, float(c["harm"]), centroid) or hz_to_note(f0) or str(int(round(f0)))
                 self.live_clusters.append(
                     {
                         "id": tid,
                         "f0": f0,
                         "db": float(c["db"]),
                         "harm": float(c["harm"]),
+                        "centroid": centroid,
                         "energy": energy,
                         "last": now,
                         "label": label,

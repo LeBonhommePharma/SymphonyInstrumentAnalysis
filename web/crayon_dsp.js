@@ -35,16 +35,90 @@
     return peaks.slice(0, 512);
   }
 
+  function centsAbs(a, b) {
+    if (a <= 0 || b <= 0) return 1e9;
+    return Math.abs(1200 * Math.log2(a / b));
+  }
+
+  function fillFundStats(g) {
+    let w = 0;
+    let fSum = 0;
+    g.members.forEach(function (m) {
+      const mag = Math.pow(10, m.db / 20);
+      w += mag;
+      fSum += m.f * mag;
+    });
+    g.centroid = fSum / (w || 1);
+    g.harm = Math.min(1, (g.members.length - 1) / 5);
+    g.logF = Math.log2(Math.max(g.f0, 1e-6));
+    g.logC = Math.log2(Math.max(g.centroid, 1));
+  }
+
+  function refineFundF0(g) {
+    const freqs = g.members.map(function (m) { return m.f; }).filter(function (f) { return f > 0; });
+    if (!freqs.length) return;
+    const cands = freqs.slice();
+    freqs.forEach(function (f) { cands.push(f / 2); });
+    let best = g.f0;
+    let bestScore = -1e18;
+    cands.forEach(function (cand) {
+      if (cand < 20) return;
+      let hits = 0;
+      let oddHi = 0;
+      let hasSelf = false;
+      freqs.forEach(function (f) {
+        const n = Math.round(f / cand);
+        if (n >= 1 && n <= 16 && centsAbs(f, n * cand) < 35) {
+          hits += 1;
+          if (n === 1) hasSelf = true;
+          if (n >= 3 && n % 2 === 1) oddHi += 1;
+        }
+      });
+      if (hits < 2) return;
+      if (!hasSelf && oddHi < 1) return;
+      const score = hits * 1000 + oddHi * 10 - cand;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cand;
+      }
+    });
+    g.f0 = best;
+  }
+
+  function mergeOctaveFunds(funds) {
+    funds = funds.slice().sort(function (a, b) { return a.f0 - b.f0; });
+    const used = {};
+    const out = [];
+    for (let i = 0; i < funds.length; i++) {
+      if (used[i]) continue;
+      const a = funds[i];
+      for (let j = i + 1; j < funds.length; j++) {
+        if (used[j]) continue;
+        const b = funds[j];
+        const n = a.f0 ? Math.round(b.f0 / a.f0) : 0;
+        if (n < 1 || n > 8) continue;
+        if (centsAbs(b.f0, n * a.f0) < 35) {
+          a.members = a.members.concat(b.members);
+          if (b.db > a.db) a.db = b.db;
+          used[j] = true;
+        }
+      }
+      fillFundStats(a);
+      out.push(a);
+    }
+    return out;
+  }
+
   function groupHarmonicFunds(peaks) {
     const funds = [];
-    peaks.forEach(function (p) {
+    peaks.slice().sort(function (a, b) { return b.db - a.db; }).forEach(function (p) {
       let bestIdx = -1;
       let bestCents = 35;
       for (let k = 0; k < funds.length; k++) {
         const f0 = funds[k].f0;
         const n = Math.round(p.f / f0);
         if (n < 2 || n > 16) continue;
-        const cents = Math.abs(1200 * Math.log2(p.f / (n * f0)));
+        const cents = centsAbs(p.f, n * f0);
         if (cents < bestCents) {
           bestCents = cents;
           bestIdx = k;
@@ -58,19 +132,22 @@
       }
     });
     funds.forEach(function (g) {
-      let w = 0;
-      let fSum = 0;
-      g.members.forEach(function (m) {
-        const mag = Math.pow(10, m.db / 20);
-        w += mag;
-        fSum += m.f * mag;
-      });
-      g.centroid = fSum / (w || 1);
-      g.harm = Math.min(1, (g.members.length - 1) / 5);
-      g.logF = Math.log2(g.f0);
-      g.logC = Math.log2(Math.max(g.centroid, 1));
+      refineFundF0(g);
+      fillFundStats(g);
     });
-    return funds;
+    return mergeOctaveFunds(funds);
+  }
+
+  function heuristicLabel(f0, harm, centroid) {
+    if (harm < 0.18 && f0 > 180) return "bruit";
+    if (f0 < 90) return "grave";
+    const voiceLike = f0 >= 85 && f0 <= 280 && harm >= 0.45
+      && centroid != null && centroid >= 250 && centroid <= 1400 && centroid > f0 * 1.8;
+    if (voiceLike) return "voix";
+    if (f0 < 450) return "corps";
+    if (harm >= 0.55) return "nylon";
+    if (f0 > 1400) return "air";
+    return "";
   }
 
   function featOf(g) {
@@ -95,6 +172,9 @@
       .sort(function (a, b) { return b.db - a.db; });
   }
 
+  const DBSCAN_MIN_PTS = 3;
+  const MIN_F0_CENTS = 70;
+
   function densityClusterFunds(funds) {
     if (!funds.length) return [];
     const pts = funds.map(function (g) {
@@ -118,12 +198,16 @@
     function neighbors(i) {
       const out = [];
       for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        if (Math.abs(1200 * (pts[i].g.logF - pts[j].g.logF)) > MIN_F0_CENTS) continue;
         if (featDist(pts[i].x, pts[j].x) <= eps) out.push(j);
       }
       return out;
     }
+    // neighbors exclude self; +1 counts the point. minPts=3 means a pair of
+    // notes is not a core (avoids single-linkage A~B~C chains).
     const core = new Array(n).fill(false);
-    for (let i = 0; i < n; i++) core[i] = neighbors(i).length + 1 >= 2;
+    for (let i = 0; i < n; i++) core[i] = neighbors(i).length + 1 >= DBSCAN_MIN_PTS;
     let cid = 0;
     for (let i = 0; i < n; i++) {
       if (labels[i] !== -1 || !core[i]) continue;
@@ -206,6 +290,7 @@
     groupHarmonicFunds: groupHarmonicFunds,
     densityClusterFunds: densityClusterFunds,
     clusterPeaks: clusterPeaks,
+    heuristicLabel: heuristicLabel,
     selfTest: selfTest
   };
 

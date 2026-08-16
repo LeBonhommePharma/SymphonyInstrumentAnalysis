@@ -67,7 +67,7 @@ def load_wav(path: Path) -> tuple[np.ndarray, int]:
 
 
 def compute_chroma(x: np.ndarray, sr: int, hop_sec: float = 0.125, n_fft: int = 4096) -> tuple[np.ndarray, np.ndarray]:
-    """Return (chroma[12, T], times[T]) with vocal band de-emphasized."""
+    """Return (chroma[12, T], times[T]). Bass slightly boosted; no vocal blanket."""
     hop = max(1, int(hop_sec * sr))
     win = np.hanning(n_fft)
     frames = []
@@ -82,11 +82,7 @@ def compute_chroma(x: np.ndarray, sr: int, hop_sec: float = 0.125, n_fft: int = 
         for i, f in enumerate(freqs):
             if f < 55 or f > 4200:
                 continue
-            w = 1.0
-            if 250 <= f <= 3200:
-                w = 0.28  # soft-ignore vocals
-            if f < 200:
-                w *= 1.25
+            w = 1.25 if f < 200 else 1.0
             midi = 69.0 + 12.0 * math.log2(f / 440.0)
             pc = int(round(midi)) % 12
             chroma[pc] += mag[i] * w

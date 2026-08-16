@@ -12,6 +12,89 @@ import math
 import sys
 from pathlib import Path
 
+def _cents(a: float, b: float) -> float:
+    if a <= 0 or b <= 0:
+        return 1e9
+    return abs(1200 * math.log2(a / b))
+
+
+def _fill_fund_stats(g: dict) -> None:
+    w = 0.0
+    f_sum = 0.0
+    for m in g["members"]:
+        mag = 10 ** (m["db"] / 20)
+        w += mag
+        f_sum += m["f"] * mag
+    g["centroid"] = f_sum / (w or 1.0)
+    g["harm"] = min(1.0, (len(g["members"]) - 1) / 5.0)
+    g["logF"] = math.log2(max(g["f0"], 1e-6))
+    g["logC"] = math.log2(max(g["centroid"], 1.0))
+
+
+def _refine_fund_f0(g: dict) -> None:
+    """Prefer the lowest candidate that explains the partials (not the loudest).
+
+    A clean even series (220, 440, 660…) must stay at 220. Half-f0 is accepted
+    only when a peak sits there or an odd partial (3, 5, …) needs that f0.
+    """
+    freqs = [m["f"] for m in g["members"] if m["f"] > 0]
+    if not freqs:
+        return
+    candidates = list(freqs)
+    for f in freqs:
+        candidates.append(f / 2.0)
+    best_f0 = g["f0"]
+    best_score = -1e18
+    for cand in candidates:
+        if cand < 20:
+            continue
+        hits = 0
+        odd_hi = 0
+        has_self = False
+        for f in freqs:
+            n = round(f / cand)
+            if 1 <= n <= 16 and _cents(f, n * cand) < 35:
+                hits += 1
+                if n == 1:
+                    has_self = True
+                if n >= 3 and n % 2 == 1:
+                    odd_hi += 1
+        if hits < 2:
+            continue
+        if not has_self and odd_hi < 1:
+            continue
+        score = hits * 1000.0 + odd_hi * 10.0 - cand
+        if score > best_score:
+            best_score = score
+            best_f0 = cand
+    g["f0"] = best_f0
+
+
+def _merge_octave_funds(funds: list[dict]) -> list[dict]:
+    funds = sorted(funds, key=lambda g: g["f0"])
+    used: set[int] = set()
+    out: list[dict] = []
+    for i, a in enumerate(funds):
+        if i in used:
+            continue
+        for j in range(i + 1, len(funds)):
+            if j in used:
+                continue
+            b = funds[j]
+            n = round(b["f0"] / a["f0"]) if a["f0"] else 0
+            # n=1 merges refined unisons (loud 220 + quiet 110 both become 110).
+            if n < 1 or n > 8:
+                continue
+            if _cents(b["f0"], n * a["f0"]) < 35:
+                a["members"].extend(b["members"])
+                a["db"] = max(a["db"], b["db"])
+                used.add(j)
+        out.append(a)
+    for g in out:
+        _fill_fund_stats(g)
+    return out
+
+
 def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
     funds: list[dict] = []
     for p in sorted(peaks, key=lambda x: -x["db"]):
@@ -21,7 +104,7 @@ def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
             n = round(p["f"] / g["f0"])
             if n < 2 or n > 16:
                 continue
-            cents = abs(1200 * math.log2(p["f"] / (n * g["f0"])))
+            cents = _cents(p["f"], n * g["f0"])
             if cents < best_cents:
                 best = g
                 best_cents = cents
@@ -31,17 +114,9 @@ def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
         else:
             funds.append({"f0": p["f"], "db": p["db"], "members": [p]})
     for g in funds:
-        w = 0.0
-        f_sum = 0.0
-        for m in g["members"]:
-            mag = 10 ** (m["db"] / 20)
-            w += mag
-            f_sum += m["f"] * mag
-        g["centroid"] = f_sum / (w or 1.0)
-        g["harm"] = min(1.0, (len(g["members"]) - 1) / 5.0)
-        g["logF"] = math.log2(g["f0"])
-        g["logC"] = math.log2(max(g["centroid"], 1.0))
-    return funds
+        _refine_fund_f0(g)
+        _fill_fund_stats(g)
+    return _merge_octave_funds(funds)
 
 
 def feat(g: dict) -> tuple[float, float, float]:
@@ -52,15 +127,12 @@ def dist(a: tuple[float, ...], b: tuple[float, ...]) -> float:
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
 
 
-DBSCAN_MIN_PTS = 2
+DBSCAN_MIN_PTS = 3
 EPS_FLOOR = 0.28
 EPS_CAP = 0.85
-# eps is scaled *below* the median nearest-neighbor gap so two genuinely
-# distinct fundamentals (already harmonic-folded) stay separate. The old
-# 1.35× inflation made eps larger than the typical inter-source gap, which let
-# the single-linkage expansion chain A~B~C into one cluster even when A and C
-# were far apart in feature space.
 EPS_NEIGHBOR_SCALE = 0.9
+# Distinct fundamentals more than this many cents apart never share a cluster.
+MIN_F0_CENTS = 70.0
 
 
 def density_cluster_funds(funds: list[dict]) -> list[dict]:
@@ -85,11 +157,18 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
     labels = [-1] * n
 
     def neighbors(i: int) -> list[int]:
-        return [j for j in range(n) if dist(pts[i]["x"], pts[j]["x"]) <= eps]
+        out: list[int] = []
+        for j in range(n):
+            if i == j:
+                continue
+            if abs(1200.0 * (pts[i]["g"]["logF"] - pts[j]["g"]["logF"])) > MIN_F0_CENTS:
+                continue
+            if dist(pts[i]["x"], pts[j]["x"]) <= eps:
+                out.append(j)
+        return out
 
-    # Proper DBSCAN: only core points (>= minPts points incl. self within eps)
-    # seed a cluster. The previous flood fill treated every point as a core
-    # point, i.e. single-linkage chaining.
+    # neighbors exclude self; +1 counts the point. minPts=3 means a pair of
+    # notes is not a core (avoids single-linkage A~B~C chains).
     core = [len(neighbors(i)) + 1 >= DBSCAN_MIN_PTS for i in range(n)]
     cid = 0
     for i in range(n):
@@ -127,6 +206,7 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
                 "f0": head["f0"],
                 "db": max(g["db"] for g in members),
                 "harm": sum(g["harm"] for g in members) / len(members),
+                "centroid": head["centroid"],
                 "n": sum(len(g["members"]) for g in members),
             }
         )
@@ -140,6 +220,7 @@ def funds_as_clusters(funds: list[dict]) -> list[dict]:
             "f0": g["f0"],
             "db": g["db"],
             "harm": g["harm"],
+            "centroid": g.get("centroid", g["f0"]),
             "n": len(g["members"]),
         }
         for g in funds
@@ -156,13 +237,20 @@ def cluster_peaks(peaks: list[dict], *, merge_nearby: bool = True) -> list[dict]
     return density_cluster_funds(funds)
 
 
-def heuristic_label(f0: float, harm: float) -> str:
-    """Same nouns as iOS/web ClusterLabeler — voix is first-class."""
+def heuristic_label(f0: float, harm: float, centroid: float | None = None) -> str:
+    """Same nouns as iOS/web ClusterLabeler. voix needs a formant-ish centroid."""
     if harm < 0.18 and f0 > 180:
         return "bruit"
     if f0 < 90:
         return "grave"
-    if f0 < 280 and harm >= 0.35:
+    voice_like = (
+        85.0 <= f0 <= 280.0
+        and harm >= 0.45
+        and centroid is not None
+        and 250.0 <= centroid <= 1400.0
+        and centroid > f0 * 1.8
+    )
+    if voice_like:
         return "voix"
     if f0 < 450:
         return "corps"
@@ -194,6 +282,18 @@ def fixture_cases() -> list[dict]:
             "expect_f0": [110.0, 523.25],
         },
         {
+            "name": "louder_overtone",
+            "peaks": [
+                {"f": 110.0, "db": -28.0},
+                {"f": 220.0, "db": -12.0},
+                {"f": 330.0, "db": -22.0},
+                {"f": 440.0, "db": -18.0},
+            ],
+            "merge_nearby": True,
+            "expect_n": 1,
+            "expect_f0": [110.0],
+        },
+        {
             "name": "ceg_offline",
             "peaks": tone_stack(130.81, -18.0, 4)
             + tone_stack(164.81, -20.0, 4)
@@ -211,6 +311,11 @@ def write_fixtures(path: Path) -> None:
         got = cluster_peaks(raw["peaks"], merge_nearby=raw["merge_nearby"])
         if len(got) != raw["expect_n"]:
             raise SystemExit(f"fixture {raw['name']} expected {raw['expect_n']} got {len(got)}")
+        for i, want in enumerate(raw.get("expect_f0") or []):
+            if i >= len(got) or abs(got[i]["f0"] - want) > 1.0:
+                raise SystemExit(
+                    f"fixture {raw['name']} f0[{i}] {got[i]['f0'] if i < len(got) else None} != {want}"
+                )
         cases.append(raw)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"cases": cases}, indent=2), encoding="utf-8")
@@ -276,6 +381,21 @@ def main() -> None:
         raise SystemExit(f"kick + high synth must stay ≥2 sources, got {len(psy)}")
     if not any(c["f0"] < 80 for c in psy) or not any(c["f0"] > 1800 for c in psy):
         raise SystemExit(f"psytrance must keep a low and a high source: {[round(c['f0']) for c in psy]}")
+
+    loud = cluster_peaks(
+        [
+            {"f": 110.0, "db": -28.0},
+            {"f": 220.0, "db": -12.0},
+            {"f": 330.0, "db": -22.0},
+            {"f": 440.0, "db": -18.0},
+        ]
+    )
+    if len(loud) != 1 or abs(loud[0]["f0"] - 110.0) > 2:
+        raise SystemExit(f"louder 220 Hz overtone must fold to 110 Hz, got {loud}")
+    if heuristic_label(220.0, 0.6, centroid=280.0) == "voix":
+        raise SystemExit("cello-like centroid must not be labeled voix")
+    if heuristic_label(220.0, 0.6, centroid=700.0) != "voix":
+        raise SystemExit("formant-ish stack should still be voix")
 
     print(
         f"solo={len(solo)} voice_span={len(voice_span)} two={len(two)} "

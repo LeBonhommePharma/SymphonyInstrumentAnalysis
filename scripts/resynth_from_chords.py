@@ -8,13 +8,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import sys
 import wave
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from voicing import assign_six_layers, hz_only  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CHORD_JSON = ROOT / "analysis_out" / "final_song_chords.json"
@@ -26,23 +32,6 @@ def display_path(path: Path) -> str:
     except ValueError:
         return str(path)
 
-
-# Mid-register reference Hz (octave 4), A4=440
-PC_HZ = {
-    "C": 261.63,
-    "C#": 277.18,
-    "D": 293.66,
-    "D#": 311.13,
-    "E": 329.63,
-    "F": 349.23,
-    "F#": 369.99,
-    "G": 392.00,
-    "G#": 415.30,
-    "A": 440.00,
-    "A#": 466.16,
-    "B": 493.88,
-}
-PC_INDEX = {pc: i for i, pc in enumerate(PC_HZ)}
 
 SR = 44100
 PREVIEW_SEC = 15.0
@@ -199,95 +188,11 @@ def tone_for_layer(freq: float, n: int, sr: int, layer: LayerSpec, seed: int) ->
     return layer.amp * sig * env
 
 
-def parse_chord_root(chord: str | None) -> str | None:
-    if not chord:
-        return None
-    m = re.match(r"^([A-G]#?)", chord)
-    if not m:
-        return None
-    return m.group(1)
-
-
-def hz_in_range(pc: str, lo: float, hi: float) -> float:
-    """Place pitch-class into [lo, hi] preferring the octave nearest the geometric mid."""
-    base = PC_HZ[pc]
-    target = (lo * hi) ** 0.5
-    best = base
-    best_dist = abs(np.log2(base / target))
-    for oct_shift in range(-3, 4):
-        f = base * (2.0**oct_shift)
-        if f < lo * 0.85 or f > hi * 1.15:
-            continue
-        d = abs(np.log2(f / target))
-        if d < best_dist:
-            best = f
-            best_dist = d
-    # clamp soft
-    return float(np.clip(best, lo * 0.9, hi * 1.1))
-
-
-def assign_pcs_to_layers(pcs: list[str], chord: str | None) -> dict[str, list[float]]:
-    """Distribute chord tones across musicians by register/role.
-
-    - upright bass → lowest / root-ish
-    - cello → low-mid
-    - guitars → mid body/extensions split across A / B / nylon
-    - viola sheen → highest extension (when available)
-    """
-    clean = [p for p in pcs if p in PC_HZ][:5]
-    out: dict[str, list[float]] = {L.key: [] for L in LAYERS}
-    if not clean:
-        return out
-
-    root = parse_chord_root(chord)
-    if root not in PC_HZ:
-        root = clean[0]
-
-    # Sort unique pcs low→high by chroma for open voicing
-    uniq = list(dict.fromkeys(clean))
-    sorted_pcs = sorted(uniq, key=lambda p: PC_INDEX[p])
-
-    # Prefer putting true root at the bottom of the stack when present
-    if root in sorted_pcs:
-        sorted_pcs = [root] + [p for p in sorted_pcs if p != root]
-
-    n = len(sorted_pcs)
-    bass_L = LAYERS[0]
-    cello_L = LAYERS[1]
-    gA, gB, nylon, viola = LAYERS[2], LAYERS[3], LAYERS[4], LAYERS[5]
-
-    # Always give bass the root-ish lowest
-    out["upright_bass"].append(hz_in_range(sorted_pcs[0], *bass_L.freq_range_hz))
-
-    if n == 1:
-        # soft cello octave support so the chord still has body
-        out["cello"].append(hz_in_range(sorted_pcs[0], *cello_L.freq_range_hz))
-        return out
-
-    if n == 2:
-        out["cello"].append(hz_in_range(sorted_pcs[1], *cello_L.freq_range_hz))
-        out["guitar_a"].append(hz_in_range(sorted_pcs[1], *gA.freq_range_hz))
-        return out
-
-    # n >= 3: cello takes next-low; remaining split across guitars; top → viola if enough
-    out["cello"].append(hz_in_range(sorted_pcs[1], *cello_L.freq_range_hz))
-
-    mid = sorted_pcs[2:]
-    if n >= 5:
-        # highest extension to viola; rest to guitars
-        top = mid[-1]
-        mid = mid[:-1]
-        out["viola_sheen"].append(hz_in_range(top, *viola.freq_range_hz))
-    elif n == 4:
-        # light viola on highest mid note (sparkle), also nylon gets it softer via split
-        out["viola_sheen"].append(hz_in_range(mid[-1], *viola.freq_range_hz))
-
-    guitar_layers = [gA, gB, nylon]
-    for i, pc in enumerate(mid):
-        L = guitar_layers[i % 3]
-        out[L.key].append(hz_in_range(pc, *L.freq_range_hz))
-
-    return out
+def assign_pcs_to_layers(
+    pcs: list[str], chord: str | None, *, seg_index: int = 0
+) -> dict[str, list[float]]:
+    """Six synthesis layers from the shared voicing map."""
+    return hz_only(assign_six_layers(pcs, chord, seg_index=seg_index))
 
 
 def synthesize_layers(
@@ -310,7 +215,7 @@ def synthesize_layers(
             continue
         n = i1 - i0
         fade = min(int(0.012 * sr), n // 4)
-        assigned = assign_pcs_to_layers(pcs, chord)
+        assigned = assign_pcs_to_layers(pcs, chord, seg_index=si)
 
         for key, freqs in assigned.items():
             if not freqs:
@@ -389,8 +294,8 @@ def mix_mono(buffers: dict[str, np.ndarray]) -> np.ndarray:
 
 def build_assignment_log(timeline: list[dict], max_rows: int = 12) -> list[str]:
     rows: list[str] = []
-    for seg in timeline[:max_rows]:
-        assigned = assign_pcs_to_layers(list(seg.get("pcs") or []), seg.get("chord"))
+    for si, seg in enumerate(timeline[:max_rows]):
+        assigned = assign_pcs_to_layers(list(seg.get("pcs") or []), seg.get("chord"), seg_index=si)
         parts = []
         for L in LAYERS:
             freqs = assigned[L.key]
@@ -417,8 +322,8 @@ def save_layer_figure(timeline: list[dict], duration: float, path: Path) -> None
     y_labels = [L.display for L in LAYERS]
     y_pos = {L.key: i for i, L in enumerate(LAYERS)}
 
-    for seg in timeline:
-        assigned = assign_pcs_to_layers(list(seg.get("pcs") or []), seg.get("chord"))
+    for si, seg in enumerate(timeline):
+        assigned = assign_pcs_to_layers(list(seg.get("pcs") or []), seg.get("chord"), seg_index=si)
         start, end = float(seg["start"]), float(seg["end"])
         for L in LAYERS:
             if not assigned[L.key]:

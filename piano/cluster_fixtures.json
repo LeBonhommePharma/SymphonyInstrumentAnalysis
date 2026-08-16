@@ -90,6 +90,32 @@
       ]
     },
     {
+      "name": "louder_overtone",
+      "peaks": [
+        {
+          "f": 110.0,
+          "db": -28.0
+        },
+        {
+          "f": 220.0,
+          "db": -12.0
+        },
+        {
+          "f": 330.0,
+          "db": -22.0
+        },
+        {
+          "f": 440.0,
+          "db": -18.0
+        }
+      ],
+      "merge_nearby": true,
+      "expect_n": 1,
+      "expect_f0": [
+        110.0
+      ]
+    },
+    {
       "name": "ceg_offline",
       "peaks": [
         {
