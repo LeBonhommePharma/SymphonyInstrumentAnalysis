@@ -206,6 +206,8 @@ def check_public_site() -> None:
         raise SystemExit("public piano must bind typing keys to crayon notes")
     if "function holdMidi" not in piano or "syncPianoBinds" not in piano:
         raise SystemExit("public piano must light the 88-key from the computer keyboard")
+    if "crayon-piano-scores" not in piano or "key.need" not in piano or "key.hit" not in piano:
+        raise SystemExit("public piano must include held/need/hit scoring")
     if "pages-crumb" not in piano:
         raise SystemExit("public piano must link back to the Pages hub")
     if "loopWantsFrames" not in piano or "FFT_SIZE = 8192" not in piano:
@@ -337,6 +339,9 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must be full-size 88-key (52 white keys × 28px min)")
     if ">Nuit<" in html:
         raise SystemExit("HTML piano must not use the Nuit checkbox label")
+    tui = (SCRIPTS / "crayon_piano.py").read_text(encoding="utf-8")
+    if "avfoundation" not in tui or "mic_ffmpeg_cmds" not in tui:
+        raise SystemExit("TUI listen must capture via AVFoundation on macOS")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "crayon_piano.py"), "--self-test"],
         capture_output=True,
