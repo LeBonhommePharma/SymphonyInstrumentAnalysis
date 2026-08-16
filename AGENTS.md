@@ -15,6 +15,8 @@ See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README
 - **Terminal piano** (`scripts/crayon_piano.py`): Textual TUI matching the HTML layout
   (`piano/ui_contract.json`). `.venv/bin/python scripts/crayon_piano.py` or `--self-test`.
 - **Public silent tutorial** (`docs/`): GitHub Pages. Live listen of the device’s current audio.
+  Track discrimination uses the same float-dB peak-picker + density cluster as the crayon piano
+  (27.5–5000 Hz; vocals and dense highs included).
   Canonical URL: `https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/`.
 
 There is no database, backend service, build step, or test/lint framework configured.

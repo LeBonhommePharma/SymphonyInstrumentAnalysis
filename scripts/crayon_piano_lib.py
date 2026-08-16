@@ -36,7 +36,10 @@ TUNE_LO_HZ = 80.0
 TUNE_HI_HZ = 1400.0
 TUNE_WINDOW_S = 2.2
 MIXED_LO_HZ = 27.5
-MIXED_HI_HZ = 2500.0
+MIXED_HI_HZ = 5000.0
+MAX_MIX_PEAKS = 512
+PEAK_FLOOR_OFFSET_DB = 10.0
+PEAK_MIN_DB = -78.0
 FFT_SIZE = 8192
 # Shared spectrum plot: log-Hz A0–C8, dBFS. Same math as iOS/web/tutorial.
 SPEC_F_LO = 27.5  # A0
@@ -382,6 +385,7 @@ class FrameResult:
     gate: float
     abs_gate: float
     peaks: list[tuple[float, float]]
+    mix_peaks: list[dict]
     band_energy: dict[str, float]
     a_est: float
     tune_ready: bool
@@ -404,6 +408,34 @@ def _band_noise_floor(spec: np.ndarray, i0: int, i1: int) -> float:
     if samples.size == 0:
         return -90.0
     return float(np.median(samples))
+
+
+def extract_cluster_peaks(
+    spec: np.ndarray,
+    bin_hz: float,
+    f_lo: float = MIXED_LO_HZ,
+    f_hi: float = MIXED_HI_HZ,
+) -> list[dict]:
+    """Piano mix-peak picker: float dB, noise floor, parabolic interp, ≤512 peaks."""
+    i0 = max(2, int(np.floor(f_lo / bin_hz)))
+    i1 = min(spec.size - 2, int(np.ceil(f_hi / bin_hz)))
+    if i1 <= i0:
+        return []
+    floor = _band_noise_floor(spec, i0, i1)
+    min_db = max(PEAK_MIN_DB, floor + PEAK_FLOOR_OFFSET_DB)
+    peaks: list[dict] = []
+    for i in range(i0, i1 + 1):
+        db = float(spec[i])
+        if db < min_db:
+            continue
+        if db > spec[i - 1] and db >= spec[i + 1] and db > spec[i - 2] and db >= spec[i + 2]:
+            denom = float(spec[i - 1] - 2 * spec[i] + spec[i + 1])
+            delta = (0.5 * float(spec[i - 1] - spec[i + 1]) / denom) if denom else 0.0
+            freq = (i + delta) * bin_hz
+            if f_lo <= freq <= f_hi:
+                peaks.append({"f": float(freq), "db": db})
+    peaks.sort(key=lambda p: p["db"], reverse=True)
+    return peaks[:MAX_MIX_PEAKS]
 
 
 def _scan_tune_peaks(spec: np.ndarray, bin_hz: float) -> list[tuple[float, float]]:
@@ -674,6 +706,7 @@ class PeakPicker:
             gate=gate,
             abs_gate=abs_gate,
             peaks=peaks,
+            mix_peaks=extract_cluster_peaks(spec, bin_hz),
             band_energy=energy,
             a_est=self.a_est,
             tune_ready=self.tune_ready,

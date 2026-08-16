@@ -107,5 +107,13 @@
         "x": "log Hz, A0 27.5 → C8 4186, tick 440 at A4",
         "y": "dBFS −90…0",
         "sources": "unbounded clustered funds + held keys on the same axes"
+    },
+    "peakPick": {
+        "fft": "float dBFS, Hann/AnalyserNode, 27.5–5000 Hz",
+        "mixPeaks": "local maxima, parabolic interp, noise-floor+10 dB, min −78 dBFS, max 512, no semitone pre-dedup",
+        "cluster": "harmonic series collapse (n=2–16, 35¢) then density cluster; keep db > −90; no count cap",
+        "keys": "MIDI score A0–C8, smooth 0.62/0.38, relative gate, chords ≤8",
+        "vocals": "first-class pitched source (not de-emphasized)",
+        "shared": "scripts/crayon_piano_lib.py extract_cluster_peaks + scripts/density_cluster.py"
     }
 }
