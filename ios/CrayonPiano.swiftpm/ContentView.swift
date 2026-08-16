@@ -73,6 +73,16 @@ struct ContentView: View {
         .preferredColorScheme(session.scene.colorScheme)
         .statusBarHidden(false)
         .animation(.easeInOut(duration: 0.22), value: session.sceneChoice)
+        .focusable()
+        .onKeyPress(phases: [.down, .up]) { press in
+            let chars = String(press.characters)
+            if chars.isEmpty { return .ignored }
+            if let guessed = KeyboardLayout.infer(code: "", key: chars) {
+                session.layoutId = guessed
+            }
+            session.handleHardwareCharacters(chars, down: press.phase == .down)
+            return KeyboardLayout.midi(forCharacters: chars) == nil ? .ignored : .handled
+        }
     }
 
     private var header: some View {
@@ -80,6 +90,9 @@ struct ContentView: View {
             Text("Piano-crayon")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(session.scene.ink)
+            Text("\(session.scoreValue) · best \(session.bestScore) · \(session.layoutId.rawValue.uppercased())")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(session.scene.muted)
             Spacer(minLength: 8)
             scenePicker
         }
