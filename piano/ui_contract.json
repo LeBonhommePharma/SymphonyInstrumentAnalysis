@@ -86,16 +86,17 @@
     "autotune": "estimate concert A 415–466 Hz; off locks 440"
   },
   "tuiKeys": {
-    "l": "listen",
-    "r": "replay",
-    "0": "Tous",
-    "1-5": "musicians bass..nylon",
-    "c": "chords",
-    "u": "unmute",
-    "a": "autotune",
-    "[ ]": "sensitivity",
+    "ctrl+l": "listen",
+    "ctrl+r": "replay",
+    "ctrl+0": "Tous",
+    "ctrl+1-5": "musicians bass..nylon",
+    "ctrl+k": "chords",
+    "ctrl+u": "unmute",
+    "ctrl+a": "autotune",
+    "ctrl+t": "theme",
+    "pageup/pagedown": "sensitivity",
     "left/right": "seek ±1s on replay",
-    "q": "quit"
+    "escape": "quit (Q is La4)"
   },
     "theme": {
         "scenes": ["day", "light", "dark", "night", "stealth"],
@@ -125,7 +126,7 @@
         "physical": "KeyboardEvent.code / scan-code. Same piano midi on US and Canadian French CSA.",
         "glyphs": "layout-specific keycaps (CSA Slash=é, Backquote=/, BracketLeft=^)",
         "detect": "Keyboard Map API / macOS HIToolbox / infer from code+key / fr_CA",
-        "map": "Z–M = C3–B3 with S D G H J sharps; Q–P = C4–E5 with 2 3 5 6 7 9 0 sharps"
+        "map": "sequential crayon: KeyZ=Do3, KeyD=Do4, KeyQ=La4 (dual_keyboard.midiForKid / DualNoteMap)"
     },
     "scoring": {
         "chart": "current peak-picker lit midis from whatever the user is listening to",

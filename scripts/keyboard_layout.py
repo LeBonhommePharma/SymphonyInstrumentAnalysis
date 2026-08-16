@@ -2,8 +2,9 @@
 """Computer-keyboard → piano map + score store.
 
 Physical keys use KeyboardEvent.code / scan-code names so Canadian French CSA
-and US ANSI light the same piano keys. Glyphs on the overlay follow the
-detected layout. Shared with web / iOS / TUI via piano/ui_contract.json.
+and US ANSI light the same piano keys. Notes follow the sequential crayon map
+(KeyZ=Do3, KeyD=Do4, KeyQ=La4). Shared with web / iOS / TUI via
+piano/ui_contract.json.
 """
 from __future__ import annotations
 
@@ -14,41 +15,15 @@ import subprocess
 from pathlib import Path
 from typing import Literal
 
+from dual_keyboard import CSA, NOTE_KIDS, US, midi_for_kid
+
 LayoutId = Literal["us", "csa"]
 Highlight = Literal["idle", "held", "need", "hit"]
 
-# Two-octave play-along, C3–E5. Codes are physical (US ANSI / ISO letter row).
-# CSA keeps the same letter-row scan codes; only punctuation glyphs change.
+# Sequential crayon map (same as dual_keyboard / DualNoteMap).
+# KeyZ = Do3, home-row D = Do4, KeyQ = La4.
 CODE_TO_MIDI: dict[str, int] = {
-    "KeyZ": 48,
-    "KeyS": 49,
-    "KeyX": 50,
-    "KeyD": 51,
-    "KeyC": 52,
-    "KeyV": 53,
-    "KeyG": 54,
-    "KeyB": 55,
-    "KeyH": 56,
-    "KeyN": 57,
-    "KeyJ": 58,
-    "KeyM": 59,
-    "KeyQ": 60,
-    "Digit2": 61,
-    "KeyW": 62,
-    "Digit3": 63,
-    "KeyE": 64,
-    "KeyR": 65,
-    "Digit5": 66,
-    "KeyT": 67,
-    "Digit6": 68,
-    "KeyY": 69,
-    "Digit7": 70,
-    "KeyU": 71,
-    "KeyI": 72,
-    "Digit9": 73,
-    "KeyO": 74,
-    "Digit0": 75,
-    "KeyP": 76,
+    kid: midi for kid in (*NOTE_KIDS, "IntlBackslash") if (midi := midi_for_kid(kid)) is not None
 }
 
 # Unshifted keycap glyphs. Letter keys match on US and CSA.
@@ -127,41 +102,18 @@ LABELS: dict[LayoutId, dict[str, str]] = {
     },
 }
 
-# Textual / character fallback when we only have a produced glyph.
-CHAR_TO_CODE_US: dict[str, str] = {
-    "z": "KeyZ",
-    "s": "KeyS",
-    "x": "KeyX",
-    "d": "KeyD",
-    "c": "KeyC",
-    "v": "KeyV",
-    "g": "KeyG",
-    "b": "KeyB",
-    "h": "KeyH",
-    "n": "KeyN",
-    "j": "KeyJ",
-    "m": "KeyM",
-    "q": "KeyQ",
-    "2": "Digit2",
-    "w": "KeyW",
-    "3": "Digit3",
-    "e": "KeyE",
-    "r": "KeyR",
-    "5": "Digit5",
-    "t": "KeyT",
-    "y": "KeyY",
-    "6": "Digit6",
-    "7": "Digit7",
-    "u": "KeyU",
-    "i": "KeyI",
-    "9": "Digit9",
-    "o": "KeyO",
-    "0": "Digit0",
-    "p": "KeyP",
-}
+def _char_to_code(layout) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key in layout.keys:
+        if key.kind != "char" or not key.base:
+            continue
+        token = key.base.lower() if len(key.base) == 1 and key.base.isascii() else key.base
+        out[token] = key.kid
+    return out
 
-CHAR_TO_CODE_CSA: dict[str, str] = dict(CHAR_TO_CODE_US)
-CHAR_TO_CODE_CSA.update({"é": "Slash", "/": "Backquote", "^": "BracketLeft", "ù": "IntlBackslash"})
+
+CHAR_TO_CODE_US: dict[str, str] = _char_to_code(US)
+CHAR_TO_CODE_CSA: dict[str, str] = _char_to_code(CSA)
 
 POINTS_HIT = 10
 STREAK_BONUS = 1
@@ -173,7 +125,7 @@ def label_for(code: str, layout: LayoutId) -> str:
 
 
 def midi_for_code(code: str) -> int | None:
-    return CODE_TO_MIDI.get(code)
+    return midi_for_kid(code)
 
 
 def midi_for_char(char: str, layout: LayoutId) -> int | None:
@@ -331,10 +283,12 @@ class ScoreStore:
 
 
 def main() -> None:
-    if midi_for_code("KeyA") is not None:
-        raise SystemExit("KeyA must stay unbound so CSA/US A does not steal listen/autotune")
-    if midi_for_code("KeyQ") != 60 or midi_for_code("KeyZ") != 48:
-        raise SystemExit("Q=C4 and Z=C3 required")
+    if midi_for_code("KeyZ") != 48 or midi_for_code("KeyD") != 60 or midi_for_code("KeyQ") != 69:
+        raise SystemExit("kid map required: Z=Do3 D=Do4 Q=La4")
+    if midi_for_code("KeyA") != 58:
+        raise SystemExit("KeyA is La♯3 on the sequential crayon map")
+    if midi_for_char("q", "us") != 69 or midi_for_char("d", "csa") != 60:
+        raise SystemExit("letter keys must follow the kid map on both layouts")
     if label_for("Slash", "csa") != "é" or label_for("Slash", "us") != "/":
         raise SystemExit("Slash glyph must differ CSA vs US")
     if infer_layout("Slash", "é") != "csa" or infer_layout("Slash", "/") != "us":
