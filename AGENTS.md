@@ -86,5 +86,5 @@ Open the file directly (no server):
 xdg-open web/keyboard.html   # or in Chrome/Safari: file:///workspace/web/keyboard.html
 ```
 
-Hold piano keys to play notes. **Rejouer** runs the built-in demo.
+Hold piano keys or type the computer keyboard (Z = Do3, D = Do4, Q = La4) to play notes. **Rejouer** runs the built-in demo.
 Do not start `python3 -m http.server` unless you are specifically testing a WAV fetch.

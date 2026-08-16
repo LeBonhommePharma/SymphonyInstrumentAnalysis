@@ -795,11 +795,23 @@
       opacity: 0.62;
       font-weight: 600;
     }
+    .kb-key.mapped {
+      background: color-mix(in srgb, var(--crayon) 22%, var(--key-white));
+    }
+    .kb-key .note {
+      font-size: 0.48rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: var(--crayon, var(--muted));
+      line-height: 1;
+      pointer-events: none;
+    }
     .kb-key.on {
       background: var(--crayon, var(--replay-on));
       color: var(--lab, #f4efe6);
       box-shadow: 0 0 8px color-mix(in srgb, var(--crayon, var(--replay-on)) var(--glow), transparent);
     }
+    .kb-key.on .note { color: var(--lab, var(--ink)); opacity: 0.95; }
     .kb-key.blocked {
       opacity: 0.32;
     }
@@ -865,6 +877,20 @@
       opacity: 0.7;
       pointer-events: none;
     }
+    .key .bind {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 0.5rem;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--muted);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .key.bound .bind { opacity: 0.62; }
     .black {
       position: absolute;
       top: 0;
@@ -889,6 +915,8 @@
       opacity: 0.55;
       pointer-events: none;
     }
+    .black .bind { top: 3px; font-size: 0.42rem; }
+    .key.on .bind { color: var(--ink); opacity: 0.88; }
     .key.on {
       background: var(--crayon) !important;
       box-shadow:
@@ -1087,6 +1115,11 @@
     html[data-scheme="light"] .white .name { color: var(--ink); opacity: 0.42; }
     html[data-scheme="light"] .key.on .name { color: var(--lab); opacity: 1; }
     html[data-scheme="light"] .black .name { color: #efe8dc; opacity: 0.4; }
+    html[data-scheme="light"] .kb-key.mapped {
+      background: color-mix(in srgb, var(--crayon) 18%, var(--key-white));
+    }
+    html[data-scheme="light"] .key.bound .bind { color: var(--ink); opacity: 0.5; }
+    html[data-scheme="light"] .key.on .bind { color: var(--lab); opacity: 0.9; }
     html[data-scheme="light"] .key.on {
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
@@ -1210,7 +1243,7 @@
   <div class="type-well">
     <div class="type-head">
       <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
-      <pre id="typeOut" class="type-out" data-hint="US · 10 doigts, plus si bien groupés" aria-live="polite"></pre>
+      <pre id="typeOut" class="type-out" data-hint="US · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
       <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
       <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Disposition">
         <button type="button" data-layout="us" aria-pressed="true">US</button>
@@ -1329,6 +1362,8 @@
   let nextTrackId = 1;
   let selectedTrackIds = new Set();
   const fingerGate = new DUAL.FingerGate();
+  const midiHolders = new Map();
+  let lastChipKey = "";
   const typeState = new DUAL.TypeState();
   const LAYOUT_STORE = "crayon-kb-layout";
   let activeBoard = readStoredLayout();
@@ -2172,13 +2207,25 @@
       const main = document.createElement("span");
       main.textContent = keyLabel(key) || (key.kind === "space" ? "" : key.base);
       el.appendChild(main);
-      if (key.kind === "char" && key.shift && key.shift !== key.base.toUpperCase()) {
-        const sub = document.createElement("span");
-        sub.className = "sub";
-        sub.textContent = key.shift;
-        el.appendChild(sub);
+      const midi = DUAL.midiForKid(key.kid);
+      if (midi != null) {
+        el.classList.add("mapped");
+        el.dataset.midi = String(midi);
+        const note = document.createElement("span");
+        note.className = "note";
+        note.textContent = DUAL.noteLabelFr(midi);
+        el.appendChild(note);
+        paintEl(el, crayonOf(midi));
+        el.setAttribute("aria-label", (key.base || key.kind) + " " + DUAL.noteLabelFr(midi) + " " + layout.id);
+      } else {
+        if (key.kind === "char" && key.shift && key.shift !== key.base.toUpperCase()) {
+          const sub = document.createElement("span");
+          sub.className = "sub";
+          sub.textContent = key.shift;
+          el.appendChild(sub);
+        }
+        el.setAttribute("aria-label", (key.base || key.kind) + " " + layout.id);
       }
-      el.setAttribute("aria-label", (key.base || key.kind) + " " + layout.id);
       el.addEventListener("pointerdown", onKbPointerDown);
       board.appendChild(el);
       keyEls.set(layout.id + ":" + key.kid, el);
@@ -2201,8 +2248,8 @@
 
   function layoutHint(id) {
     return id === "csa"
-      ? "Canadien français · 10 doigts, plus si bien groupés"
-      : "US · 10 doigts, plus si bien groupés";
+      ? "Canadien français · Z=Do3 · D=Do4 · Q=La4"
+      : "US · Z=Do3 · D=Do4 · Q=La4";
   }
 
   function syncLayoutPicker() {
@@ -2230,6 +2277,7 @@
       activeBoard = next;
       try { localStorage.setItem(LAYOUT_STORE, next); } catch (e) { /* private mode */ }
       rebuildBoard();
+      syncPianoBinds();
     }
     syncLayoutPicker();
     renderKbMeta();
@@ -2266,9 +2314,13 @@
     rebuildBoard();
     wireKeyboard();
     syncLayoutPicker();
+    syncPianoBinds();
     window.__CRAYON_SET_LAYOUT = setLayout;
     window.__CRAYON_LAYOUT = function () { return activeBoard; };
     window.__CRAYON_TYPED = function () { return typeState.text; };
+    window.__CRAYON_MIDI_FOR_KID = DUAL.midiForKid;
+    window.__CRAYON_KID_FOR_MIDI = DUAL.kidForMidi;
+    window.__CRAYON_NOTE_LABEL = DUAL.noteLabelFr;
   }
 
   function renderTypeOut() {
@@ -2292,20 +2344,27 @@
         const key = DUAL.keyById(DUAL.LAYOUTS[h.board], h.kid);
         return key ? (key.base || key.kind) : "";
       }).join("");
+      const midis = members.map(function (h) { return DUAL.midiForKid(h.kid); }).filter(function (m) {
+        return m != null;
+      });
+      const midi0 = midis.length ? Math.min.apply(null, midis) : null;
+      const f0 = midi0 != null ? midiToHz(midi0) : 110 * Math.pow(2, (cx % 12) / 12);
+      const pc = midi0 != null ? pcOf(midi0) : NOTE_NAMES[i % 12];
+      const label = (midi0 != null ? DUAL.noteLabelFr(midi0) + " · " : "") + glyphs;
       let found = liveTracks.find(function (t) {
         return t.spatial && Math.abs(t.cx - cx) < 1.4;
       });
       if (!found) {
         found = {
           id: nextTrackId++,
-          f0: 110 * Math.pow(2, (cx % 12) / 12),
+          f0: f0,
           db: -12,
           harm: 0.4,
           energy: 1,
           lastSeen: now,
           born: now,
-          pc: NOTE_NAMES[i % 12],
-          label: glyphs,
+          pc: pc,
+          label: label,
           labelSource: "keys",
           hist: null,
           spatial: true,
@@ -2313,10 +2372,11 @@
         };
       } else {
         found.cx = found.cx * 0.5 + cx * 0.5;
+        found.f0 = f0;
         found.energy = 1;
         found.lastSeen = now;
-        found.label = glyphs;
-        found.pc = NOTE_NAMES[i % 12];
+        found.label = label;
+        found.pc = pc;
       }
       next.push(found);
     });
@@ -2339,14 +2399,17 @@
       });
     });
     keyEls.forEach(function (el, id) {
-      const idx = heldAt.get(id);
-      const on = idx != null;
+      const kid = el.dataset.kid;
+      const midi = kid ? DUAL.midiForKid(kid) : null;
+      const on = heldAt.has(id) || (midi != null && midiHolders.has(midi) && midiHolders.get(midi).size > 0);
       el.classList.toggle("on", on);
-      if (on) {
-        const crayon = crayonForCluster(idx);
-        paintEl(el, crayon);
-        const track = liveTracks[idx];
+      if (midi != null) {
+        paintEl(el, crayonOf(midi));
+        const track = liveTracks[heldAt.get(id)];
         el.classList.toggle("off", track ? !trackIsOn(track.id) : false);
+      } else if (on) {
+        const crayon = crayonForCluster(heldAt.get(id) || 0);
+        paintEl(el, crayon);
       } else {
         el.style.removeProperty("--crayon");
       }
@@ -2377,17 +2440,107 @@
     typeState.release(key);
   }
 
+  function midiHolderId(key) {
+    return "k-" + key.board + ":" + key.kid;
+  }
+
+  function holdMidi(holder, midi) {
+    if (midi == null) return;
+    let set = midiHolders.get(midi);
+    if (!set) {
+      set = new Set();
+      midiHolders.set(midi, set);
+    }
+    const first = set.size === 0;
+    set.add(holder);
+    if (first) startHeldKey(midi);
+    paintHeldPiano();
+    paintDualKeys();
+  }
+
+  function releaseMidi(holder, midi) {
+    if (midi == null) return;
+    const set = midiHolders.get(midi);
+    if (!set) return;
+    set.delete(holder);
+    if (set.size === 0) {
+      midiHolders.delete(midi);
+      stopHeldKey(midi);
+    }
+    paintHeldPiano();
+    paintDualKeys();
+  }
+
+  function keyStillHeld(key) {
+    return fingerGate.held().some(function (h) { return DUAL.sameHeld(h, key); });
+  }
+
+  function paintHeldPiano() {
+    const held = new Set(midiHolders.keys());
+    const analysing = !!(analyser && spec && audioCtx && (mode !== "idle" || heldVoices.size > 0));
+    keys.forEach(function (el, midi) {
+      if (held.has(midi)) {
+        el.classList.add("on");
+        el.classList.remove("harm");
+        paintEl(el, crayonOf(midi));
+        const lab = el.querySelector(".name");
+        if (lab) lab.textContent = crayonOf(midi).fr + octaveOf(midi);
+      } else if (mode === "idle" && !analysing) {
+        el.classList.remove("on", "harm");
+        restoreIdleLabel(el);
+      }
+    });
+    if (mode === "idle" && !analysing) {
+      const chips = Array.from(held).sort(function (a, b) { return a - b; });
+      const chipKey = chips.join(",");
+      if (chipKey !== lastChipKey) {
+        lastChipKey = chipKey;
+        $chips.innerHTML = "";
+        chips.forEach(function (midi) {
+          const info = crayonOf(midi);
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.dataset.pc = pcOf(midi);
+          paintEl(chip, info);
+          chip.textContent = info.fr + octaveOf(midi);
+          $chips.appendChild(chip);
+        });
+        $chips.appendChild($hzLive);
+      }
+      if (chips.length) $hzLive.textContent = String(Math.round(midiToHz(chips[0])));
+      else $hzLive.textContent = "";
+    }
+  }
+
+  function syncPianoBinds() {
+    const layout = selectedLayout();
+    keys.forEach(function (el, midi) {
+      const bind = el.querySelector(".bind");
+      if (!bind) return;
+      const kid = DUAL.kidForMidi(midi);
+      if (!kid || (kid === "IntlBackslash" && layout.id !== "csa")) {
+        bind.textContent = "";
+        el.classList.remove("bound");
+        return;
+      }
+      const key = DUAL.keyById(layout, kid);
+      bind.textContent = key && key.kind === "char" ? key.base : "";
+      el.classList.toggle("bound", !!bind.textContent);
+    });
+  }
+
   function onKbPointerDown(ev) {
     ev.preventDefault();
     const el = ev.currentTarget;
     try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
     activeBoard = el.dataset.board;
     const key = { board: el.dataset.board, kid: el.dataset.kid };
-    const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, key); });
+    const already = keyStillHeld(key);
     const ok = fingerGate.down(ev.pointerId, key);
     el.classList.toggle("blocked", !ok);
     if (!ok) return;
     if (!already) applyTyped(key.board, key.kid);
+    holdMidi(midiHolderId(key), DUAL.midiForKid(key.kid));
     syncSpatialTracks();
     renderKbMeta();
     startLoop();
@@ -2397,6 +2550,9 @@
     const prev = fingerGate.at(ev.pointerId);
     if (prev) releaseTyped(prev.board, prev.kid);
     fingerGate.up(ev.pointerId);
+    if (prev && !keyStillHeld(prev)) {
+      releaseMidi(midiHolderId(prev), DUAL.midiForKid(prev.kid));
+    }
     syncSpatialTracks();
     renderKbMeta();
   }
@@ -2411,9 +2567,10 @@
     if (!key) return;
     ev.preventDefault();
     const held = { board: layout.id, kid: key.kid };
-    const already = fingerGate.held().some(function (h) { return DUAL.sameHeld(h, held); });
+    const already = keyStillHeld(held);
     if (!fingerGate.down("hw-" + ev.code, held)) return;
     if (!already) applyTyped(layout.id, key.kid);
+    holdMidi(midiHolderId(held), DUAL.midiForKid(key.kid));
     syncSpatialTracks();
     renderKbMeta();
     startLoop();
@@ -2422,10 +2579,32 @@
   function onHwKeyUp(ev) {
     const layout = DUAL.LAYOUTS[activeBoard] || DUAL.US;
     const key = DUAL.keyByCode(layout, ev.code);
+    const held = key ? { board: layout.id, kid: key.kid } : null;
     if (key) releaseTyped(layout.id, key.kid);
     fingerGate.up("hw-" + ev.code);
+    if (held && !keyStillHeld(held)) {
+      releaseMidi(midiHolderId(held), DUAL.midiForKid(held.kid));
+    }
     syncSpatialTracks();
     renderKbMeta();
+  }
+
+  function releaseComputerMidi() {
+    const drop = [];
+    midiHolders.forEach(function (set, midi) {
+      Array.from(set).forEach(function (id) {
+        if (id.indexOf("k-") === 0) {
+          set.delete(id);
+          drop.push(midi);
+        }
+      });
+      if (set.size === 0) midiHolders.delete(midi);
+    });
+    drop.forEach(function (midi) {
+      if (!midiHolders.has(midi)) stopHeldKey(midi);
+    });
+    paintHeldPiano();
+    paintDualKeys();
   }
 
   function releaseTypedHolds() {
@@ -2433,12 +2612,14 @@
       releaseTyped(prev.board, prev.kid);
     });
     fingerGate.clear();
+    releaseComputerMidi();
     syncSpatialTracks();
     renderKbMeta();
   }
 
   function releaseStuckHolds() {
     releaseTypedHolds();
+    midiHolders.clear();
     Array.from(heldVoices.keys()).forEach(stopHeldKey);
     keys.forEach(function (el) {
       if (mode === "idle") {
@@ -2446,6 +2627,7 @@
         restoreIdleLabel(el);
       }
     });
+    paintDualKeys();
     syncSpatialTracks();
     renderKbMeta();
   }
@@ -2499,19 +2681,17 @@
       }
       el.appendChild(lab);
       el.dataset.idleName = lab.textContent;
-      function releasePianoPointer() {
-        stopHeldKey(m);
-        if (mode === "idle" && !heldVoices.has(m)) {
-          el.classList.remove("on", "harm");
-          restoreIdleLabel(el);
-        }
+      const bind = document.createElement("span");
+      bind.className = "bind";
+      el.appendChild(bind);
+      function releasePianoPointer(ev) {
+        releaseMidi("p-" + ev.pointerId, m);
       }
       el.addEventListener("pointerdown", function (ev) {
         ev.preventDefault();
         try { el.setPointerCapture(ev.pointerId); } catch (e) { /* extra synthetic pointers */ }
-        startHeldKey(m);
-        el.classList.add("on");
-        paintEl(el, crayonOf(m));
+        holdMidi("p-" + ev.pointerId, m);
+        startLoop();
       });
       el.addEventListener("pointerup", releasePianoPointer);
       el.addEventListener("pointercancel", releasePianoPointer);
@@ -3619,8 +3799,6 @@
     window.visualViewport.addEventListener("resize", onResize);
   }
 
-  let lastChipKey = "";
-
   function restoreIdleLabel(el) {
     const lab = el.querySelector(".name");
     if (lab && el.dataset.idleName) lab.textContent = el.dataset.idleName;
@@ -3673,6 +3851,8 @@
     window.__CRAYON_LOOP_ON = true;
     const canAnalyse = !!(analyser && spec && audioCtx && (mode !== "idle" || heldVoices.size > 0));
     if (!canAnalyse) {
+      paintHeldPiano();
+      paintDualKeys();
       pushTrackHist(now);
       drawWave(true, { playhead: false });
       paintClock(dt);
@@ -3767,6 +3947,13 @@
       litSet[lit[k].midi] = lit[k];
       litPc[pcOf(lit[k].midi)] = true;
     }
+    midiHolders.forEach(function (_set, midi) {
+      if (midi < MIDI_LO || midi > MIDI_HI) return;
+      if (!litSet[midi]) {
+        litSet[midi] = { midi: midi, s: loudest, freq: midiToHz(midi) };
+        litPc[pcOf(midi)] = true;
+      }
+    });
 
     const ghostSet = {};
     for (let k = 0; k < lit.length; k++) {

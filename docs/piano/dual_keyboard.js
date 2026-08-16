@@ -1,5 +1,6 @@
 /* US ANSI + Canadian French CSA. Mirrors scripts/dual_keyboard.py.
    One layout at a time; the picker remaps glyphs and hardware together.
+   Character keys are bound to crayon notes (KeyZ = Do3, KeyD = Do4, KeyQ = La4).
    10 fingers max unless the extra key is well clustered. */
 (function (global) {
   const MAX_FINGERS = 10;
@@ -350,6 +351,37 @@
     if (key.kind === "altgr") this.altgr = false;
   };
 
+  const KEY_Z_MIDI = 48;
+  const INTL_BACKSLASH_MIDI = 47;
+  const NOTE_FR = ["Do", "Do♯", "Ré", "Ré♯", "Mi", "Fa", "Fa♯", "Sol", "Sol♯", "La", "La♯", "Si"];
+  const NOTE_KIDS = [
+    "KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period", "Slash",
+    "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote",
+    "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP",
+    "BracketLeft", "BracketRight", "Backslash",
+    "Backquote", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7",
+    "Digit8", "Digit9", "Digit0", "Minus", "Equal"
+  ];
+  const NOTE_INDEX = {};
+  NOTE_KIDS.forEach(function (kid, i) { NOTE_INDEX[kid] = i; });
+
+  function midiForKid(kid) {
+    if (kid === "IntlBackslash") return INTL_BACKSLASH_MIDI;
+    const i = NOTE_INDEX[kid];
+    return i == null ? null : KEY_Z_MIDI + i;
+  }
+
+  function kidForMidi(midi) {
+    if (midi === INTL_BACKSLASH_MIDI) return "IntlBackslash";
+    const i = midi - KEY_Z_MIDI;
+    if (i < 0 || i >= NOTE_KIDS.length) return null;
+    return NOTE_KIDS[i];
+  }
+
+  function noteLabelFr(midi) {
+    return NOTE_FR[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
+  }
+
   function FingerGate() {
     this.pointers = new Map();
     this.extras = new Map();
@@ -426,6 +458,10 @@
     TypeState: TypeState,
     FingerGate: FingerGate,
     sameHeld: sameHeld,
+    midiForKid: midiForKid,
+    kidForMidi: kidForMidi,
+    noteLabelFr: noteLabelFr,
+    KEY_Z_MIDI: KEY_Z_MIDI,
     selfTest: selfTest
   };
 
@@ -470,7 +506,16 @@
     if (gate.held().some(function (k) { return k.kid === "Backquote"; })) throw new Error("extra lift");
     if (!gate.down(0, held("csa", "KeyA"))) throw new Error("freed finger");
     if (gate.down(98, held("csa", "Digit1"))) throw new Error("still 11th");
-    return "dual_keyboard.js: US=" + US.keys.length + " CSA=" + CSA.keys.length + " gate=10+cluster OK";
+    if (midiForKid("KeyZ") !== 48 || noteLabelFr(48) !== "Do3") throw new Error("Z is Do3");
+    if (midiForKid("KeyD") !== 60 || noteLabelFr(60) !== "Do4") throw new Error("D is Do4");
+    if (midiForKid("KeyQ") !== 69 || noteLabelFr(69) !== "La4") throw new Error("Q is La4");
+    if (kidForMidi(60) !== "KeyD") throw new Error("Do4 binds to D");
+    if (midiForKid("IntlBackslash") !== 47) throw new Error("CSA ù is Si2");
+    if (midiForKid("Space") != null || midiForKid("ShiftLeft") != null) throw new Error("mods are silent");
+    US.keys.concat(CSA.keys).forEach(function (k) {
+      if (k.kind === "char" && midiForKid(k.kid) == null) throw new Error("unmapped " + k.kid);
+    });
+    return "dual_keyboard.js: US=" + US.keys.length + " CSA=" + CSA.keys.length + " gate=10+cluster notes=Z/D/Q OK";
   }
 
   if (typeof process !== "undefined" && process.argv && /dual_keyboard\.js$/.test(String(process.argv[1] || ""))) {

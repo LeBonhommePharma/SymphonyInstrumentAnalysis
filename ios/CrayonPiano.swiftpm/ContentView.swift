@@ -299,7 +299,8 @@ struct ContentView: View {
         PianoKeyboardView(
             lit: session.lit,
             harmonics: session.harmonics,
-            pressed: session.pressed,
+            pressed: session.pressed.union(session.boundPressed),
+            binds: session.keyBinds,
             scene: session.scene,
             onPressed: { session.setPressed($0) }
         )

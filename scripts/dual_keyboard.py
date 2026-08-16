@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""US ANSI + Canadian French CSA keyboards, and the 10-finger cluster gate.
+"""US ANSI + Canadian French CSA keyboards, crayon note map, and the 10-finger gate.
 
 The piano shows one layout at a time. Switching US ANSI ↔ CSA ISO remaps
-glyphs, geometry, and hardware event.code handling together. A person has
-10 fingers, so an 11th independent key-down is rejected — unless that key
+glyphs, geometry, and hardware event.code handling together. Every character
+key is bound to a crayon note (KeyZ = Do3, KeyD = Do4, KeyQ = La4). A person
+has 10 fingers, so an 11th independent key-down is rejected — unless that key
 is well clustered with keys already held. Lane / track count follows those
 spatial density clusters, not a fixed instrument parameter.
 """
@@ -249,6 +250,95 @@ def _csa_iso() -> Layout:
 US = _us_ansi()
 CSA = _csa_iso()
 LAYOUTS = (US, CSA)
+
+# Physical character keys → crayon notes. Bottom letter row is lowest.
+# KeyZ = C3 / Do3 (red). Home-row D = C4 / Do4. Q = A4 / La4.
+KEY_Z_MIDI = 48
+INTL_BACKSLASH_MIDI = 47  # CSA ù, one semitone below KeyZ
+NOTE_FR = (
+    "Do",
+    "Do♯",
+    "Ré",
+    "Ré♯",
+    "Mi",
+    "Fa",
+    "Fa♯",
+    "Sol",
+    "Sol♯",
+    "La",
+    "La♯",
+    "Si",
+)
+NOTE_KIDS = (
+    "KeyZ",
+    "KeyX",
+    "KeyC",
+    "KeyV",
+    "KeyB",
+    "KeyN",
+    "KeyM",
+    "Comma",
+    "Period",
+    "Slash",
+    "KeyA",
+    "KeyS",
+    "KeyD",
+    "KeyF",
+    "KeyG",
+    "KeyH",
+    "KeyJ",
+    "KeyK",
+    "KeyL",
+    "Semicolon",
+    "Quote",
+    "KeyQ",
+    "KeyW",
+    "KeyE",
+    "KeyR",
+    "KeyT",
+    "KeyY",
+    "KeyU",
+    "KeyI",
+    "KeyO",
+    "KeyP",
+    "BracketLeft",
+    "BracketRight",
+    "Backslash",
+    "Backquote",
+    "Digit1",
+    "Digit2",
+    "Digit3",
+    "Digit4",
+    "Digit5",
+    "Digit6",
+    "Digit7",
+    "Digit8",
+    "Digit9",
+    "Digit0",
+    "Minus",
+    "Equal",
+)
+_NOTE_INDEX = {kid: i for i, kid in enumerate(NOTE_KIDS)}
+
+
+def midi_for_kid(kid: str) -> int | None:
+    if kid == "IntlBackslash":
+        return INTL_BACKSLASH_MIDI
+    i = _NOTE_INDEX.get(kid)
+    return None if i is None else KEY_Z_MIDI + i
+
+
+def kid_for_midi(midi: int) -> str | None:
+    if midi == INTL_BACKSLASH_MIDI:
+        return "IntlBackslash"
+    i = midi - KEY_Z_MIDI
+    if 0 <= i < len(NOTE_KIDS):
+        return NOTE_KIDS[i]
+    return None
+
+
+def note_label_fr(midi: int) -> str:
+    return f"{NOTE_FR[midi % 12]}{midi // 12 - 1}"
 
 DEAD_MAP = {
     "circ": {
@@ -590,9 +680,26 @@ def main() -> None:
     if gate.down(98, HeldKey("csa", "Digit1")):
         raise SystemExit("an 11th isolated key must stay rejected after the extra is gone")
 
+    if midi_for_kid("KeyZ") != 48 or note_label_fr(48) != "Do3":
+        raise SystemExit("KeyZ must be Do3")
+    if midi_for_kid("KeyD") != 60 or note_label_fr(60) != "Do4":
+        raise SystemExit("KeyD must be Do4")
+    if midi_for_kid("KeyQ") != 69 or note_label_fr(69) != "La4":
+        raise SystemExit("KeyQ must be La4")
+    if kid_for_midi(60) != "KeyD":
+        raise SystemExit("Do4 must bind back to KeyD")
+    if midi_for_kid("IntlBackslash") != 47:
+        raise SystemExit("CSA ù must be Si2")
+    if midi_for_kid("Space") is not None or midi_for_kid("ShiftLeft") is not None:
+        raise SystemExit("modifiers must not play notes")
+    for layout in (US, CSA):
+        for key in layout.keys:
+            if key.kind == "char" and midi_for_kid(key.kid) is None:
+                raise SystemExit(f"character key {key.kid} must map to a note")
+
     print(
         f"dual_keyboard: US={len(US.keys)} CSA={len(CSA.keys)} "
-        f"hands={len(cluster_held(hands))} gate=10+cluster OK"
+        f"hands={len(cluster_held(hands))} gate=10+cluster notes=Z/D/Q OK"
     )
 
 

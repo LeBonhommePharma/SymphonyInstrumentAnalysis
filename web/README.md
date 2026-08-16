@@ -10,7 +10,7 @@ Open [`keyboard.html`](keyboard.html) in Safari or Chrome. Prefer `python3 -m ht
 
 **Pistes** — one color chip and one stacked lane per density cluster. Click to solo, click more to stack, click the count to hear all. Empty selection snaps back to the mix.
 
-**Clavier** — pick **US** or **Canadien français**. The whole board remaps at once (glyphs, ISO extra key, hardware `event.code`). Type with up to 10 fingers; an 11th key is allowed only when it is well clustered with keys already held.
+**Clavier** — pick **US** or **Canadien français**. The whole board remaps at once (glyphs, ISO extra key, hardware `event.code`). Each character key is a crayon note: **Z = Do3**, **D = Do4** (red), **Q = La4**. The note name sits on the typing key; the matching 88-key shows the bound glyph. Type with up to 10 fingers; an 11th key is allowed only when it is well clustered with keys already held.
 
 **Look** — Day, Light, Dark, Night, Stealth, plus **Auto** (ambient light / time of day). A manual swatch sticks until you tap Auto again.
 

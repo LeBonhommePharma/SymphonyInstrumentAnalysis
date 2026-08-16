@@ -40,6 +40,43 @@ struct HeldDual: Hashable {
     var kid: String
 }
 
+enum DualNoteMap {
+    static let keyZMidi = 48
+    static let intlBackslashMidi = 47
+    static let kids: [String] = [
+        "KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period", "Slash",
+        "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon", "Quote",
+        "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP",
+        "BracketLeft", "BracketRight", "Backslash",
+        "Backquote", "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7",
+        "Digit8", "Digit9", "Digit0", "Minus", "Equal"
+    ]
+
+    static func midi(for kid: String) -> Int? {
+        if kid == "IntlBackslash" { return intlBackslashMidi }
+        guard let i = kids.firstIndex(of: kid) else { return nil }
+        return keyZMidi + i
+    }
+
+    static func kid(for midi: Int) -> String? {
+        if midi == intlBackslashMidi { return "IntlBackslash" }
+        let i = midi - keyZMidi
+        guard kids.indices.contains(i) else { return nil }
+        return kids[i]
+    }
+
+    static func labelFr(_ midi: Int) -> String {
+        "\(NoteName.pitchClass(of: midi).french)\(PitchMath.octave(of: midi))"
+    }
+
+    static func glyph(midi: Int, layoutId: String) -> String? {
+        guard let kid = kid(for: midi) else { return nil }
+        if kid == "IntlBackslash" && DualBoards.normalize(layoutId) != "csa" { return nil }
+        guard let key = DualBoards.layout(layoutId).key(kid), key.kind == "char" else { return nil }
+        return key.base
+    }
+}
+
 enum DualHID {
     static func code(for usage: UIKeyboardHIDUsage) -> String? {
         switch usage {

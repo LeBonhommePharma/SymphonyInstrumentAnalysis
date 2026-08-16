@@ -173,28 +173,54 @@ final class DualBoardView: UIView {
     override func draw(_ rect: CGRect) {
         guard let ctx = UIGraphicsGetCurrentContext(), let session else { return }
         let held = Set(session.fingerGate.held.filter { $0.board == boardId }.map(\.kid))
-        let groups = session.fingerGate.clusters
         for (key, frame) in frames {
-            let on = held.contains(key.kid)
+            let midi = DualNoteMap.midi(for: key.kid)
+            let mappedOn = midi.map { session.boundPressed.contains($0) || session.pressed.contains($0) } ?? false
+            let on = held.contains(key.kid) || mappedOn
             var fill = session.scene.whiteKey
-            if on {
-                let idx = groups.firstIndex { $0.contains(HeldDual(board: boardId, kid: key.kid)) } ?? 0
-                fill = NoteName.allCases[idx % 12].uiColor
+            if let midi {
+                let crayon = NoteName.pitchClass(of: midi).uiColor
+                fill = on ? crayon : crayon.withAlphaComponent(0.28)
+            } else if on {
+                fill = NoteName.c.uiColor
             }
             ctx.setFillColor(fill.cgColor)
             let path = UIBezierPath(roundedRect: frame, cornerRadius: 4)
             ctx.addPath(path.cgPath)
             ctx.fillPath()
-            let label = key.kind == "char" || key.kind == "space" ? key.base : key.base
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: key.w > 1.6 ? 9 : 11, weight: .semibold),
-                .foregroundColor: on ? UIColor.white : UIColor(session.scene.ink)
+            let glyph = key.kind == "char" || key.kind == "space" ? key.base : key.base
+            let ink = on ? UIColor.white : UIColor(session.scene.ink)
+            let glyphFont = UIFont.systemFont(ofSize: key.w > 1.6 ? 9 : 11, weight: .semibold)
+            let glyphAttrs: [NSAttributedString.Key: Any] = [
+                .font: glyphFont,
+                .foregroundColor: ink
             ]
-            let size = (label as NSString).size(withAttributes: attrs)
-            (label as NSString).draw(
-                at: CGPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2),
-                withAttributes: attrs
-            )
+            let glyphSize = (glyph as NSString).size(withAttributes: glyphAttrs)
+            if let midi, key.kind == "char" {
+                let note = DualNoteMap.labelFr(midi)
+                let noteColor = on ? UIColor.white : NoteName.pitchClass(of: midi).uiColor
+                let noteFont = UIFont.systemFont(ofSize: 8, weight: .bold)
+                let noteAttrs: [NSAttributedString.Key: Any] = [
+                    .font: noteFont,
+                    .foregroundColor: noteColor
+                ]
+                let noteSize = (note as NSString).size(withAttributes: noteAttrs)
+                let totalH = glyphSize.height + noteSize.height + 1
+                let y0 = frame.midY - totalH / 2
+                (glyph as NSString).draw(
+                    at: CGPoint(x: frame.midX - glyphSize.width / 2, y: y0),
+                    withAttributes: glyphAttrs
+                )
+                (note as NSString).draw(
+                    at: CGPoint(x: frame.midX - noteSize.width / 2, y: y0 + glyphSize.height + 1),
+                    withAttributes: noteAttrs
+                )
+            } else {
+                (glyph as NSString).draw(
+                    at: CGPoint(x: frame.midX - glyphSize.width / 2, y: frame.midY - glyphSize.height / 2),
+                    withAttributes: glyphAttrs
+                )
+            }
         }
     }
 
