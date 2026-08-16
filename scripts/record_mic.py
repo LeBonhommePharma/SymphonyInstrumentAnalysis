@@ -13,21 +13,26 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from list_mics import require_audio_devices  # noqa: E402
+from list_mics import ffmpeg_capture_timeout_s, ranked_audio_devices, require_audio_devices  # noqa: E402
 from probe_mics import record_probe, wav_stats  # noqa: E402
 
 
 def pick_best(seconds: float = 2.0) -> tuple[int, str]:
-    devices = require_audio_devices()
+    all_devices = require_audio_devices()
+    devices = ranked_audio_devices(all_devices, include_unreliable=False) or all_devices
     best = (-1.0, devices[0][0], devices[0][1])
 
     with tempfile.TemporaryDirectory() as td:
         for idx, name in devices:
             out = Path(td) / f"d{idx}.wav"
-            record_probe(idx, seconds, out)
-            st = wav_stats(out)
+            ok = record_probe(idx, seconds, out)
+            st = wav_stats(out) if ok else {"rms": 0.0, "peak": 0.0, "snr_like": 0.0}
             score = st["rms"] * float(np.log1p(st["snr_like"]))
-            print(f"probe [{idx}] {name}: rms={st['rms']:.5f} peak={st['peak']:.5f} score={score:.6f}")
+            hung = "" if ok else " timed out"
+            print(
+                f"probe [{idx}] {name}: rms={st['rms']:.5f} peak={st['peak']:.5f} "
+                f"score={score:.6f}{hung}"
+            )
             if score > best[0]:
                 best = (score, idx, name)
     return best[1], best[2]
@@ -80,7 +85,11 @@ def main() -> None:
     print(f"Recording [{device}] {name} -> {out}")
     print(f"Filters: {af}")
     print("Play the music now.")
-    proc = subprocess.run(cmd)
+    try:
+        proc = subprocess.run(cmd, timeout=ffmpeg_capture_timeout_s(args.seconds))
+    except subprocess.TimeoutExpired:
+        print("ERROR: ffmpeg capture timed out (Continuity/iPhone mics hang; use the MacBook mic).")
+        raise SystemExit(2)
     if proc.returncode != 0:
         raise SystemExit(proc.returncode)
     st = wav_stats(out)

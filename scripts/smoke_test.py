@@ -20,7 +20,11 @@ import numpy as np
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 from analyze_instruments import analyze, load_wav  # noqa: E402
-from list_mics import NO_DEVICES_MESSAGE  # noqa: E402
+from list_mics import (  # noqa: E402
+    NO_DEVICES_MESSAGE,
+    is_unreliable_audio_device,
+    ranked_audio_devices,
+)
 from crayon_piano_lib import (  # noqa: E402
     MIXED_HI_HZ,
     extract_cluster_peaks,
@@ -69,6 +73,20 @@ def check_ffmpeg() -> None:
     print(f"ffmpeg: {first}")
 
 
+def check_mic_device_rank() -> None:
+    fake = [
+        (0, "LPhone Microphone"),
+        (1, "MacBook Pro Microphone"),
+        (2, "Shannon"),
+    ]
+    ranked = ranked_audio_devices(fake, include_unreliable=False)
+    if not ranked or ranked[0] != (1, "MacBook Pro Microphone"):
+        raise SystemExit(f"built-in mic should rank first, got {ranked}")
+    if not is_unreliable_audio_device("LPhone Microphone"):
+        raise SystemExit("LPhone must be treated as a Continuity hang risk")
+    print("mic device rank: OK")
+
+
 def check_capture_scripts() -> None:
     py = sys.executable
     for name, extra in (
@@ -76,11 +94,15 @@ def check_capture_scripts() -> None:
         ("probe_mics.py", ["--seconds", "0.2"]),
         ("record_mic.py", ["--seconds", "0.2", "--probe-seconds", "0.2"]),
     ):
-        proc = subprocess.run(
-            [py, str(SCRIPTS / name), *extra],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            proc = subprocess.run(
+                [py, str(SCRIPTS / name), *extra],
+                capture_output=True,
+                text=True,
+                timeout=25,
+            )
+        except subprocess.TimeoutExpired:
+            raise SystemExit(f"{name} hung (ffmpeg AVFoundation timeout)") from None
         combined = proc.stdout + proc.stderr
         if proc.returncode == 0:
             print(f"{name}: devices present; skipped no-device check")
@@ -482,6 +504,7 @@ def check_spectrum_scale() -> None:
 
 def main() -> None:
     check_ffmpeg()
+    check_mic_device_rank()
     check_capture_scripts()
     check_public_site()
     check_spectrum_scale()
