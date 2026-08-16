@@ -18,9 +18,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from crayon_piano_lib import (  # noqa: E402
     FFT_SIZE,
-    SENS_DEFAULT,
-    PeakPicker,
-    TrackSet,
+    band_energy_db,
     extract_cluster_peaks,
     rfft_db,
 )
@@ -61,20 +59,6 @@ def frame_starts(n: int, hop: int, fft_size: int = FFT_SIZE) -> list[int]:
     return [0] if n > 16 else []
 
 
-def _band_name(f: float) -> str:
-    if f < 80:
-        return "sub_bass"
-    if f < 250:
-        return "bass"
-    if f < 500:
-        return "low_mid"
-    if f < 2000:
-        return "mid"
-    if f < 4000:
-        return "high_mid"
-    return "presence"
-
-
 def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
     if sr <= 0:
         raise SystemExit("sample rate must be positive")
@@ -99,15 +83,20 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
     if active.size:
         active_span = [float(active[0] * hop_sec), float((active[-1] + 1) * hop_sec)]
 
-    picker = PeakPicker()
-    tracks_set = TrackSet()
-    band: dict[str, float] = collections.defaultdict(float)
     pitch_salience: collections.Counter[str] = collections.Counter()
     pitch_class: collections.Counter[str] = collections.Counter()
     pitch_hz: dict[str, list[float]] = collections.defaultdict(list)
     source_acc: dict[int, dict] = {}
     sequence: list[dict] = []
-    now = 0.0
+    band_lin: dict[str, float] = collections.defaultdict(float)
+    band_hz = {
+        "sub_bass": (27.5, 80.0),
+        "bass": (80.0, 250.0),
+        "low_mid": (250.0, 500.0),
+        "mid": (500.0, 2000.0),
+        "high_mid": (2000.0, 4000.0),
+        "presence": (4000.0, 5000.0),
+    }
 
     for start in frame_starts(n, hop, FFT_SIZE):
         seg = x[start : start + FFT_SIZE]
@@ -115,53 +104,41 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
             continue
         e = float(np.sqrt(np.mean(seg * seg)))
         if e < thr * 0.5:
-            picker.smooth *= 0.85
-            now += hop_sec
             continue
         spec, bin_hz = rfft_db(seg, sr, FFT_SIZE)
-        frame = picker.process(
-            spec,
-            bin_hz,
-            tracks_set,
-            chords=True,
-            sensitivity=SENS_DEFAULT,
-            autotune=False,
-            now=now,
-        )
-        mix = frame.mix_peaks or extract_cluster_peaks(spec, bin_hz)
-        clusters = cluster_peaks(mix)
+        for name, (lo, hi) in band_hz.items():
+            band_lin[name] += band_energy_db(spec, bin_hz, lo, hi)
+        mix = extract_cluster_peaks(spec, bin_hz)
+        clusters = cluster_peaks(mix, merge_nearby=False)
         t_sec = start / sr
         pitches = []
-        for note in frame.lit:
-            name = hz_to_note(note.freq)
-            if not name:
-                continue
-            w = max(0.0, note.score + 80.0)
-            pitch_salience[name] += w
-            pitch_class["".join(c for c in name if not c.isdigit())] += w
-            pitch_hz[name].append(note.freq)
-            band[_band_name(note.freq)] += w
-            pitches.append({"note": name, "hz": round(note.freq, 2)})
-        if pitches:
-            sequence.append({"t_sec": round(t_sec, 2), "pitches": pitches})
         for c in clusters:
             f0 = float(c["f0"])
             if f0 <= 0 or not math.isfinite(f0):
                 continue
+            name = hz_to_note(f0)
+            if not name:
+                continue
+            w = max(0.0, float(c["db"]) + 80.0)
+            pitch_salience[name] += w
+            pitch_class["".join(ch for ch in name if not ch.isdigit())] += w
+            pitch_hz[name].append(f0)
+            pitches.append({"note": name, "hz": round(f0, 2)})
             midi = int(round(69 + 12 * math.log2(f0 / 440.0)))
             bucket = source_acc.setdefault(
                 midi,
                 {"f0s": [], "dbs": [], "harms": [], "n": 0},
             )
-            bucket["f0s"].append(c["f0"])
+            bucket["f0s"].append(f0)
             bucket["dbs"].append(c["db"])
             bucket["harms"].append(c["harm"])
             bucket["n"] += 1
-        now += hop_sec
+        if pitches:
+            sequence.append({"t_sec": round(t_sec, 2), "pitches": pitches})
 
-    tot = sum(band.values()) or 1.0
+    tot = sum(band_lin.values()) or 1.0
     band_pct = {
-        k: 100.0 * band.get(k, 0.0) / tot
+        k: 100.0 * band_lin.get(k, 0.0) / tot
         for k in ["sub_bass", "bass", "low_mid", "mid", "high_mid", "presence"]
     }
 
@@ -240,7 +217,7 @@ def render_markdown(report: dict, source: str) -> str:
         f"- Source: `{source}`",
         f"- Duration: {report['duration_sec']}s @ {report['sample_rate']} Hz",
         f"- Level: rms={report['rms']}, peak={report['peak']}",
-        f"- Vocals: {'ignored after labeling' if report['ignore_vocals'] else 'included (crayon-piano peak-picker)'}",
+        f"- Vocals: {'ignored after labeling' if report['ignore_vocals'] else 'included (harmonic-folded fundamentals)'}",
         "",
         "## Clustered sources (same logic as the piano)",
         "",

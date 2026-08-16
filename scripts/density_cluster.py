@@ -132,8 +132,26 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
     return [c for c in clusters if c["db"] > -90]
 
 
-def cluster_peaks(peaks: list[dict]) -> list[dict]:
-    return density_cluster_funds(group_harmonic_funds(peaks))
+def funds_as_clusters(funds: list[dict]) -> list[dict]:
+    clusters = [
+        {
+            "f0": g["f0"],
+            "db": g["db"],
+            "harm": g["harm"],
+            "n": len(g["members"]),
+        }
+        for g in funds
+        if g["db"] > -90
+    ]
+    clusters.sort(key=lambda c: -c["db"])
+    return clusters
+
+
+def cluster_peaks(peaks: list[dict], *, merge_nearby: bool = True) -> list[dict]:
+    funds = group_harmonic_funds(peaks)
+    if not merge_nearby:
+        return funds_as_clusters(funds)
+    return density_cluster_funds(funds)
 
 
 def heuristic_label(f0: float, harm: float) -> str:
@@ -191,6 +209,15 @@ def main() -> None:
     )
     if not 1 <= len(chordish) <= 3:
         raise SystemExit(f"one-source chord should stay small, got {len(chordish)}")
+    chord_off = cluster_peaks(
+        tone_stack(130.81, -18.0, 4) + tone_stack(164.81, -20.0, 4) + tone_stack(196.0, -21.0, 3),
+        merge_nearby=False,
+    )
+    if len(chord_off) != 3:
+        raise SystemExit(
+            f"offline analysis must keep C–E–G as 3 funds, got {len(chord_off)} "
+            f"{[round(c['f0'], 1) for c in chord_off]}"
+        )
     if len(chordish) >= 5:
         raise SystemExit("must not invent five instrument tracks for one chord")
 
