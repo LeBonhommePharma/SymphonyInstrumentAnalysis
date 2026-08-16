@@ -59,8 +59,8 @@ That is ear training: hearing a map (bass / tune / sparkle + note names), not a 
 
 1. **Play a song** (or a piano) on the device.
 2. **The mic listens** — we pick the best ear and record.
-3. **Look at the wiggles** — wash out hiss, turn singing down.
-4. **Name the sounds** — instrument families and notes with frequencies in Hz.
+3. **Look at the wiggles** — the same peak-picker as the crayon piano (vocals and high sparkle count).
+4. **Name the sounds** — clustered sources and notes with frequencies in Hz.
 
 ```bash
 python3 scripts/list_mics.py

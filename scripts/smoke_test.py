@@ -22,10 +22,13 @@ sys.path.insert(0, str(SCRIPTS))
 from analyze_instruments import analyze, load_wav  # noqa: E402
 from list_mics import NO_DEVICES_MESSAGE  # noqa: E402
 from crayon_piano_lib import (  # noqa: E402
+    MIXED_HI_HZ,
+    extract_cluster_peaks,
     peak_hz_of_db,
     rfft_db,
     spec_x_of,
 )
+from density_cluster import cluster_peaks  # noqa: E402
 
 SR = 48000
 # Analyzer FFT size is 4096, so pick bin-centered tones (bin * sr / 4096).
@@ -226,6 +229,61 @@ def check_crayon_piano() -> None:
 
 
 
+
+
+def _write_pcm(path: Path, x: np.ndarray, sr: int) -> None:
+    peak = float(np.max(np.abs(x))) or 1.0
+    pcm = np.clip(x / peak * 0.85, -1.0, 1.0)
+    samples = (pcm * 32767.0).astype("<i2")
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(samples.tobytes())
+
+
+def check_discrimination() -> None:
+    if MIXED_HI_HZ < 4999:
+        raise SystemExit(f"shared mix peak range must reach 5 kHz, got {MIXED_HI_HZ}")
+
+    sr = 48000
+    n = 8192
+    t = np.arange(int(sr * 2.0), dtype=np.float64) / sr
+    # Vocals-only: 220 Hz + formant-ish harmonic stack.
+    voice = np.zeros_like(t)
+    for k, amp in enumerate((1.0, 0.7, 0.55, 0.35, 0.28, 0.18, 0.12, 0.08), start=1):
+        voice += amp * np.sin(2 * math.pi * 220.0 * k * t)
+    # Psytrance-like: 55 Hz kick + inharmonic highs.
+    kick = np.sin(2 * math.pi * 55.0 * t) * np.exp(-((t % 0.25) * 28))
+    highs = (
+        0.35 * np.sin(2 * math.pi * 2100.0 * t)
+        + 0.28 * np.sin(2 * math.pi * 3120.0 * t)
+        + 0.22 * np.sin(2 * math.pi * 3800.0 * t)
+    )
+    psy = kick + highs
+
+    with tempfile.TemporaryDirectory() as td:
+        vpath = Path(td) / "voice.wav"
+        ppath = Path(td) / "psy.wav"
+        _write_pcm(vpath, voice, sr)
+        _write_pcm(ppath, psy, sr)
+        vrep = analyze(load_wav(vpath)[0], sr, ignore_vocals=False)
+        vnotes = {p["note"] for p in vrep["top_pitches"]}
+        if "A3" not in vnotes:
+            raise SystemExit(f"vocal stack should light A3, got {sorted(vnotes)}")
+        spec, bin_hz = rfft_db(psy[:n], sr, n)
+        cl = cluster_peaks(extract_cluster_peaks(spec, bin_hz))
+        if len(cl) < 2:
+            raise SystemExit(f"psytrance mix-peaks must yield ≥2 sources, got {len(cl)}")
+        if not any(c["f0"] < 90 for c in cl) or not any(c["f0"] > 1800 for c in cl):
+            raise SystemExit(f"psytrance clusters missing low/high: {[round(c['f0']) for c in cl]}")
+        spec_v, bin_v = rfft_db(voice[:n], sr, n)
+        cl_v = cluster_peaks(extract_cluster_peaks(spec_v, bin_v))
+        if len(cl_v) != 1:
+            raise SystemExit(f"vocal harmonic stack must be 1 source, got {len(cl_v)}")
+    print("discrimination: vocal A3 + 1 source; psytrance low+high clusters OK")
+
+
 def check_spectrum_scale() -> None:
     sr = 44100
     n = 4096
@@ -288,6 +346,7 @@ def main() -> None:
     if missing:
         raise SystemExit(f"analyzer missed expected notes: {missing}; found {sorted(notes)}")
     print("SMOKE OK: recovered E2, A4, and C5")
+    check_discrimination()
     check_crayon_piano()
 
 

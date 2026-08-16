@@ -133,7 +133,7 @@ python3 scripts/probe_mics.py
 # record (auto-picks best mic; play music while it runs)
 python3 scripts/record_mic.py --seconds 90
 
-# analyze (ignores voices/lyrics by default)
+# analyze (crayon-piano peak-picker; vocals and highs included)
 python3 scripts/analyze_instruments.py captures/<file>.wav
 ```
 
