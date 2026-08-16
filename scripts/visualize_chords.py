@@ -33,6 +33,24 @@ CHORD_JSON = ROOT / "analysis_out" / "final_song_chords.json"
 OUT = ROOT / "analysis_out"
 
 
+def display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
+def chord_duration(data: dict) -> float:
+    timeline = data.get("timeline") or []
+    listed = data.get("duration_sec")
+    duration = float(listed) if listed not in (None, "") else (
+        float(timeline[-1]["end"]) if timeline else 0.0
+    )
+    if timeline:
+        duration = max(duration, float(timeline[-1]["end"]))
+    return duration
+
+
 def load_wav(path: Path) -> tuple[np.ndarray, int]:
     with wave.open(str(path), "rb") as w:
         sr = w.getframerate()
@@ -421,7 +439,7 @@ def write_markdown(
     heatmap: Path | None,
 ) -> Path:
     dwells = [s["end"] - s["start"] for s in timeline]
-    med = float(np.median(dwells))
+    med = float(np.median(dwells)) if dwells else 0.0
     # most common pcs by time-weight
     pc_time: dict[str, float] = defaultdict(float)
     for s in timeline:
@@ -509,17 +527,24 @@ def main() -> None:
     import argparse
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--wav", type=Path, default=WAV)
+    ap.add_argument(
+        "--wav",
+        type=Path,
+        default=None,
+        help=f"audio for the chroma heatmap (default: {WAV}; skip if that file is missing)",
+    )
     ap.add_argument("--chords", type=Path, default=CHORD_JSON)
     ap.add_argument("--out-dir", type=Path, default=OUT)
     args = ap.parse_args()
     if not args.chords.is_file():
         raise SystemExit(f"missing chord JSON: {args.chords}")
+    wav = args.wav if args.wav is not None else WAV
+    wav_explicit = args.wav is not None
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     data = json.loads(args.chords.read_text(encoding="utf-8"))
     timeline = data["timeline"]
-    duration = float(data["duration_sec"])
+    duration = chord_duration(data)
 
     paths = {
         "stacks": args.out_dir / "chord_progression_stacks.png",
@@ -534,25 +559,27 @@ def main() -> None:
     print("Plotting network…")
     plot_transition_network(timeline, paths["network"])
     heatmap: Path | None = None
-    if args.wav.is_file():
+    if wav.is_file():
         print("Loading WAV…")
-        x, sr = load_wav(args.wav)
+        x, sr = load_wav(wav)
         print(f"sr={sr}, samples={len(x)}, dur={len(x)/sr:.2f}s")
         print("Computing chroma…")
         chroma, times = compute_chroma(x, sr)
         heatmap = args.out_dir / "chord_chroma_heatmap.png"
         print("Plotting heatmap…")
         plot_chroma_heatmap(chroma, times, timeline, heatmap)
+    elif wav_explicit:
+        raise SystemExit(f"missing WAV: {wav}")
     else:
-        print(f"WAV missing ({args.wav}); skipping chroma heatmap")
+        print(f"WAV missing ({wav}); skipping chroma heatmap")
 
     md = write_markdown(
         paths,
         timeline,
         duration,
         out_dir=args.out_dir,
-        wav=str(args.wav),
-        chords=str(args.chords),
+        wav=display_path(wav),
+        chords=display_path(args.chords),
         heatmap=heatmap,
     )
     print("Wrote", md)

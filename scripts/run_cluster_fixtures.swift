@@ -20,7 +20,7 @@ enum RunClusterFixtures {
         }
         for c in cases {
             let name = c["name"] as? String ?? "?"
-            let merge = (c["merge_nearby"] as? Bool) ?? true
+            let merge = jsonBool(c["merge_nearby"], default: true)
             let expectN = (c["expect_n"] as? NSNumber)?.intValue ?? -1
             let expectF0 = ((c["expect_f0"] as? [NSNumber]) ?? []).map(\.doubleValue)
             let rawPeaks = (c["peaks"] as? [[String: Any]]) ?? []
@@ -44,5 +44,12 @@ enum RunClusterFixtures {
             }
         }
         print("cluster_fixtures.swift: \(cases.count) fixtures OK")
+    }
+
+    /// JSONSerialization may box `true`/`false` as NSNumber (Linux Swift).
+    private static func jsonBool(_ value: Any?, default defaultValue: Bool) -> Bool {
+        if let flag = value as? Bool { return flag }
+        if let number = value as? NSNumber { return number.boolValue }
+        return defaultValue
     }
 }
