@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
-"""Characterize instruments and note sequences in Hz; ignore voices/lyrics."""
+"""Characterize sources and notes with the crayon-piano peak-picker + clusterer."""
 from __future__ import annotations
 
 import argparse
 import collections
 import json
 import math
+import sys
 import wave
 from pathlib import Path
 
 import numpy as np
+
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+
+from crayon_piano_lib import (  # noqa: E402
+    FFT_SIZE,
+    SENS_DEFAULT,
+    PeakPicker,
+    TrackSet,
+    extract_cluster_peaks,
+    rfft_db,
+)
+from density_cluster import cluster_peaks, heuristic_label  # noqa: E402
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -34,165 +49,142 @@ def hz_to_note(f: float) -> str:
     return NOTE_NAMES[midi % 12] + str(midi // 12 - 1)
 
 
-def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = True) -> dict:
+def _band_name(f: float) -> str:
+    if f < 80:
+        return "sub_bass"
+    if f < 250:
+        return "bass"
+    if f < 500:
+        return "low_mid"
+    if f < 2000:
+        return "mid"
+    if f < 4000:
+        return "high_mid"
+    return "presence"
+
+
+def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = False) -> dict:
     dur = len(x) / sr
     rms = float(np.sqrt(np.mean(x * x)))
     peak = float(np.max(np.abs(x)))
 
-    hop = int(0.25 * sr)
+    hop = max(1, int(0.08 * sr))
     env = np.array(
         [np.sqrt(np.mean(x[i : i + hop] ** 2)) for i in range(0, max(0, len(x) - hop), hop)]
     )
     thr = max(0.008, float(np.percentile(env, 55)) * 0.35) if env.size else 0.008
     active = np.where(env >= thr)[0]
+    hop_sec = hop / sr
     active_span = None
     if active.size:
-        active_span = [float(active[0] * 0.25), float((active[-1] + 1) * 0.25)]
+        active_span = [float(active[0] * hop_sec), float((active[-1] + 1) * hop_sec)]
 
-    N = 4096
-    step = int(0.25 * sr)
-    win = np.hanning(N)
-    tracks: list[tuple[float, float, float, str, float]] = []
+    picker = PeakPicker()
+    tracks_set = TrackSet()
     band: dict[str, float] = collections.defaultdict(float)
+    pitch_salience: collections.Counter[str] = collections.Counter()
+    pitch_class: collections.Counter[str] = collections.Counter()
+    pitch_hz: dict[str, list[float]] = collections.defaultdict(list)
+    source_acc: dict[int, dict] = {}
+    sequence: list[dict] = []
+    now = 0.0
 
-    for start in range(0, max(0, len(x) - N), step):
-        seg = x[start : start + N]
+    for start in range(0, max(0, len(x) - FFT_SIZE), hop):
+        seg = x[start : start + FFT_SIZE]
         e = float(np.sqrt(np.mean(seg * seg)))
-        if e < thr * 0.75:
+        if e < thr * 0.5:
+            picker.smooth *= 0.85
+            now += hop_sec
             continue
-        mag = np.abs(np.fft.rfft(seg * win))
-        freqs = np.fft.rfftfreq(N, 1 / sr)
-        peaks: list[tuple[float, float, float]] = []
-        for i in range(3, len(mag) - 3):
-            if mag[i] > mag[i - 1] and mag[i] > mag[i + 1] and mag[i] >= mag[i - 2] and mag[i] >= mag[i + 2]:
-                f = float(freqs[i])
-                if 40 <= f <= 5000:
-                    w = 1.0
-                    if ignore_vocals and 250 <= f <= 3200:
-                        w = 0.22  # de-emphasize speech/lyric band
-                    if f < 200:
-                        w *= 1.35
-                    if f > 3500:
-                        w *= 1.2
-                    peaks.append((mag[i] * w, f, float(mag[i])))
-        peaks.sort(reverse=True)
-        chosen: list[float] = []
-        for score, f, m in peaks:
-            if any(abs(math.log2(f / cf)) < 1 / 12 for cf in chosen):
-                continue
-            chosen.append(f)
-            name = hz_to_note(f)
-            tracks.append((start / sr, f, m, name, score))
-            if f < 80:
-                band["sub_bass"] += score
-            elif f < 250:
-                band["bass"] += score
-            elif f < 500:
-                band["low_mid"] += score
-            elif f < 2000:
-                band["mid"] += score
-            elif f < 4000:
-                band["high_mid"] += score
-            else:
-                band["presence"] += score
-            if len(chosen) >= 6:
-                break
+        spec, bin_hz = rfft_db(seg, sr, FFT_SIZE)
+        frame = picker.process(
+            spec,
+            bin_hz,
+            tracks_set,
+            chords=True,
+            sensitivity=SENS_DEFAULT,
+            autotune=False,
+            now=now,
+        )
+        mix = frame.mix_peaks or extract_cluster_peaks(spec, bin_hz)
+        clusters = cluster_peaks(mix)
+        t_sec = start / sr
+        pitches = []
+        for note in frame.lit:
+            name = hz_to_note(note.freq)
+            w = max(0.0, note.score + 80.0)
+            pitch_salience[name] += w
+            pitch_class["".join(c for c in name if not c.isdigit())] += w
+            pitch_hz[name].append(note.freq)
+            band[_band_name(note.freq)] += w
+            pitches.append({"note": name, "hz": round(note.freq, 2)})
+        if pitches:
+            sequence.append({"t_sec": round(t_sec, 2), "pitches": pitches})
+        for c in clusters:
+            midi = int(round(69 + 12 * math.log2(c["f0"] / 440.0))) if c["f0"] > 0 else 0
+            bucket = source_acc.setdefault(
+                midi,
+                {"f0s": [], "dbs": [], "harms": [], "n": 0},
+            )
+            bucket["f0s"].append(c["f0"])
+            bucket["dbs"].append(c["db"])
+            bucket["harms"].append(c["harm"])
+            bucket["n"] += 1
+        now += hop_sec
 
     tot = sum(band.values()) or 1.0
-    band_pct = {k: 100.0 * band.get(k, 0.0) / tot for k in ["sub_bass", "bass", "low_mid", "mid", "high_mid", "presence"]}
+    band_pct = {
+        k: 100.0 * band.get(k, 0.0) / tot
+        for k in ["sub_bass", "bass", "low_mid", "mid", "high_mid", "presence"]
+    }
+
+    sources = []
+    for _midi, acc in source_acc.items():
+        f0 = float(np.median(acc["f0s"]))
+        harm = float(np.mean(acc["harms"]))
+        db = float(np.max(acc["dbs"]))
+        label = heuristic_label(f0, harm)
+        if ignore_vocals and label == "voix":
+            continue
+        note = hz_to_note(f0)
+        sources.append(
+            {
+                "note": note,
+                "hz": round(f0, 2),
+                "db": round(db, 1),
+                "harm": round(harm, 3),
+                "label": label or note,
+                "frames": acc["n"],
+            }
+        )
+    sources.sort(key=lambda s: s["db"], reverse=True)
 
     instruments = []
-    sb = band_pct["sub_bass"] + band_pct["bass"]
-    lm = band_pct["low_mid"]
-    md = band_pct["mid"]
-    hi = band_pct["high_mid"] + band_pct["presence"]
-    if sb > 15:
+    for src in sources:
         instruments.append(
             {
-                "family": "Bass foundation",
-                "examples": "double bass / cello / low brass / bass",
-                "hz_range": "40–250",
-                "salience": round(sb, 1),
+                "family": src["label"],
+                "examples": src["note"],
+                "hz_range": str(int(round(src["hz"]))),
+                "salience": src["db"],
             }
         )
-    if lm > 10:
-        instruments.append(
-            {
-                "family": "Low-mid body",
-                "examples": "viola / trombone / piano left hand / low winds",
-                "hz_range": "250–500",
-                "salience": round(lm, 1),
-            }
-        )
-    if md > 15:
-        instruments.append(
-            {
-                "family": "Mid melody/harmony",
-                "examples": "violins / woodwinds / brass / piano",
-                "hz_range": "500–2000",
-                "salience": round(md, 1),
-            }
-        )
-    if hi > 10:
-        instruments.append(
-            {
-                "family": "High color",
-                "examples": "flute / high violin / cymbals / harmonics",
-                "hz_range": "2000–5000",
-                "salience": round(hi, 1),
-            }
-        )
-    onset = np.diff(env) if env.size else np.array([])
-    perc = float(np.mean(onset[onset > 0])) if onset.size and np.any(onset > 0) else 0.0
-    if perc > thr * 0.12:
-        instruments.append(
-            {
-                "family": "Percussion / rhythmic attacks",
-                "examples": "drums / timpani / plucked attacks",
-                "hz_range": "broadband",
-                "salience": round(perc, 4),
-            }
-        )
-
-    bins: dict[int, list[tuple[float, float, str]]] = collections.defaultdict(list)
-    for t, f, m, name, score in tracks:
-        bins[int(t / 0.5)].append((score, f, name))
-
-    sequence = []
-    for b in sorted(bins):
-        items = sorted(bins[b], reverse=True)
-        kept: list[tuple[float, float, str]] = []
-        for score, f, name in items:
-            if any(abs(math.log2(f / kf)) < 0.5 / 12 for _, kf, _ in kept):
-                continue
-            if ignore_vocals and 250 <= f <= 3200 and score < items[0][0] * 0.5:
-                continue
-            kept.append((score, f, name))
-            if len(kept) >= 4:
-                break
-        if not kept:
-            continue
-        sequence.append(
-            {
-                "t_sec": round(b * 0.5, 2),
-                "pitches": [{"note": name, "hz": round(f, 2)} for _, f, name in kept],
-            }
-        )
-
-    pitch_salience = collections.Counter()
-    pitch_class = collections.Counter()
-    for t, f, m, name, score in tracks:
-        pitch_salience[name] += score
-        pitch_class["".join(c for c in name if not c.isdigit())] += score
 
     top_pitches = []
     for name, sc in pitch_salience.most_common(15):
-        fs = [f for t, f, m, n, s in tracks if n == name]
-        top_pitches.append({"note": name, "hz_median": round(float(np.median(fs)), 2), "weight": round(sc, 3)})
+        fs = pitch_hz.get(name) or []
+        top_pitches.append(
+            {
+                "note": name,
+                "hz_median": round(float(np.median(fs)) if fs else 0.0, 2),
+                "weight": round(sc, 3),
+            }
+        )
 
     pc_total = sum(pitch_class.values()) or 1.0
     top_pc = [
-        {"pitch_class": n, "pct": round(100 * sc / pc_total, 1)} for n, sc in pitch_class.most_common(12)
+        {"pitch_class": n, "pct": round(100 * sc / pc_total, 1)}
+        for n, sc in pitch_class.most_common(12)
     ]
 
     return {
@@ -204,6 +196,7 @@ def analyze(x: np.ndarray, sr: int, ignore_vocals: bool = True) -> dict:
         "ignore_vocals": ignore_vocals,
         "band_energy_pct": {k: round(v, 1) for k, v in band_pct.items()},
         "instruments": instruments,
+        "sources": sources,
         "note_sequence": sequence,
         "top_pitches": top_pitches,
         "pitch_classes": top_pc,
@@ -218,23 +211,23 @@ def render_markdown(report: dict, source: str) -> str:
         f"- Source: `{source}`",
         f"- Duration: {report['duration_sec']}s @ {report['sample_rate']} Hz",
         f"- Level: rms={report['rms']}, peak={report['peak']}",
-        f"- Vocals/lyrics: {'ignored (speech band de-emphasized)' if report['ignore_vocals'] else 'included'}",
+        f"- Vocals: {'ignored after labeling' if report['ignore_vocals'] else 'included (crayon-piano peak-picker)'}",
         "",
-        "## Likely instrument families",
+        "## Clustered sources (same logic as the piano)",
         "",
     ]
-    if not report["instruments"]:
-        lines.append("_No clear instrumental energy detected (silent or too quiet)._")
+    if not report.get("sources") and not report["instruments"]:
+        lines.append("_No clear pitched sources (silent or too quiet)._")
     else:
-        for inst in report["instruments"]:
+        for src in report.get("sources") or []:
             lines.append(
-                f"- **{inst['family']}** ({inst['hz_range']} Hz) — {inst['examples']} "
-                f"(salience {inst['salience']})"
+                f"- **{src['label']}** {src['note']} {src['hz']} Hz "
+                f"(harm {src['harm']}, {src['db']} dB, {src['frames']} frames)"
             )
     lines += ["", "## Band energy", ""]
     for k, v in report["band_energy_pct"].items():
         lines.append(f"- {k}: {v}%")
-    lines += ["", "## Note sequence (0.5 s steps, Hz)", ""]
+    lines += ["", "## Note sequence (peak-picker, Hz)", ""]
     for row in report["note_sequence"][:60]:
         parts = [f"{p['note']} {p['hz']} Hz" for p in row["pitches"]]
         lines.append(f"- **{row['t_sec']:.1f}s** — " + " | ".join(parts))
@@ -254,11 +247,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("wav", type=Path)
     ap.add_argument("--out-dir", type=Path, default=None)
-    ap.add_argument("--include-vocals", action="store_true")
+    ap.add_argument("--include-vocals", action="store_true", help="default; vocals are first-class")
+    ap.add_argument("--ignore-vocals", action="store_true", help="drop sources labeled voix")
     args = ap.parse_args()
 
     x, sr = load_wav(args.wav)
-    report = analyze(x, sr, ignore_vocals=not args.include_vocals)
+    report = analyze(x, sr, ignore_vocals=args.ignore_vocals)
     out_dir = args.out_dir or (Path(__file__).resolve().parents[1] / "analysis_out")
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = args.wav.stem

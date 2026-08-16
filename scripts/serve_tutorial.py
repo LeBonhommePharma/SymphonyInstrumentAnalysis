@@ -37,9 +37,11 @@ def main() -> None:
         raise SystemExit(f"missing {TUTORIAL / 'index.html'}")
     os.chdir(DOCS)
     url = f"http://127.0.0.1:{args.port}/tutorial/"
+    piano = f"http://127.0.0.1:{args.port}/piano/"
     print(f"Silent live-listen tutorial (this computer only): {url}")
-    print("This page does not play music. It only draws what the device is already playing.")
-    print("Languages: English and French (EN / FR). One track per instrument (max 6).")
+    print(f"Crayon piano (US or Canadian French): {piano}")
+    print("The tutorial does not play music. It only draws what the device is already playing.")
+    print("Languages: English and French (EN / FR).")
     print("For a phone on 5G use https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/")
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("127.0.0.1", args.port), Handler) as httpd:

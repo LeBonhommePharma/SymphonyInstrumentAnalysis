@@ -28,16 +28,11 @@ struct ContentView: View {
                                     }
                                 }
                                 trackRow
-                                if session.mode != .live {
-                                    HStack(alignment: .center, spacing: 10) {
-                                        WaveformTrackView(session: session)
-                                        Text(clock)
-                                            .font(.caption.monospacedDigit().weight(.semibold))
-                                            .foregroundStyle(session.scene.ink)
-                                            .fixedSize()
-                                    }
-                                    .frame(height: 68)
+                                HStack(alignment: .center, spacing: 10) {
+                                    WaveformTrackView(session: session)
+                                    clock
                                 }
+                                .frame(height: session.waveStackHeight)
                                 if !session.tuneLine.isEmpty {
                                     Text(session.tuneLine)
                                         .font(.subheadline.weight(.semibold).monospacedDigit())
@@ -61,9 +56,10 @@ struct ContentView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 200)
                         }
+                        DualKeyboardView(session: session)
                         Spacer(minLength: 0)
                         piano
-                            .frame(height: pianoH)
+                            .frame(height: min(140, pianoH * 0.42))
                     }
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
@@ -73,16 +69,6 @@ struct ContentView: View {
         .preferredColorScheme(session.scene.colorScheme)
         .statusBarHidden(false)
         .animation(.easeInOut(duration: 0.22), value: session.sceneChoice)
-        .focusable()
-        .onKeyPress(phases: [.down, .up]) { press in
-            let chars = String(press.characters)
-            if chars.isEmpty { return .ignored }
-            if let guessed = KeyboardLayout.infer(code: "", key: chars) {
-                session.layoutId = guessed
-            }
-            session.handleHardwareCharacters(chars, down: press.phase == .down)
-            return KeyboardLayout.midi(forCharacters: chars) == nil ? .ignored : .handled
-        }
     }
 
     private var header: some View {
@@ -90,7 +76,7 @@ struct ContentView: View {
             Text("Piano-crayon")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(session.scene.ink)
-            Text("\(session.scoreValue) · best \(session.bestScore) · \(session.layoutId.rawValue.uppercased())")
+            Text("\(session.scoreValue) · best \(session.bestScore) · \(session.kbLayout.uppercased())")
                 .font(.caption.monospacedDigit().weight(.semibold))
                 .foregroundStyle(session.scene.muted)
             Spacer(minLength: 8)
@@ -158,7 +144,11 @@ struct ContentView: View {
             Text("Spectre · sources regroupées")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(session.scene.muted)
-            SpectrumPlotView(scene: session.scene, bus: session.specBus)
+            SpectrumPlotView(
+                scene: session.scene,
+                bus: session.specBus,
+                paused: session.mode == .idle && session.pressed.isEmpty && session.liveTracks.isEmpty
+            )
                 .frame(minHeight: 180)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -166,35 +156,29 @@ struct ContentView: View {
 
     private var controls: some View {
         HStack(spacing: 8) {
-            Button(session.mode == .replay ? "Stop" : "Rejouer") {
+            Button(session.mode == .replay ? "Arrêter" : "Rejouer") {
                 session.toggleReplay()
             }
-            .buttonStyle(CrayonButtonStyle(kind: session.mode == .replay ? .replayOn : .replay, scene: session.scene))
+            .buttonStyle(QuietChipStyle(on: session.mode == .replay, scene: session.scene))
 
-            Button(session.mode == .live ? "Stop" : "Écouter") {
+            Button(session.mode == .live ? "Arrêter" : "Écouter") {
                 session.toggleListen()
             }
-            .buttonStyle(CrayonButtonStyle(kind: session.mode == .live ? .live : .stop, scene: session.scene))
+            .buttonStyle(QuietChipStyle(on: session.mode == .live, scene: session.scene))
         }
     }
 
     private var toggles: some View {
         HStack(spacing: 8) {
-            iconToggle(session.chordsOn, label: "Accords") {
+            labeledToggle(session.chordsOn, title: "Accords", hint: "Jusqu’à 8 notes à la fois") {
                 session.chordsOn.toggle()
-            } glyph: {
-                ChordGlyph(on: session.chordsOn)
             }
-            iconToggle(session.unmute, label: "Son") {
+            labeledToggle(session.unmute, title: "Son", hint: "Entendre la relecture, doucement") {
                 session.unmute.toggle()
                 session.applyUnmute()
-            } glyph: {
-                SpeakerGlyph(on: session.unmute)
             }
-            iconToggle(session.autotune, label: "La") {
+            labeledToggle(session.autotune, title: "La auto", hint: "Estimer le la du concert ; sinon 440 Hz") {
                 session.autotune.toggle()
-            } glyph: {
-                LaGlyph(on: session.autotune)
             }
             if !session.statusLine.isEmpty {
                 Text(session.statusLine)
@@ -205,34 +189,41 @@ struct ContentView: View {
         }
     }
 
-    private func iconToggle<G: View>(
-        _ on: Bool,
-        label: String,
-        action: @escaping () -> Void,
-        @ViewBuilder glyph: () -> G
-    ) -> some View {
+    private func labeledToggle(_ on: Bool, title: String, hint: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            glyph()
-                .frame(width: 44, height: 44)
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .frame(height: 36)
+                .foregroundStyle(session.scene.ink)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(on ? session.scene.ink.opacity(0.12) : session.scene.paper)
+                )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(session.scene.muted.opacity(0.45), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityLabel(hint)
         .accessibilityAddTraits(on ? .isSelected : [])
     }
 
     private var trackRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-            Text("\(session.liveTracks.count)")
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(session.scene.muted)
-                .frame(width: 28, height: 44)
-                .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Button {
+                session.selectAllTracks()
+            } label: {
+                Text("\(session.liveTracks.count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(session.scene.muted)
+                    .frame(width: 28, height: 44)
+                    .background(session.scene.paper, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Toutes les pistes")
             if session.liveTracks.isEmpty {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(session.scene.muted.opacity(0.35), lineWidth: 1)
@@ -250,10 +241,10 @@ struct ContentView: View {
                             .background(track.pitchClass.color.opacity(track.energy > 0.18 ? 1 : 0.28), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .opacity(track.energy > 0.18 ? 1 : 0.4)
+                    .opacity(session.trackIsOn(track.id) ? (track.energy > 0.18 ? 1 : 0.4) : 0.28)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(session.selectedTrackId == track.id || session.isTous ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
+                            .stroke(session.trackIsOn(track.id) ? session.scene.ink.opacity(0.5) : Color.clear, lineWidth: 1)
                     )
                     .accessibilityLabel("\(track.caption) \(Int(track.f0.rounded())) Hz")
                 }
@@ -311,7 +302,8 @@ struct ContentView: View {
         PianoKeyboardView(
             lit: session.lit,
             harmonics: session.harmonics,
-            pressed: session.pressed,
+            pressed: session.pressed.union(session.boundPressed),
+            binds: session.keyBinds,
             scene: session.scene,
             onPressed: { session.setPressed($0) }
         )
@@ -357,57 +349,45 @@ struct ContentView: View {
         }
     }
 
-    private var clock: String {
+    private var clock: some View {
+        TimelineView(.animation(paused: session.mode != .replay && !session.scrubbing)) { _ in
+            Text(clockText)
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(session.scene.ink)
+                .fixedSize()
+        }
+    }
+
+    private var clockText: String {
         func fmt(_ s: Double) -> String {
             let t = max(0, s)
             let m = Int(t) / 60
             let sec = t - Double(m * 60)
             return String(format: "%d:%04.1f", m, sec)
         }
-        return "\(fmt(session.sampleTime)) / \(fmt(session.sampleDuration))"
+        return "\(fmt(session.currentSampleTime())) / \(fmt(session.sampleDuration))"
     }
 }
 
-private struct CrayonButtonStyle: ButtonStyle {
-    enum Kind {
-        case live
-        case stop
-        case replay
-        case replayOn
-    }
-
-    var kind: Kind
+private struct QuietChipStyle: ButtonStyle {
+    var on: Bool
     var scene: SceneStyle
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .foregroundStyle(foreground)
-            .background(background, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(border, lineWidth: 1)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 12)
+            .frame(height: 36)
+            .foregroundStyle(scene.ink)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(on ? scene.ink.opacity(0.12) : scene.paper)
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .opacity(configuration.isPressed ? 0.9 : 1)
-    }
-
-    private var background: Color {
-        switch kind {
-        case .live: return Color(red: 0.44, green: 0.60, blue: 0.28).opacity(0.85)
-        case .stop: return Color(red: 0.60, green: 0.28, blue: 0.29).opacity(scene.isLight ? 0.95 : 0.35)
-        case .replay: return Color(red: 0.28, green: 0.28, blue: 0.60).opacity(scene.isLight ? 0.95 : 0.35)
-        case .replayOn: return Color(red: 0.28, green: 0.49, blue: 0.60).opacity(0.9)
-        }
-    }
-
-    private var border: Color { background }
-    private var foreground: Color {
-        scene.isLight
-            ? Color(red: 0.969, green: 0.945, blue: 0.910)
-            : Color(red: 0.604, green: 0.604, blue: 0.635)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(scene.muted.opacity(0.45), lineWidth: 1)
+            )
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
 
@@ -415,51 +395,6 @@ private extension Array where Element == LitNote {
     var uniquedMidis: [LitNote] {
         var seen = Set<Int>()
         return filter { seen.insert($0.midi).inserted }
-    }
-}
-
-private struct ChordGlyph: View {
-    var on: Bool
-    var body: some View {
-        ZStack {
-            Circle().fill(on ? Color(red: 0.20, green: 0.66, blue: 0.35) : Color.gray.opacity(0.45)).frame(width: 6, height: 6)
-            if on {
-                Circle().fill(Color(red: 0.20, green: 0.66, blue: 0.35)).frame(width: 6, height: 6).offset(x: 8, y: 8)
-                Circle().fill(Color(red: 0.20, green: 0.66, blue: 0.35)).frame(width: 6, height: 6).offset(x: -8, y: 8)
-            }
-        }
-    }
-}
-
-private struct SpeakerGlyph: View {
-    var on: Bool
-    var color: Color { on ? Color(red: 0.20, green: 0.66, blue: 0.35) : Color.gray.opacity(0.45) }
-    var body: some View {
-        HStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 5, height: 6)
-            Triangle().fill(color).frame(width: 9, height: 12)
-        }
-    }
-}
-
-private struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.closeSubpath()
-        return p
-    }
-}
-
-private struct LaGlyph: View {
-    var on: Bool
-    var body: some View {
-        Circle()
-            .fill(on ? Color(red: 0, green: 0, blue: 1) : Color.clear)
-            .overlay(Circle().stroke(Color(red: 0, green: 0, blue: 1), lineWidth: 2))
-            .frame(width: 16, height: 16)
     }
 }
 
