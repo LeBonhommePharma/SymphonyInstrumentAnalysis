@@ -15,6 +15,7 @@ final class PianoSession: ObservableObject {
     @Published var lit: [LitNote] = []
     @Published var harmonics: Set<Int> = []
     @Published var pressed: Set<Int> = []
+    @Published var boundPressed: Set<Int> = []
     @Published var chroma: [NoteName: Float] = [:]
     @Published var concertA: Double = PitchMath.a4Ref
     @Published var tuneReady = false
@@ -38,7 +39,28 @@ final class PianoSession: ObservableObject {
     @Published var unmute = false
     @Published var autotune = true
     @Published var liveTracks: [LiveTrack] = []
-    @Published var selectedTrackId: Int?
+    @Published var selectedTrackIds: Set<Int> = []
+    @Published var typedText = ""
+    @Published var fingerCaption = "0 touche · 0 groupe"
+    @Published var kbLayout: String = DualBoards.normalize(
+        UserDefaults.standard.string(forKey: "crayon-kb-layout")
+    ) {
+        didSet {
+            let next = DualBoards.normalize(kbLayout)
+            if next != kbLayout {
+                kbLayout = next
+                return
+            }
+            if oldValue != kbLayout {
+                UserDefaults.standard.set(kbLayout, forKey: "crayon-kb-layout")
+                releaseDualHolds()
+            }
+        }
+    }
+    let fingerGate = FingerGate()
+    let typeState = DualTypeState()
+    private var trackEnergyHist: [Int: [Float]] = [:]
+    let histLen = 240
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
     @Published var sceneAuto = UserDefaults.standard.object(forKey: "crayon-theme-auto") as? Bool ?? true {
@@ -48,9 +70,17 @@ final class PianoSession: ObservableObject {
 
     var scene: SceneStyle { sceneChoice }
 
-    var isTous: Bool { selectedTrackId == nil || liveTracks.isEmpty }
+    var isTous: Bool { selectedTrackIds.isEmpty || liveTracks.isEmpty }
 
     var trackLabel: String { "\(liveTracks.count)" }
+
+    var waveStackHeight: CGFloat {
+        min(280, CGFloat(max(1, liveTracks.count)) * 36)
+    }
+
+    func trackIsOn(_ id: Int) -> Bool { isTous || selectedTrackIds.contains(id) }
+
+    func energyHist(for id: Int) -> [Float] { trackEnergyHist[id] ?? [] }
 
     var tuneLine: String {
         if !autotune {
@@ -70,7 +100,10 @@ final class PianoSession: ObservableObject {
     private var demoBuffer: AVAudioPCMBuffer?
     private var replayStartHost: TimeInterval = 0
     private var replayOffset: Double = 0
-    private var clockTimer: Timer?
+    private let displayPulse = DisplayPulse()
+    private var mixerTapOn = false
+    private var histClock: TimeInterval = 0
+    private let waveWindowSec: Double = 6
     private var voices: [Int: Voice] = [:]
     private var didInstallTap = false
     private var nextTrackId = 1
@@ -109,6 +142,11 @@ final class PianoSession: ObservableObject {
             Task { @MainActor in self?.considerAmbient() }
         }
         considerAmbient()
+        displayPulse.onTick = { [weak self] in
+            Task { @MainActor in
+                self?.onDisplayTick()
+            }
+        }
     }
 
     func pickScene(_ style: SceneStyle) {
@@ -151,6 +189,7 @@ final class PianoSession: ObservableObject {
 
     func beginScrub() {
         scrubbing = true
+        armDisplayPulse()
     }
 
     func scrub(toTime t: Double) {
@@ -162,6 +201,7 @@ final class PianoSession: ObservableObject {
     func endScrub() {
         scrubbing = false
         if mode == .replay { startReplay() }
+        armDisplayPulse()
     }
 
     func toggleListen() {
@@ -189,11 +229,13 @@ final class PianoSession: ObservableObject {
             try configureSession()
             try startEngineIfNeeded()
             tapMixer.removeTap(onBus: 0)
+            mixerTapOn = false
             installInputTap()
             analyzer.reset()
             mode = .live
             statusLine = "live"
             hint = ""
+            armDisplayPulse()
         } catch {
             mode = .idle
             errorMessage = micError(error)
@@ -207,6 +249,8 @@ final class PianoSession: ObservableObject {
         clearSpectrum()
         statusLine = ""
         hint = ""
+        if !voices.isEmpty { ensureMixerTap() }
+        armDisplayPulse()
     }
 
     func startReplay() {
@@ -234,8 +278,8 @@ final class PianoSession: ObservableObject {
             mode = .replay
             statusLine = "démo"
             hint = ""
-            startClock()
             installMixerTap()
+            armDisplayPulse()
         } catch {
             mode = .idle
             errorMessage = error.localizedDescription
@@ -247,9 +291,8 @@ final class PianoSession: ObservableObject {
             replayOffset = keepScrub ? sampleNow() : 0
         }
         player.stop()
-        clockTimer?.invalidate()
-        clockTimer = nil
         tapMixer.removeTap(onBus: 0)
+        mixerTapOn = false
         if mode == .replay { mode = .idle }
         if mode == .idle {
             clearSpectrum()
@@ -257,6 +300,8 @@ final class PianoSession: ObservableObject {
             hint = ""
             if !keepScrub { sampleTime = 0 }
         }
+        if !voices.isEmpty { ensureMixerTap() }
+        armDisplayPulse()
     }
 
     func seekReplay(fraction: Double) {
@@ -272,38 +317,190 @@ final class PianoSession: ObservableObject {
     }
 
     func selectAllTracks() {
-        selectedTrackId = nil
+        selectedTrackIds = []
         analyzer.reset()
     }
 
     func toggleTrack(_ id: Int) {
-        selectedTrackId = selectedTrackId == id ? nil : id
+        if isTous {
+            selectedTrackIds = [id]
+        } else if selectedTrackIds.contains(id) {
+            selectedTrackIds.remove(id)
+        } else {
+            selectedTrackIds.insert(id)
+        }
         analyzer.reset()
+    }
+
+    var layoutHint: String {
+        kbLayout == "csa"
+            ? "Canadien français · Z=Do3 · D=Do4 · Q=La4"
+            : "US · Z=Do3 · D=Do4 · Q=La4"
+    }
+
+    func clearTyped() {
+        typeState.text = ""
+        typeState.dead = ""
+        typedText = ""
+    }
+
+    func releaseDualHolds() {
+        for held in fingerGate.held {
+            if let spec = DualBoards.layout(held.board).key(held.kid) {
+                typeState.release(spec)
+            }
+        }
+        fingerGate.clear()
+        fingerCaption = Self.caption(for: fingerGate)
+        publishSpatialTracks()
+        syncBoundNotes()
+    }
+
+    @discardableResult
+    func hardwareDown(code: String?) -> Bool {
+        guard let code, let spec = DualBoards.layout(kbLayout).key(code: code) else { return false }
+        dualDown(pointer: DualHID.pointer(for: code), board: kbLayout, kid: spec.kid)
+        return true
+    }
+
+    @discardableResult
+    func hardwareUp(code: String?) -> Bool {
+        guard let code else { return false }
+        dualUp(pointer: DualHID.pointer(for: code))
+        return DualBoards.layout(kbLayout).key(code: code) != nil
+    }
+
+    func dualDown(pointer: Int, board: String, kid: String) {
+        let key = HeldDual(board: board, kid: kid)
+        if fingerGate.at(pointer) == key { return }
+        if fingerGate.at(pointer) != nil { return }
+        let already = fingerGate.held.contains(key)
+        guard fingerGate.down(pointer: pointer, key: key) else { return }
+        if !already, let spec = DualBoards.layout(board).key(kid) {
+            _ = typeState.apply(spec)
+            typedText = typeState.text
+        }
+        fingerCaption = Self.caption(for: fingerGate)
+        publishSpatialTracks()
+        syncBoundNotes()
+        armDisplayPulse()
+    }
+
+    func dualUp(pointer: Int) {
+        if let held = fingerGate.at(pointer), let spec = DualBoards.layout(held.board).key(held.kid) {
+            typeState.release(spec)
+        }
+        fingerGate.up(pointer: pointer)
+        fingerCaption = Self.caption(for: fingerGate)
+        publishSpatialTracks()
+        syncBoundNotes()
+        armDisplayPulse()
+    }
+
+    private static func caption(for gate: FingerGate) -> String {
+        let n = gate.held.count
+        let g = gate.clusters.count
+        let nt = n <= 1 ? "\(n) touche" : "\(n) touches"
+        let ng = g <= 1 ? "\(g) groupe" : "\(g) groupes"
+        return "\(nt) · \(ng)"
+    }
+
+    private func publishSpatialTracks() {
+        guard mode == .idle else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let groups = fingerGate.clusters
+        var next: [LiveTrack] = []
+        for members in groups {
+            let pts = members.map { DualBoards.point($0) }
+            let cx = pts.map(\.0).reduce(0, +) / Double(max(1, pts.count))
+            let glyphs = members.compactMap { DualBoards.layout($0.board).key($0.kid)?.base }.joined()
+            let midis = members.compactMap { DualNoteMap.midi(for: $0.kid) }
+            let midi0 = midis.min()
+            let concert = autotune ? concertA : PitchMath.a4Ref
+            let f0 = midi0.map { PitchMath.midiToHz($0, concertA: concert) }
+                ?? (110 * pow(2, (cx.truncatingRemainder(dividingBy: 12)) / 12))
+            let label = midi0.map { DualNoteMap.labelFr($0) + " · " + glyphs } ?? glyphs
+            var t = LiveTrack(
+                id: nextTrackId,
+                f0: f0,
+                db: -12,
+                harm: 0.4,
+                energy: 1,
+                born: now,
+                lastSeen: now,
+                label: label,
+                labelSource: "keys"
+            )
+            if let existing = liveTracks.first(where: { abs(($0.f0) - t.f0) < 8 }) {
+                t.id = existing.id
+                t.born = existing.born
+            } else {
+                nextTrackId += 1
+            }
+            next.append(t)
+        }
+        liveTracks = next
+        selectedTrackIds = selectedTrackIds.filter { id in liveTracks.contains { $0.id == id } }
+        pushHist()
+    }
+
+    private func pushHist() {
+        for t in liveTracks {
+            if trackEnergyHist[t.id]?.count != histLen {
+                trackEnergyHist[t.id] = Array(repeating: 0, count: histLen)
+            }
+        }
+        let ids = Set(liveTracks.map(\.id))
+        trackEnergyHist = trackEnergyHist.filter { ids.contains($0.key) }
     }
 
     func noteOn(_ midi: Int) {
         pressed.insert(midi)
-        if voices.count >= 96, let oldest = voiceOrder.first {
-            fadeOut(oldest)
-        }
-        ensureTone(midi)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        let name = NoteName.pitchClass(of: midi)
-        statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
-        publishHeld()
+        syncSounding()
     }
 
     func noteOff(_ midi: Int) {
         pressed.remove(midi)
-        fadeOut(midi)
-        publishHeld()
+        syncSounding()
     }
 
     func setPressed(_ midis: Set<Int>) {
-        let added = midis.subtracting(pressed)
-        let removed = pressed.subtracting(midis)
-        for m in added { noteOn(m) }
-        for m in removed { noteOff(m) }
+        pressed = midis
+        syncSounding()
+    }
+
+    func syncBoundNotes() {
+        boundPressed = Set(fingerGate.held.compactMap { DualNoteMap.midi(for: $0.kid) })
+        syncSounding()
+    }
+
+    var keyBinds: [Int: String] {
+        var out: [Int: String] = [:]
+        for midi in PitchMath.midiLo...PitchMath.midiHi {
+            if let glyph = DualNoteMap.glyph(midi: midi, layoutId: kbLayout) {
+                out[midi] = glyph
+            }
+        }
+        return out
+    }
+
+    private func syncSounding() {
+        let want = pressed.union(boundPressed)
+        let have = Set(voices.keys)
+        for midi in want.subtracting(have) {
+            if voices.count >= 96, let oldest = voiceOrder.first {
+                fadeOut(oldest)
+            }
+            ensureTone(midi)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            let name = NoteName.pitchClass(of: midi)
+            statusLine = "\(name.french)\(PitchMath.octave(of: midi))"
+        }
+        for midi in have.subtracting(want) {
+            fadeOut(midi)
+        }
+        publishHeld()
+        armDisplayPulse()
     }
 
     private func ensureTone(_ midi: Int) {
@@ -313,6 +510,7 @@ final class PianoSession: ObservableObject {
             return
         }
         do { try startEngineIfNeeded() } catch { return }
+        ensureMixerTap()
         let freq = PitchMath.midiToHz(midi, concertA: autotune ? concertA : PitchMath.a4Ref)
         let phasor = TonePhasor()
         let twoPi = 2.0 * Double.pi
@@ -374,18 +572,24 @@ final class PianoSession: ObservableObject {
         let input = engine.inputNode
         input.removeTap(onBus: 0)
         let format = input.outputFormat(forBus: 0)
-        input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.consume(buffer, sampleRate: format.sampleRate)
         }
         didInstallTap = true
     }
 
+    private func ensureMixerTap() {
+        if mixerTapOn || mode == .live { return }
+        installMixerTap()
+    }
+
     private func installMixerTap() {
         tapMixer.removeTap(onBus: 0)
         let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)
-        tapMixer.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
+        tapMixer.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             self?.consume(buffer, sampleRate: 44100)
         }
+        mixerTapOn = true
     }
 
     nonisolated private func consume(_ buffer: AVAudioPCMBuffer, sampleRate: Double) {
@@ -399,14 +603,18 @@ final class PianoSession: ObservableObject {
     }
 
     private func process(samples: [Float], sampleRate: Double, now: Double) {
-        guard mode == .live || mode == .replay else { return }
+        guard mode == .live || mode == .replay || !voices.isEmpty else { return }
         let tous = isTous
         var bands: [(lo: Double, hi: Double)] = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
-        if !tous, let id = selectedTrackId, let t = liveTracks.first(where: { $0.id == id }) {
-            bands = (1...8).map { n in
-                let f = t.f0 * Double(n)
-                return (f * 0.97, f * 1.03)
+        if !tous {
+            let chosen = liveTracks.filter { selectedTrackIds.contains($0.id) }
+            bands = chosen.flatMap { t in
+                (1...8).map { n in
+                    let f = t.f0 * Double(n)
+                    return (f * 0.97, f * 1.03)
+                }
             }
+            if bands.isEmpty { bands = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)] }
         }
         let config = PeakPickConfig(
             sensitivity: 0.58,
@@ -472,9 +680,8 @@ final class PianoSession: ObservableObject {
             liveTracks[i].energy *= 0.72
         }
         liveTracks.removeAll { now - $0.lastSeen > 1.4 || $0.energy < 0.04 }
-        if let id = selectedTrackId, !liveTracks.contains(where: { $0.id == id }) {
-            selectedTrackId = nil
-        }
+        selectedTrackIds = selectedTrackIds.filter { id in liveTracks.contains { $0.id == id } }
+        pushHist()
     }
 
     private func maybeLabel(now: Double) {
@@ -510,7 +717,7 @@ final class PianoSession: ObservableObject {
         tuneReady = false
         concertA = PitchMath.a4Ref
         liveTracks = []
-        selectedTrackId = nil
+        selectedTrackIds = []
         lastClusters = []
         lastPeaks = []
         specBus.clear()
@@ -551,13 +758,52 @@ final class PianoSession: ObservableObject {
         publishSpectrum(clusters: lastClusters, peaks: lastPeaks)
     }
 
-    private func startClock() {
-        clockTimer?.invalidate()
-        clockTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self, self.mode == .replay else { return }
-                self.sampleTime = self.sampleNow()
+    private func onDisplayTick() {
+        tickDisplay(now: ProcessInfo.processInfo.systemUptime)
+        armDisplayPulse()
+    }
+
+    func tickDisplay(now: TimeInterval) {
+        let cols = histLen
+        let secPerCol = waveWindowSec / Double(max(1, cols))
+        if histClock == 0 { histClock = now }
+        var shifts = Int((now - histClock) / secPerCol)
+        if shifts < 1 {
+            for t in liveTracks {
+                if var h = trackEnergyHist[t.id], !h.isEmpty {
+                    h[h.count - 1] = Float(t.energy)
+                    trackEnergyHist[t.id] = h
+                }
             }
+            return
+        }
+        if shifts > cols { shifts = cols }
+        histClock += Double(shifts) * secPerCol
+        for t in liveTracks {
+            var h = trackEnergyHist[t.id] ?? Array(repeating: Float(0), count: cols)
+            if h.count != cols { h = Array(repeating: 0, count: cols) }
+            if shifts >= cols {
+                h = Array(repeating: Float(t.energy), count: cols)
+            } else {
+                h.removeFirst(shifts)
+                h.append(contentsOf: repeatElement(Float(t.energy), count: shifts))
+            }
+            trackEnergyHist[t.id] = h
+        }
+        let ids = Set(liveTracks.map(\.id))
+        trackEnergyHist = trackEnergyHist.filter { ids.contains($0.key) }
+    }
+
+    private func wantsDisplayPulse() -> Bool {
+        mode != .idle || scrubbing || !pressed.isEmpty || !fingerGate.held.isEmpty || !liveTracks.isEmpty
+    }
+
+    private func armDisplayPulse() {
+        if wantsDisplayPulse() {
+            displayPulse.start()
+        } else {
+            displayPulse.stop()
+            histClock = 0
         }
     }
 

@@ -13,7 +13,7 @@ struct WaveformTrackView: View {
     @State private var grabT: Double = 0
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: session.mode != .replay && !session.scrubbing)) { _ in
+        TimelineView(.animation(paused: session.mode == .idle && session.liveTracks.isEmpty && session.pressed.isEmpty && !session.scrubbing)) { _ in
             GeometryReader { geo in
                 Canvas { ctx, size in
                     draw(ctx, size, session.currentSampleTime())
@@ -53,90 +53,69 @@ struct WaveformTrackView: View {
                 )
             }
         }
-        .frame(height: 68)
+        .frame(minHeight: 68)
     }
 
     private func draw(_ ctx: GraphicsContext, _ size: CGSize, _ t: Double) {
         let w = size.width
         let h = size.height
-        let mid = h / 2
-        let playheadX = w * playheadFrac
-        let dur = session.sampleDuration
-        let peaks = session.wavePeaks
-        let pps = session.peaksPerSec
-
-        let grid = session.scene.muted
+        let tracks = session.liveTracks
+        let n = max(1, tracks.count)
+        let laneH = h / CGFloat(n)
+        let liveLike = session.mode == .live || !tracks.isEmpty
+        let playheadX = w * (liveLike ? 0.92 : playheadFrac)
         let ink = session.scene.ink
-        let played = Color(red: 0.28, green: 0.49, blue: 0.60)
-        let future = session.scene.muted
 
-        // Scrolling second gridlines + tick labels.
-        let firstSec = Int(floor(t - Double(playheadX) / pxPerSec))
-        let lastSec = Int(ceil(t + Double(w - playheadX) / pxPerSec))
-        if firstSec <= lastSec {
-            for s in firstSec...lastSec {
-                if s < 0 || (dur > 0 && Double(s) > dur) { continue }
-                let x = playheadX + CGFloat((Double(s) - t) * pxPerSec)
-                if x < 0 || x > w { continue }
-                var line = Path()
-                line.move(to: CGPoint(x: x, y: 12))
-                line.addLine(to: CGPoint(x: x, y: h))
-                ctx.stroke(line, with: .color(grid.opacity(0.28)), lineWidth: 1)
-                ctx.draw(
-                    Text("\(s)s").font(.system(size: 9)).foregroundColor(grid.opacity(0.7)),
-                    at: CGPoint(x: x + 11, y: 7),
-                    anchor: .center
-                )
-            }
-        }
-
-        // Center baseline.
-        var base = Path()
-        base.move(to: CGPoint(x: 0, y: mid))
-        base.addLine(to: CGPoint(x: w, y: mid))
-        ctx.stroke(base, with: .color(grid.opacity(0.25)), lineWidth: 1)
-
-        // Waveform, one vertical bar per pixel column.
-        if !peaks.isEmpty {
-            let amp = mid - 3
-            var playedPath = Path()
-            var futurePath = Path()
-            var xi = 0
-            let iw = Int(w)
-            while xi <= iw {
-                let x = CGFloat(xi)
-                let tt = t + Double(x - playheadX) / pxPerSec
-                if tt >= 0 && tt <= dur {
-                    let b = Int(tt * pps)
-                    if b >= 0 && b < peaks.count {
-                        let a = CGFloat(peaks[b]) * amp
-                        if a > 0.5 {
-                            if tt <= t {
-                                playedPath.move(to: CGPoint(x: x, y: mid - a))
-                                playedPath.addLine(to: CGPoint(x: x, y: mid + a))
-                            } else {
-                                futurePath.move(to: CGPoint(x: x, y: mid - a))
-                                futurePath.addLine(to: CGPoint(x: x, y: mid + a))
-                            }
-                        }
+        if tracks.isEmpty {
+            let mid = h / 2
+            var base = Path()
+            base.move(to: CGPoint(x: 0, y: mid))
+            base.addLine(to: CGPoint(x: w, y: mid))
+            ctx.stroke(base, with: .color(session.scene.muted.opacity(0.25)), lineWidth: 1)
+            let peaks = session.wavePeaks
+            if !peaks.isEmpty {
+                let amp = mid - 3
+                var path = Path()
+                var xi = 0
+                while xi <= Int(w) {
+                    let x = CGFloat(xi)
+                    let b = min(peaks.count - 1, Int(Double(xi) / Double(max(1, w)) * Double(peaks.count)))
+                    let a = CGFloat(peaks[b]) * amp
+                    if a > 0.5 {
+                        path.move(to: CGPoint(x: x, y: mid - a))
+                        path.addLine(to: CGPoint(x: x, y: mid + a))
                     }
+                    xi += 1
                 }
-                xi += 1
+                ctx.stroke(path, with: .color(Color(red: 0.28, green: 0.49, blue: 0.60)), lineWidth: 1)
             }
-            ctx.stroke(futurePath, with: .color(future.opacity(0.5)), lineWidth: 1)
-            ctx.stroke(playedPath, with: .color(played.opacity(0.95)), lineWidth: 1)
+        } else {
+            for (i, track) in tracks.enumerated() {
+                let y0 = CGFloat(i) * laneH
+                let mid = y0 + laneH / 2
+                let dim = !session.trackIsOn(track.id)
+                let hist = session.energyHist(for: track.id)
+                let color = track.pitchClass.color.opacity(dim ? 0.28 : 0.95)
+                var path = Path()
+                var xi = 0
+                let amp = laneH * 0.42
+                while xi <= Int(w) {
+                    let x = CGFloat(xi)
+                    let b = hist.isEmpty ? 0 : min(hist.count - 1, Int(Double(xi) / Double(max(1, w)) * Double(hist.count)))
+                    let a = CGFloat(hist.isEmpty ? 0 : hist[b]) * amp
+                    if a > 0.4 {
+                        path.move(to: CGPoint(x: x, y: mid - a))
+                        path.addLine(to: CGPoint(x: x, y: mid + a))
+                    }
+                    xi += 1
+                }
+                ctx.stroke(path, with: .color(color), lineWidth: 1)
+            }
         }
 
-        // Fixed playhead + top triangle.
         var ph = Path()
         ph.move(to: CGPoint(x: playheadX, y: 0))
         ph.addLine(to: CGPoint(x: playheadX, y: h))
         ctx.stroke(ph, with: .color(ink), lineWidth: 2)
-        var tri = Path()
-        tri.move(to: CGPoint(x: playheadX - 4.5, y: 0))
-        tri.addLine(to: CGPoint(x: playheadX + 5.5, y: 0))
-        tri.addLine(to: CGPoint(x: playheadX + 0.5, y: 6))
-        tri.closeSubpath()
-        ctx.fill(tri, with: .color(ink))
     }
 }

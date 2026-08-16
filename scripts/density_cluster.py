@@ -10,16 +10,13 @@ from __future__ import annotations
 import math
 import sys
 
-SOFT_MAX = 8
-
-
 def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
     funds: list[dict] = []
     for p in sorted(peaks, key=lambda x: -x["db"]):
         attached = False
         for g in funds:
             n = round(p["f"] / g["f0"])
-            if n < 2 or n > 8:
+            if n < 2 or n > 16:
                 continue
             cents = 1200 * math.log2(p["f"] / (n * g["f0"]))
             if abs(cents) < 35:
@@ -108,14 +105,28 @@ def density_cluster_funds(funds: list[dict]) -> list[dict]:
             }
         )
     clusters.sort(key=lambda c: -c["db"])
-    if not clusters:
-        return []
-    top = clusters[0]["db"]
-    return [c for c in clusters if c["db"] > top - 22 and c["db"] > -72][:SOFT_MAX]
+    return [c for c in clusters if c["db"] > -90]
 
 
 def cluster_peaks(peaks: list[dict]) -> list[dict]:
     return density_cluster_funds(group_harmonic_funds(peaks))
+
+
+def heuristic_label(f0: float, harm: float) -> str:
+    """Same nouns as iOS/web ClusterLabeler — voix is first-class."""
+    if harm < 0.18 and f0 > 180:
+        return "bruit"
+    if f0 < 90:
+        return "grave"
+    if f0 < 280 and harm >= 0.35:
+        return "voix"
+    if f0 < 450:
+        return "corps"
+    if harm >= 0.55:
+        return "nylon"
+    if f0 > 1400:
+        return "air"
+    return ""
 
 
 def tone_stack(f0: float, db0: float = -20.0, n_harm: int = 6) -> list[dict]:
@@ -147,7 +158,25 @@ def main() -> None:
     if len(chordish) >= 5:
         raise SystemExit("must not invent five instrument tracks for one chord")
 
-    print(f"solo={len(solo)} voice_span={len(voice_span)} two={len(two)} chord={len(chordish)}")
+    # Psytrance-like: kick series + inharmonic highs (n>8 so they are not harmonics).
+    psy = cluster_peaks(
+        tone_stack(55.0, -12.0, 3)
+        + [
+            {"f": 2100.0, "db": -18.0},
+            {"f": 2450.0, "db": -20.0},
+            {"f": 3120.0, "db": -22.0},
+            {"f": 3800.0, "db": -24.0},
+        ]
+    )
+    if len(psy) < 2:
+        raise SystemExit(f"kick + high synth must stay ≥2 sources, got {len(psy)}")
+    if not any(c["f0"] < 80 for c in psy) or not any(c["f0"] > 1800 for c in psy):
+        raise SystemExit(f"psytrance must keep a low and a high source: {[round(c['f0']) for c in psy]}")
+
+    print(
+        f"solo={len(solo)} voice_span={len(voice_span)} two={len(two)} "
+        f"chord={len(chordish)} psy={len(psy)}"
+    )
     print("density_cluster: OK")
 
 

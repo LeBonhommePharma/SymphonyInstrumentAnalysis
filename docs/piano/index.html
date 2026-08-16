@@ -2,7 +2,19 @@
 <html lang="fr" data-theme="stealth" data-scheme="dark">
 <head>
   <meta charset="utf-8">
-  <style>html,body{background:#121214;color-scheme:dark}</style>
+  <style>html,body{background:#121214;color-scheme:dark}
+    .pages-crumb {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 10px;
+      font-size: 0.78rem;
+      font-weight: 650;
+      color: var(--muted);
+    }
+    .pages-crumb a { color: var(--muted); text-decoration: none; }
+    .pages-crumb a:hover { color: var(--ink); }
+  </style>
   <script>
   (function () {
     try {
@@ -1139,8 +1151,17 @@
       }
     }
   </style>
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/">
+  <meta name="description" content="Pick US ANSI or Canadian French CSA. One board remaps instantly. Ten fingers; extras only if well clustered.">
 </head>
 <body>
+  <p class="pages-crumb">
+    <a href="../">Symphony</a>
+    ·
+    <a href="../tutorial/">Live listen</a>
+    ·
+    <a href="../how-to.html">ELI5</a>
+  </p>
   <div class="top">
     <h1>Piano-crayon</h1>
     <div class="scenes" role="radiogroup" aria-label="Ambiance">

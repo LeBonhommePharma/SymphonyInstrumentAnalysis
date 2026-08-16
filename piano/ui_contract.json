@@ -15,13 +15,15 @@
   ],
   "layout": [
     "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
-    "actions: Rejouer | Écouter | clock | La/A readout",
-    "toggles: Sensibilité, Accords, Entendre, Auto-accord",
-    "tracks: Tous + 5 musician chips",
-    "daw: stacked color waveform lanes (one per selected musician)",
+    "actions: Rejouer | Écouter (labeled chips; Arrêter while on) | clock | La/A readout",
+    "toggles: Accords, Son, La auto",
+    "tracks: count badge + one color chip per density cluster (Tous = all on)",
+    "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
     "chroma: 12 pitch-class bars labeled Do..Si",
     "lit: current notes as crayon chips + Hz",
-    "keyboard: La0–Do8 (88 keys)"
+    "keyboard: one US ANSI or Canadian French CSA board (picker remaps instantly; 10 fingers; extras only if well clustered)",
+    "keyboard: each character key is a crayon note (Z=Do3, D=Do4, Q=La4); the 88-key strip shows the bound glyph",
+    "keyboard: compact La0–Do8 (88 keys) under the typing board; computer keys light the matching piano notes"
   ],
   "crayons": {
     "C":  { "fr": "Do",  "pencil": "Maraschino", "rgb": [251, 2, 7] },
@@ -45,17 +47,18 @@
     { "id": "nylon",   "fr": "Nylon",       "en": "High",        "lo": 600, "hi": 2500, "rgb": [128, 0, 255] }
   ],
   "tracks": {
-    "default": "all selected (Tous)",
-    "clickMusicianWhileTous": "solo that musician",
-    "clickMore": "union / stack those lanes",
-    "clickTous": "all five",
+    "default": "all density clusters selected (Tous)",
+    "clickChipWhileTous": "solo that cluster",
+    "clickMore": "union / stack those clusters; keyboard lights only the selection",
+    "clickCount": "all live clusters",
     "empty": "snap back to Tous",
-    "chipLabel": "French name only; Hz range is the second line",
-    "laneColor": "musician rgb, not pitch crayon, not lane-index palette"
+    "chipLabel": "heuristic/FM name or crayon+octave; Hz in the title",
+    "laneColor": "pitch-class crayon of the cluster f0",
+    "stackCount": "one stacked DAW lane per density cluster (equals live cluster count)"
   },
   "waveform": {
     "style": "GarageBand stacked lanes, filled mirrored envelope",
-    "oneLanePer": "selected musician (Tous = five stacked lanes)",
+    "oneLanePer": "density cluster (Tous = every live cluster stacked)",
     "noSlider": true,
     "replay": {
       "playhead": "fixed at ~34% width",
@@ -75,7 +78,7 @@
   "actions": {
     "listen": "Écouter / Stop — mic FFT, silent analyser (do not tap speakers)",
     "replay": "Rejouer / Stop — sample or 8s synth demo; muted until Entendre",
-    "keyboard": "La0–Do8 (88 keys) lights with crayon of pitch class; click/hold to play a tone",
+    "keyboard": "Pick US or Canadian French CSA; the board remaps at once. Character keys are crayon notes (Z=Do3, D=Do4, Q=La4) and light the matching 88-key. 10 independent fingers, extra keys only if well clustered.",
     "chroma": "12 bars are the color key; height follows energy",
     "sensitivity": "gate for lighting keys",
     "chords": "on = up to 8 notes; off = 1",
@@ -104,6 +107,14 @@
         "x": "log Hz, A0 27.5 → C8 4186, tick 440 at A4",
         "y": "dBFS −90…0",
         "sources": "unbounded clustered funds + held keys on the same axes"
+    },
+    "peakPick": {
+        "fft": "float dBFS, Hann/AnalyserNode, 27.5–5000 Hz",
+        "mixPeaks": "local maxima, parabolic interp, noise-floor+10 dB, min −78 dBFS, max 512, no semitone pre-dedup",
+        "cluster": "harmonic series collapse (n=2–16, 35¢) then density cluster; keep db > −90; no count cap",
+        "keys": "MIDI score A0–C8, smooth 0.62/0.38, relative gate, chords ≤8",
+        "vocals": "first-class pitched source (not de-emphasized)",
+        "shared": "scripts/crayon_piano_lib.py extract_cluster_peaks + scripts/density_cluster.py"
     },
     "highlights": {
         "held": "IS PRESSED — user is holding the key; ink outline, no crayon fill",

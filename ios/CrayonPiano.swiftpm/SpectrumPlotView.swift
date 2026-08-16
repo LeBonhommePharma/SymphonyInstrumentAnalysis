@@ -6,9 +6,10 @@ import Foundation
 struct SpectrumPlotView: View {
     var scene: SceneStyle
     var bus: SpectrumBus
+    var paused = false
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1.0 / 24.0)) { _ in
+        TimelineView(.animation(paused: paused)) { _ in
             Canvas { ctx, size in
                 SpectrumPlot.draw(ctx, size, scene: scene, snapshot: bus.snapshot())
             }
@@ -170,7 +171,7 @@ struct SpectrumSnapshot {
     var marks: [SpecMark]
 }
 
-/// Lock-free-enough snapshot bus. Not @Published — SpectrumPlotView polls at 24 Hz.
+/// Lock-free-enough snapshot bus. Not @Published — SpectrumPlotView polls on the display clock.
 final class SpectrumBus {
     private let lock = NSLock()
     private var db: [Float] = []

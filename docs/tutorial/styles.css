@@ -453,11 +453,22 @@ canvas {
   opacity: 0.55;
   pointer-events: none;
 }
-.white-key.on {
+.white-key.on,
+.white-key.need {
   background: var(--crayon, #fdba74);
   box-shadow: 0 0 16px color-mix(in srgb, var(--crayon, #fdba74) 42%, transparent);
 }
-.white-key.on .name { color: var(--lab, #1c1916); opacity: 1; }
+.white-key.held:not(.need):not(.hit) {
+  box-shadow: inset 0 0 0 2px var(--ink);
+  background: color-mix(in srgb, var(--ink) 14%, #f7f4ee);
+}
+.white-key.hit {
+  background: var(--crayon, #fdba74);
+  box-shadow: inset 0 0 0 3px #b6ff55, 0 0 16px color-mix(in srgb, var(--crayon, #fdba74) 42%, transparent);
+}
+.white-key.on .name,
+.white-key.need .name,
+.white-key.hit .name { color: var(--lab, #1c1916); opacity: 1; }
 .black-key {
   height: 62%;
   background: #111827;
@@ -466,9 +477,17 @@ canvas {
   box-shadow: inset 0 -8px 10px rgba(0, 0, 0, 0.28);
   transition: background-color 80ms linear, box-shadow 80ms linear;
 }
-.black-key.on {
+.black-key.on,
+.black-key.need {
   background: var(--crayon, #7c3aed);
   box-shadow: 0 0 14px color-mix(in srgb, var(--crayon, #7c3aed) 50%, transparent);
+}
+.black-key.held:not(.need):not(.hit) {
+  box-shadow: inset 0 0 0 2px #e2e8f0;
+}
+.black-key.hit {
+  background: var(--crayon, #7c3aed);
+  box-shadow: inset 0 0 0 3px #b6ff55, 0 0 14px color-mix(in srgb, var(--crayon, #7c3aed) 50%, transparent);
 }
 
 .hard-flag {
