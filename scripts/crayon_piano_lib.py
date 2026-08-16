@@ -635,19 +635,44 @@ class PeakPicker:
         self,
         spec: np.ndarray,
         bin_hz: float,
-        tracks: TrackSet,
+        tracks: TrackSet | ClusterTrackSet,
         *,
         chords: bool,
         sensitivity: int,
         autotune: bool,
         now: float,
+        live_clusters: list[dict] | None = None,
     ) -> FrameResult:
         self._update_tune(spec, bin_hz, now)
         a4 = self.concert_a(autotune)
         mixed = tracks.is_tous()
-        bands = [{"lo": MIXED_LO_HZ, "hi": MIXED_HI_HZ}] if mixed else [
-            {"lo": m.lo, "hi": m.hi} for m in tracks.active()
-        ]
+        if isinstance(tracks, ClusterTrackSet):
+            if mixed:
+                bands = [{"lo": MIXED_LO_HZ, "hi": MIXED_HI_HZ}]
+            else:
+                bands = []
+                for cl in live_clusters or []:
+                    if not tracks.is_on(int(cl["id"])):
+                        continue
+                    f0 = float(cl["f0"])
+                    if f0 <= 0:
+                        continue
+                    for harm in range(1, 9):
+                        f = f0 * harm
+                        bands.append({"lo": f * 0.97, "hi": f * 1.03})
+                if not bands:
+                    bands = [{"lo": MIXED_LO_HZ, "hi": MIXED_HI_HZ}]
+
+            def in_active(freq: float) -> bool:
+                return tracks.freq_in_active(freq, live_clusters or [])
+        else:
+            bands = [{"lo": MIXED_LO_HZ, "hi": MIXED_HI_HZ}] if mixed else [
+                {"lo": m.lo, "hi": m.hi} for m in tracks.active()
+            ]
+
+            def in_active(freq: float) -> bool:
+                return tracks.freq_in_active_bands(freq)
+
         scan_lo = min(b["lo"] for b in bands)
         scan_hi = max(b["hi"] for b in bands)
         i0 = max(2, int(scan_lo / bin_hz))
@@ -657,7 +682,7 @@ class PeakPicker:
         peaks: list[tuple[float, float]] = []
         for i in range(i0, i1 + 1):
             freq = i * bin_hz
-            if not tracks.freq_in_active_bands(freq):
+            if not in_active(freq):
                 continue
             db = float(spec[i])
             if (
@@ -669,7 +694,7 @@ class PeakPicker:
                 denom = float(spec[i - 1] - 2 * spec[i] + spec[i + 1])
                 delta = (0.5 * float(spec[i - 1] - spec[i + 1]) / denom) if denom else 0.0
                 pf = (i + delta) * bin_hz
-                if tracks.freq_in_active_bands(pf):
+                if in_active(pf):
                     peaks.append((pf, db))
             midi = self._midi_from_hz(freq, a4, fold)
             if MIDI_LO <= midi <= MIDI_HI:

@@ -89,7 +89,7 @@
     "ctrl+l": "listen",
     "ctrl+r": "replay",
     "ctrl+0": "Tous",
-    "ctrl+1-5": "musicians bass..nylon",
+    "ctrl+1-5": "solo/stack live density clusters by index",
     "ctrl+k": "chords",
     "ctrl+u": "unmute",
     "ctrl+a": "autotune",
