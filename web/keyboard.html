@@ -801,14 +801,64 @@
       opacity: 0.55;
       pointer-events: none;
     }
-    .key.on {
+    .key.on,
+    .key.need {
       background: var(--crayon) !important;
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.10),
         0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
       z-index: 4;
     }
-    .key.on .name { color: var(--ink); opacity: 0.92; }
+    .key.need:not(.hit) {
+      box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--crayon) 80%, #fff),
+        0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    .key.held:not(.need):not(.hit) {
+      background: color-mix(in srgb, var(--ink) 16%, var(--key-white)) !important;
+      box-shadow: inset 0 0 0 2px var(--ink);
+      z-index: 4;
+    }
+    .black.held:not(.need):not(.hit) {
+      background: color-mix(in srgb, var(--ink) 26%, var(--key-black)) !important;
+    }
+    .key.hit {
+      background: var(--crayon) !important;
+      box-shadow:
+        inset 0 0 0 3px #b6ff55,
+        0 0 18px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+      z-index: 5;
+    }
+    .key.on .name,
+    .key.need .name,
+    .key.hit .name,
+    .key.held .name { color: var(--ink); opacity: 0.92; }
+    .pc-keys {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0 0 8px;
+      user-select: none;
+    }
+    .pc-row { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+    .pc-key {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: 4px;
+      border: 1px solid var(--hairline);
+      background: var(--paper);
+      color: var(--muted);
+      font: 650 0.72rem/28px ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-align: center;
+    }
+    .pc-key.need { background: var(--crayon); color: var(--lab, var(--ink)); }
+    .pc-key.held:not(.need):not(.hit) { box-shadow: inset 0 0 0 2px var(--ink); color: var(--ink); }
+    .pc-key.hit { background: var(--crayon); box-shadow: inset 0 0 0 2px #b6ff55; color: var(--lab, var(--ink)); }
+    .score-line {
+      font: 650 0.78rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--muted);
+    }
     .key.harm:not(.on) {
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--crayon) 40%, transparent);
     }
@@ -1067,6 +1117,8 @@
 <body>
   <div class="top">
     <h1>Piano-crayon</h1>
+    <div class="score-line" id="scoreLine">0 · best 0</div>
+    <button type="button" class="score-line" id="layoutBtn" aria-label="Keyboard layout">US</button>
     <div class="scenes" role="radiogroup" aria-label="Ambiance">
       <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
       <button type="button" class="scene" data-theme-set="day" aria-label="Jour" title="Jour"></button>
@@ -1142,6 +1194,7 @@
   </div>
 
   <div class="board-well">
+    <div class="pc-keys" id="pcKeys" aria-label="Computer keys"></div>
     <div class="board-wrap">
       <div id="board" role="group" aria-label="Piano entier, La0 à Do8"></div>
     </div>
@@ -1258,6 +1311,169 @@
 
   const keys = new Map();
   const heldVoices = new Map();
+  const CODE_TO_MIDI = {
+    KeyZ: 48, KeyS: 49, KeyX: 50, KeyD: 51, KeyC: 52, KeyV: 53, KeyG: 54,
+    KeyB: 55, KeyH: 56, KeyN: 57, KeyJ: 58, KeyM: 59, KeyQ: 60, Digit2: 61,
+    KeyW: 62, Digit3: 63, KeyE: 64, KeyR: 65, Digit5: 66, KeyT: 67, Digit6: 68,
+    KeyY: 69, Digit7: 70, KeyU: 71, KeyI: 72, Digit9: 73, KeyO: 74, Digit0: 75,
+    KeyP: 76
+  };
+  const LAYOUT_GLYPH = {
+    us: { Slash: "/", Backquote: "`", BracketLeft: "[", Quote: "'" },
+    csa: { Slash: "é", Backquote: "/", BracketLeft: "^", Quote: "`", IntlBackslash: "ù" }
+  };
+  const PC_ROWS = [
+    ["Digit2", "Digit3", "Digit5", "Digit6", "Digit7", "Digit9", "Digit0"],
+    ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"],
+    ["KeyS", "KeyD", "KeyG", "KeyH", "KeyJ"],
+    ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM"]
+  ];
+  let kbLayout = localStorage.getItem("crayon-keyboard-layout") || "auto";
+  let kbResolved = "us";
+  let neededMidis = new Set();
+  let computerHeld = new Set();
+  let scoreNow = 0;
+  let scoreStreak = 0;
+  let scoreAwarded = new Set();
+  let scoreSource = "demo";
+  const $scoreLine = document.getElementById("scoreLine");
+  const $layoutBtn = document.getElementById("layoutBtn");
+  const $pcKeys = document.getElementById("pcKeys");
+  const pcKeyEls = new Map();
+
+  function scoreStore() {
+    try {
+      return JSON.parse(localStorage.getItem("crayon-piano-scores") || "{}") || {};
+    } catch (e) {
+      return {};
+    }
+  }
+  function saveScores(data) {
+    localStorage.setItem("crayon-piano-scores", JSON.stringify(data));
+  }
+  function bestFor(source) {
+    const data = scoreStore();
+    const by = data.bestBySource || {};
+    return Math.max(data.allTime || 0, by[source] || 0);
+  }
+  function persistScore() {
+    if (scoreNow <= 0) return;
+    const data = scoreStore();
+    data.allTime = Math.max(data.allTime || 0, scoreNow);
+    data.bestBySource = data.bestBySource || {};
+    data.bestBySource[scoreSource] = Math.max(data.bestBySource[scoreSource] || 0, scoreNow);
+    saveScores(data);
+  }
+  function resetScoreSession() {
+    persistScore();
+    scoreNow = 0;
+    scoreStreak = 0;
+    scoreAwarded = new Set();
+    paintScore();
+  }
+  function setNeededMidis(midis) {
+    neededMidis = new Set(midis);
+    scoreAwarded.forEach(function (m) {
+      if (!neededMidis.has(m)) scoreAwarded.delete(m);
+    });
+    if (!neededMidis.size) scoreStreak = 0;
+    computerHeld.forEach(function (m) { awardIfNeeded(m); });
+    paintHighlights();
+  }
+  function awardIfNeeded(midi) {
+    if (!neededMidis.has(midi) || scoreAwarded.has(midi)) return neededMidis.has(midi) ? "hit" : "held";
+    scoreAwarded.add(midi);
+    scoreNow += 10 + scoreStreak;
+    scoreStreak += 1;
+    paintScore();
+    return "hit";
+  }
+  function paintScore() {
+    if ($scoreLine) {
+      $scoreLine.textContent = scoreNow + " · best " + bestFor(scoreSource);
+    }
+    if ($layoutBtn) $layoutBtn.textContent = kbResolved.toUpperCase();
+  }
+  function inferLayout(code, key) {
+    if (code === "Slash" && key === "é") return "csa";
+    if (code === "Slash" && key === "/") return "us";
+    if (code === "Backquote" && (key === "/" || key === "#")) return "csa";
+    if (code === "Backquote" && (key === "`" || key === "~")) return "us";
+    if (code === "BracketLeft" && key === "^") return "csa";
+    if (code === "BracketLeft" && key === "[") return "us";
+    return "";
+  }
+  function resolveLayout() {
+    if (kbLayout === "us" || kbLayout === "csa") {
+      kbResolved = kbLayout;
+      return;
+    }
+    kbResolved = /fr-CA/i.test(navigator.language || "") ? "csa" : "us";
+    if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+      navigator.keyboard.getLayoutMap().then(function (map) {
+        const slash = map.get("Slash");
+        const bq = map.get("Backquote");
+        const br = map.get("BracketLeft");
+        if (slash === "é" || bq === "/" || br === "^") kbResolved = "csa";
+        else if (slash === "/" || bq === "`" || br === "[") kbResolved = "us";
+        paintPcKeys();
+        paintScore();
+      }).catch(function () {});
+    }
+  }
+  function glyphFor(code) {
+    const extra = LAYOUT_GLYPH[kbResolved] || {};
+    if (extra[code]) return extra[code];
+    if (code.indexOf("Key") === 0) return code.slice(3);
+    if (code.indexOf("Digit") === 0) return code.slice(5);
+    return code;
+  }
+  function paintPcKeys() {
+    if (!$pcKeys) return;
+    $pcKeys.innerHTML = "";
+    pcKeyEls.clear();
+    PC_ROWS.forEach(function (row) {
+      const el = document.createElement("div");
+      el.className = "pc-row";
+      row.forEach(function (code) {
+        const midi = CODE_TO_MIDI[code];
+        if (midi == null) return;
+        const btn = document.createElement("span");
+        btn.className = "pc-key";
+        btn.dataset.code = code;
+        btn.dataset.midi = String(midi);
+        btn.textContent = glyphFor(code);
+        const rgb = crayonOf(midi).rgb;
+        btn.style.setProperty("--crayon", "rgb(" + rgb.join(",") + ")");
+        el.appendChild(btn);
+        pcKeyEls.set(midi, btn);
+      });
+      $pcKeys.appendChild(el);
+    });
+    paintHighlights();
+  }
+  function highlightOf(midi) {
+    const want = neededMidis.has(midi);
+    const have = computerHeld.has(midi) || heldVoices.has(midi);
+    if (want && have) return "hit";
+    if (want) return "need";
+    if (have) return "held";
+    return "";
+  }
+  function paintHighlights() {
+    keys.forEach(function (el, midi) {
+      const st = highlightOf(midi);
+      el.classList.toggle("need", st === "need");
+      el.classList.toggle("held", st === "held");
+      el.classList.toggle("hit", st === "hit");
+    });
+    pcKeyEls.forEach(function (el, midi) {
+      const st = highlightOf(midi);
+      el.classList.toggle("need", st === "need");
+      el.classList.toggle("held", st === "held");
+      el.classList.toggle("hit", st === "hit");
+    });
+  }
   let lastSpecClusters = [];
   let specSizeKey = "";
   let audioCtx = null;
@@ -1569,7 +1785,7 @@
       for (let k = 0; k < funds.length; k++) {
         const f0 = funds[k].f0;
         const n = Math.round(p.f / f0);
-        if (n < 2 || n > 8) continue;
+        if (n < 2 || n > 16) continue;
         const cents = 1200 * Math.log2(p.f / (n * f0));
         if (Math.abs(cents) < 35) {
           funds[k].members.push(p);
@@ -2486,11 +2702,16 @@
     gain.connect(mix);
     osc.start();
     heldVoices.set(midi, { osc: osc, gain: gain });
+    computerHeld.add(midi);
+    awardIfNeeded(midi);
+    paintHighlights();
     startLoop();
   }
 
   function stopHeldKey(midi) {
     const v = heldVoices.get(midi);
+    computerHeld.delete(midi);
+    paintHighlights();
     if (!v) return;
     heldVoices.delete(midi);
     const now = audioCtx ? audioCtx.currentTime : 0;
@@ -2540,6 +2761,7 @@
   }
 
   function haltLive() {
+    resetScoreSession();
     mode = "idle";
     stopLoop();
     stopTracks();
@@ -2551,6 +2773,7 @@
   }
 
   function haltReplay(keepScrub) {
+    resetScoreSession();
     replayLoading = false;
     if (mode === "replay") {
       sampleOffset = keepScrub ? sampleNow() : 0;
@@ -2725,6 +2948,8 @@
     const id = beginAction();
     try {
       if (mode === "replay" || replayLoading) haltReplay(true);
+      scoreSource = "live";
+      resetScoreSession();
       mode = "live";
       resetSmooth();
       resetTune();
@@ -2830,6 +3055,8 @@
       setSampleGain($unmute.checked);
       resetSmooth();
       resetTune();
+      scoreSource = sampleDuration ? "demo" : "demo";
+      resetScoreSession();
       mode = "replay";
       replayLoading = false;
       if (sampleOffset >= sampleDuration - 0.05) sampleOffset = 0;
@@ -3089,6 +3316,7 @@
     }
     candidates.sort(function (a, b) { return b.s - a.s; });
     const lit = candidates.slice(0, maxN);
+    setNeededMidis(lit.map(function (c) { return c.midi; }));
     const litSet = {};
     const litPc = {};
     for (let k = 0; k < lit.length; k++) {
@@ -3193,6 +3421,37 @@
     }
     raf = requestAnimationFrame(loop);
   }
+
+  function onComputerKey(ev, down) {
+    if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    const tag = (ev.target && ev.target.tagName) || "";
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    const guessed = inferLayout(ev.code, ev.key);
+    if (guessed && kbLayout === "auto") {
+      kbResolved = guessed;
+      paintPcKeys();
+      paintScore();
+    }
+    const midi = CODE_TO_MIDI[ev.code];
+    if (midi == null) return;
+    ev.preventDefault();
+    if (down) startHeldKey(midi);
+    else stopHeldKey(midi);
+  }
+  window.addEventListener("keydown", function (ev) { onComputerKey(ev, true); });
+  window.addEventListener("keyup", function (ev) { onComputerKey(ev, false); });
+  if ($layoutBtn) {
+    $layoutBtn.addEventListener("click", function () {
+      kbLayout = kbLayout === "auto" ? "us" : kbLayout === "us" ? "csa" : "auto";
+      localStorage.setItem("crayon-keyboard-layout", kbLayout);
+      resolveLayout();
+      paintPcKeys();
+      paintScore();
+    });
+  }
+  resolveLayout();
+  paintPcKeys();
+  paintScore();
 
   buildLegend();
   buildKeyboard();
