@@ -432,6 +432,8 @@ def write_md(
     full_times: list[float],
     thin_times: list[float],
     facet_paths: list[Path],
+    *,
+    chords: str,
 ) -> None:
     facet_list = "\n".join(f"- `{p.name}`" for p in facet_paths)
     layer_rows = "\n".join(
@@ -504,8 +506,8 @@ Lignes noires = tout le monde change ensemble ; lignes ambre = texture mince.
 
 ## Source
 
-- Accords: `final_song_chords.json`
-- Ensemble: `final_song_six_instruments.json` (bois seulement)
+- Accords: `{chords}`
+- Ensemble: wooden-chord layers only (no clarinet)
 - Couleurs: `scripts/chord_pitch_colors.py` (macOS Crayons.clr — même boîte que `chord_visual_analysis.md`)
 """
     path.write_text(md, encoding="utf-8")
@@ -521,6 +523,7 @@ def main() -> None:
     if not args.chords.is_file():
         raise SystemExit(f"missing chord JSON: {args.chords}")
 
+    args.out_dir.mkdir(parents=True, exist_ok=True)
     data = json.loads(args.chords.read_text())
     timeline = data["timeline"]
     duration = float(data["duration_sec"])
@@ -539,7 +542,15 @@ def main() -> None:
     print("plotting faceted PNGs…")
     facet_paths = plot_facet_pngs(timeline, duration, facet_dir)
 
-    write_md(p_md, duration, len(timeline), full_times, thin_times, facet_paths)
+    write_md(
+        p_md,
+        duration,
+        len(timeline),
+        full_times,
+        thin_times,
+        facet_paths,
+        chords=str(args.chords),
+    )
 
     print(f"wrote {p_timeline}")
     print(f"wrote {p_sync}")

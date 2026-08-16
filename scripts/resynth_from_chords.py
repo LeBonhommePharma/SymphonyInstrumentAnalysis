@@ -18,14 +18,14 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 CHORD_JSON = ROOT / "analysis_out" / "final_song_chords.json"
-SIX_INST_JSON = ROOT / "analysis_out" / "final_song_six_instruments.json"
-OUT_DIR = ROOT / "analysis_out" / "resynth_layers"
-OUT_MIX = ROOT / "analysis_out" / "resynth_from_chords_stems.wav"
-OUT_LEGACY_MIX = ROOT / "analysis_out" / "resynth_from_chords.wav"
-OUT_PREVIEW = ROOT / "analysis_out" / "resynth_from_chords_preview.wav"
-OUT_MD = ROOT / "analysis_out" / "resynth_from_chords.md"
-OUT_LAYERS_MD = ROOT / "analysis_out" / "resynth_layers.md"
-OUT_FIG = ROOT / "analysis_out" / "resynth_layers_map.png"
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
 
 # Mid-register reference Hz (octave 4), A4=440
 PC_HZ = {
@@ -481,11 +481,6 @@ def main() -> None:
     if timeline:
         duration = max(duration, float(timeline[-1]["end"]) + 0.5)
 
-    six = {}
-    six_path = args.chords.with_name("final_song_six_instruments.json")
-    if six_path.exists():
-        six = json.loads(six_path.read_text())
-
     buffers = synthesize_layers(timeline, duration, SR)
     # per-layer peak normalize lightly so quiet layers remain audible when soloed,
     # but keep relative mix balance via a shared scale from the mono sum first.
@@ -520,7 +515,7 @@ def main() -> None:
         f"h={L.harmonics} attack={L.attack}s |"
         for L in LAYERS
     )
-    stem_list = "\n".join(f"- `{p}`" for p in stem_paths)
+    stem_list = "\n".join(f"- `{display_path(p)}`" for p in stem_paths)
 
     layers_md = f"""# Layered chord resynthesis (Audacity-style stems)
 
@@ -529,8 +524,7 @@ No mic capture WAV was used as an audio source.
 
 ## Ensemble guess (wooden chords, outdoor park)
 
-Consistent with `final_song_six_instruments.json` and user constraints
-(**no clarinet**; wooden chords; Parc Roland Beaudin outdoor vibe):
+Wooden-chord layers only (**no clarinet**; Parc Roland Beaudin outdoor vibe):
 
 | Stem file | Musician / instrument | Role | Freq range | Timbre notes |
 |-----------|----------------------|------|------------|--------------|
@@ -557,10 +551,10 @@ Example assignments (first segments):
 {stem_list}
 
 ### Mixes
-- `{out_mix}` — **stereo stems mix** (panned layers summed; play this)
-- `{out_legacy}` — mono sum of the same layers (legacy path)
-- `{out_preview}` — first {PREVIEW_SEC:.0f}s stereo preview
-- `{out_fig.name if out_fig.exists() else "resynth_layers_map.png"}` — optional layer map figure
+- `{display_path(out_mix)}` — **stereo stems mix** (panned layers summed; play this)
+- `{display_path(out_legacy)}` — mono sum of the same layers (legacy path)
+- `{display_path(out_preview)}` — first {PREVIEW_SEC:.0f}s stereo preview
+- `{display_path(out_fig) if out_fig.exists() else "resynth_layers_map.png"}` — optional layer map figure
 
 ## Fidelity
 
@@ -579,17 +573,17 @@ now as **separate musician/instrument layers** (not one flattened pad).
 - Constraints: wooden chords only; **no clarinet**; outdoor park guess
 - **No original recording** used as an audio source
 
-See **`analysis_out/resynth_layers.md`** for the Audacity-style stem → role → freq table and split rules.
+See **`{display_path(out_layers_md)}`** for the Audacity-style stem → role → freq table and split rules.
 
 ## Outputs
 
 | File | Notes |
 |------|--------|
-| `analysis_out/resynth_layers/*.wav` | One mono stem per musician ({len(LAYERS)} files) |
-| `analysis_out/resynth_from_chords_stems.wav` | Stereo mix of all layers (~{duration:.1f}s, {n_chords} segments) |
-| `analysis_out/resynth_from_chords.wav` | Mono sum (legacy) |
-| `analysis_out/resynth_from_chords_preview.wav` | First {PREVIEW_SEC:.0f}s stereo preview |
-| `analysis_out/resynth_layers_map.png` | Layer activity over time |
+| `{display_path(out_dir)}/*.wav` | One mono stem per musician ({len(LAYERS)} files) |
+| `{display_path(out_mix)}` | Stereo mix of all layers (~{duration:.1f}s, {n_chords} segments) |
+| `{display_path(out_legacy)}` | Mono sum (legacy) |
+| `{display_path(out_preview)}` | First {PREVIEW_SEC:.0f}s stereo preview |
+| `{display_path(out_fig)}` | Layer activity over time |
 
 ## Fidelity
 

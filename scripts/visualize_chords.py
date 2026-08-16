@@ -411,13 +411,14 @@ def plot_transition_network(timeline: list[dict], path: Path) -> None:
 
 
 def write_markdown(
-    paths: dict[str, Path | str],
+    paths: dict[str, Path],
     timeline: list[dict],
     duration: float,
     *,
     out_dir: Path,
     wav: str,
     chords: str,
+    heatmap: Path | None,
 ) -> Path:
     dwells = [s["end"] - s["start"] for s in timeline]
     med = float(np.median(dwells))
@@ -464,7 +465,7 @@ Astuce : **Blueberry = La / A** — c’est la note que les orchestres utilisent
 ## Les images / The pictures
 
 ### 1. Carte des crayons / Pitch-color map
-`{paths['heatmap'].name if isinstance(paths['heatmap'], Path) else paths['heatmap']}`
+`{heatmap.name if heatmap is not None else "(skipped — no WAV)"}`
 
 Les rangées sont les 12 crayons. Une **bande brillante** = ce crayon chante fort.
 Plusieurs bandes ensemble = plusieurs sons en même temps (un accord).
@@ -532,18 +533,18 @@ def main() -> None:
     plot_sync_dwell(timeline, duration, paths["sync"])
     print("Plotting network…")
     plot_transition_network(timeline, paths["network"])
+    heatmap: Path | None = None
     if args.wav.is_file():
         print("Loading WAV…")
         x, sr = load_wav(args.wav)
         print(f"sr={sr}, samples={len(x)}, dur={len(x)/sr:.2f}s")
         print("Computing chroma…")
         chroma, times = compute_chroma(x, sr)
-        paths["heatmap"] = args.out_dir / "chord_chroma_heatmap.png"
+        heatmap = args.out_dir / "chord_chroma_heatmap.png"
         print("Plotting heatmap…")
-        plot_chroma_heatmap(chroma, times, timeline, paths["heatmap"])
+        plot_chroma_heatmap(chroma, times, timeline, heatmap)
     else:
         print(f"WAV missing ({args.wav}); skipping chroma heatmap")
-        paths["heatmap"] = args.out_dir / "(skipped — no WAV)"
 
     md = write_markdown(
         paths,
@@ -552,11 +553,15 @@ def main() -> None:
         out_dir=args.out_dir,
         wav=str(args.wav),
         chords=str(args.chords),
+        heatmap=heatmap,
     )
     print("Wrote", md)
-    for k, p in paths.items():
-        if isinstance(p, Path) and p.is_file():
-            print(f"{k}: {p} ({p.stat().st_size} bytes)")
+    written = list(paths.values())
+    if heatmap is not None:
+        written.append(heatmap)
+    for p in written:
+        if p.is_file():
+            print(f"{p.name}: {p} ({p.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
