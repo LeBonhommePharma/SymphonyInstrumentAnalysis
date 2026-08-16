@@ -327,6 +327,17 @@ def check_crayon_piano() -> None:
         raise SystemExit("iOS clock must not tick at 20 Hz; use the display pulse")
     if "waveWindowSec" not in session_swift or "tickDisplay" not in session_swift:
         raise SystemExit("iOS waveform history must advance in seconds, not per audio buffer")
+    analyzer_swift = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "SpectrumAnalyzer.swift").read_text(
+        encoding="utf-8"
+    )
+    if "fftSize: Int = 4096" in analyzer_swift or "SpectrumAnalyzer(fftSize: 4096)" in session_swift:
+        raise SystemExit("iOS FFT must be 8192 to match the web/Python contract")
+    if "class SampleRing" not in analyzer_swift or "class LiveSpectrumEngine" not in analyzer_swift:
+        raise SystemExit("iOS must accumulate tap samples in a ring and FFT off the main actor")
+    if "LiveSpectrumEngine" not in session_swift:
+        raise SystemExit("iOS session must drive analysis through LiveSpectrumEngine")
+    if "samples.prefix(n)" in analyzer_swift:
+        raise SystemExit("iOS FFT window must be right-aligned like Python rfft_db")
     if "CADisplayLink" not in pulse_swift:
         raise SystemExit("iOS must drive the waveform from CADisplayLink")
     dual_view = (SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "DualKeyboardView.swift").read_text(

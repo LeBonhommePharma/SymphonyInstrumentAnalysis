@@ -67,4 +67,8 @@ struct PeakPickResult {
     var chroma: [NoteName: Float]
     var loudest: Float
     var mixPeaks: [SpecPeak]
+    var lastDb: [Float] = []
+    var lastBinHz: Double = 0
+    var concertA: Double = PitchMath.a4Ref
+    var tuneReady: Bool = false
 }

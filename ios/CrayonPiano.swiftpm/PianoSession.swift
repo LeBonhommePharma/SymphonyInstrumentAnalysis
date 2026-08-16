@@ -35,9 +35,13 @@ final class PianoSession: ObservableObject {
             }
         }
     }
-    @Published var chordsOn = true
+    @Published var chordsOn = true {
+        didSet { refreshPickConfig() }
+    }
     @Published var unmute = false
-    @Published var autotune = true
+    @Published var autotune = true {
+        didSet { refreshPickConfig() }
+    }
     @Published var liveTracks: [LiveTrack] = []
     @Published var selectedTrackIds: Set<Int> = []
     @Published var typedText = ""
@@ -101,7 +105,9 @@ final class PianoSession: ObservableObject {
     private let player = AVAudioPlayerNode()
     private let replayMixer = AVAudioMixerNode()
     private let tapMixer = AVAudioMixerNode()
-    private let analyzer = SpectrumAnalyzer(fftSize: 4096)
+    nonisolated(unsafe) private let spectrumEngine = LiveSpectrumEngine()
+    private var lastDb: [Float] = []
+    private var lastBinHz: Double = 0
     private var demoBuffer: AVAudioPCMBuffer?
     private var replayStartHost: TimeInterval = 0
     private var replayOffset: Double = 0
@@ -236,7 +242,8 @@ final class PianoSession: ObservableObject {
             tapMixer.removeTap(onBus: 0)
             mixerTapOn = false
             installInputTap()
-            analyzer.reset()
+            spectrumEngine.reset()
+            refreshPickConfig()
             mode = .live
             statusLine = "live"
             hint = ""
@@ -283,7 +290,8 @@ final class PianoSession: ObservableObject {
             try configureSession()
             try startEngineIfNeeded()
             guard let demoBuffer else { return }
-            analyzer.reset()
+            spectrumEngine.reset()
+            refreshPickConfig()
             replayMixer.outputVolume = unmute ? 0.28 : 0
             if replayOffset >= sampleDuration - 0.05 { replayOffset = 0 }
             player.stop()
@@ -342,7 +350,8 @@ final class PianoSession: ObservableObject {
 
     func selectAllTracks() {
         selectedTrackIds = []
-        analyzer.reset()
+        spectrumEngine.reset()
+        refreshPickConfig()
     }
 
     func toggleTrack(_ id: Int) {
@@ -353,7 +362,8 @@ final class PianoSession: ObservableObject {
         } else {
             selectedTrackIds.insert(id)
         }
-        analyzer.reset()
+        spectrumEngine.reset()
+        refreshPickConfig()
     }
 
     var layoutHint: String {
@@ -623,13 +633,15 @@ final class PianoSession: ObservableObject {
         let frames = Int(buffer.frameLength)
         let samples = Array(UnsafeBufferPointer(start: channel, count: frames))
         let now = ProcessInfo.processInfo.systemUptime
-        Task { @MainActor [weak self] in
-            self?.process(samples: samples, sampleRate: sampleRate, now: now)
+        spectrumEngine.push(samples, sampleRate: sampleRate)
+        spectrumEngine.schedule(now: now) { [weak self] result, clustered, _ in
+            Task { @MainActor in
+                self?.applySpectrum(result, clustered: clustered, now: now)
+            }
         }
     }
 
-    private func process(samples: [Float], sampleRate: Double, now: Double) {
-        guard mode == .live || mode == .replay || !voices.isEmpty else { return }
+    private func refreshPickConfig() {
         let tous = isTous
         var bands: [(lo: Double, hi: Double)] = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)]
         if !tous {
@@ -642,19 +654,24 @@ final class PianoSession: ObservableObject {
             }
             if bands.isEmpty { bands = [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)] }
         }
-        let config = PeakPickConfig(
+        spectrumEngine.setConfig(PeakPickConfig(
             sensitivity: 0.58,
             chords: chordsOn,
-            concertA: autotune ? analyzer.concertA : PitchMath.a4Ref,
+            concertA: autotune ? concertA : PitchMath.a4Ref,
             autotune: autotune,
             bands: bands,
             foldOctaves: !tous
-        )
-        let result = analyzer.analyze(samples: samples, sampleRate: sampleRate, now: now, config: config)
-        let clustered = DensityCluster.cluster(peaks: result.mixPeaks)
+        ))
+    }
+
+    private func applySpectrum(_ result: PeakPickResult, clustered: [SpectralCluster], now: Double) {
+        guard mode == .live || mode == .replay || !voices.isEmpty else { return }
         lastClusters = clustered
         lastPeaks = result.mixPeaks
+        lastDb = result.lastDb
+        lastBinHz = result.lastBinHz
         syncClusters(clustered, now: now)
+        refreshPickConfig()
         publishSpectrum(clusters: clustered, peaks: result.mixPeaks)
         lit = result.lit
         scoreKeeper.setNeeded(Set(result.lit.map(\.midi)))
@@ -662,8 +679,8 @@ final class PianoSession: ObservableObject {
         scoreValue = scoreKeeper.score
         harmonics = result.harmonics
         chroma = result.chroma
-        concertA = autotune ? analyzer.concertA : PitchMath.a4Ref
-        tuneReady = analyzer.tuneReady
+        concertA = autotune ? result.concertA : PitchMath.a4Ref
+        tuneReady = result.tuneReady
         if let top = result.lit.first {
             statusLine = "\(top.name.french)\(PitchMath.octave(of: top.midi))"
         }
@@ -750,7 +767,9 @@ final class PianoSession: ObservableObject {
         lastClusters = []
         lastPeaks = []
         specBus.clear()
-        analyzer.reset()
+        lastDb = []
+        lastBinHz = 0
+        spectrumEngine.reset()
     }
 
     private func publishSpectrum(clusters: [SpectralCluster], peaks: [SpecPeak]) {
@@ -772,12 +791,12 @@ final class PianoSession: ObservableObject {
             if seen.contains(midi) { continue }
             marks.append(SpecMark(f: p.f, db: p.db, name: NoteName.pitchClass(of: midi), kind: .peak))
         }
-        specBus.update(db: analyzer.lastDb, binHz: analyzer.lastBinHz, marks: marks)
+        specBus.update(db: lastDb, binHz: lastBinHz, marks: marks)
     }
 
     private func lookupDb(_ f: Double) -> Float {
-        let bins = analyzer.lastDb
-        let binHz = analyzer.lastBinHz
+        let bins = lastDb
+        let binHz = lastBinHz
         guard bins.count > 2, binHz > 0 else { return -24 }
         let i = min(bins.count - 1, max(1, Int((f / binHz).rounded())))
         return max(-48, bins[i])

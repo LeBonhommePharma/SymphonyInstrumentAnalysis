@@ -19,7 +19,7 @@ final class SpectrumAnalyzer {
     private(set) var lastDb: [Float] = []
     private(set) var lastBinHz: Double = 0
 
-    init(fftSize: Int = 4096) {
+    init(fftSize: Int = 8192) {
         self.fftSize = fftSize
         log2n = vDSP_Length(log2(Double(fftSize)))
         guard let setup = vDSP_create_fftsetup(log2n, FFTRadix(kFFTRadix2)) else {
@@ -66,11 +66,25 @@ final class SpectrumAnalyzer {
         guard n > 16 else {
             lastDb = [Float](repeating: -120, count: fftSize / 2)
             lastBinHz = sampleRate / Double(max(fftSize, 1))
-            return PeakPickResult(lit: [], harmonics: [], chroma: [:], loudest: -120, mixPeaks: [])
+            return PeakPickResult(
+                lit: [],
+                harmonics: [],
+                chroma: [:],
+                loudest: -120,
+                mixPeaks: [],
+                lastDb: lastDb,
+                lastBinHz: lastBinHz
+            )
         }
 
         var windowed = [Float](repeating: 0, count: fftSize)
-        samples.prefix(n).enumerated().forEach { windowed[$0.offset] = $0.element }
+        // Right-align like Python rfft_db / window_at: last n samples at the
+        // end of the FFT buffer so a short tap is not Blackman-tapered to 0.
+        let src0 = samples.count - n
+        let dst0 = fftSize - n
+        for i in 0..<n {
+            windowed[dst0 + i] = samples[src0 + i]
+        }
         vDSP_vmul(windowed, 1, window, 1, &windowed, 1, vDSP_Length(fftSize))
 
         real.withUnsafeMutableBufferPointer { rp in
@@ -226,7 +240,17 @@ final class SpectrumAnalyzer {
             chroma[name] = max(chroma[name] ?? -120, smooth[i])
         }
 
-        return PeakPickResult(lit: lit, harmonics: harmonics, chroma: chroma, loudest: loudest, mixPeaks: mixPeaks)
+        return PeakPickResult(
+            lit: lit,
+            harmonics: harmonics,
+            chroma: chroma,
+            loudest: loudest,
+            mixPeaks: mixPeaks,
+            lastDb: lastDb,
+            lastBinHz: lastBinHz,
+            concertA: concertA,
+            tuneReady: tuneReady
+        )
     }
 
     private func updateConcertPitch(binHz: Double, now: Double) {
@@ -309,5 +333,139 @@ final class SpectrumAnalyzer {
         let mid = s.count / 2
         if s.count % 2 == 1 { return s[mid] }
         return 0.5 * (s[mid - 1] + s[mid])
+    }
+}
+
+/// Thread-safe circular buffer. `latest(m)` returns the last m samples,
+/// zero-padded at the front — same layout as the TUI `RingBuffer.latest`.
+final class SampleRing: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buf: [Float]
+    private var i = 0
+    private var filled = 0
+
+    init(capacity: Int) {
+        buf = [Float](repeating: 0, count: max(capacity, 16))
+    }
+
+    func push(_ samples: [Float]) {
+        guard !samples.isEmpty else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        let n = buf.count
+        if samples.count >= n {
+            buf = Array(samples.suffix(n))
+            i = 0
+            filled = n
+            return
+        }
+        for x in samples {
+            buf[i] = x
+            i = (i + 1) % n
+            if filled < n { filled += 1 }
+        }
+    }
+
+    func latest(_ m: Int) -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        var out = [Float](repeating: 0, count: m)
+        guard filled > 0, m > 0 else { return out }
+        let take = min(m, filled)
+        let n = buf.count
+        let start = (i - take + n) % n
+        for k in 0..<take {
+            out[m - take + k] = buf[(start + k) % n]
+        }
+        return out
+    }
+
+    func clear() {
+        lock.lock()
+        buf = [Float](repeating: 0, count: buf.count)
+        i = 0
+        filled = 0
+        lock.unlock()
+    }
+}
+
+/// Owns the FFT setup and ring. Runs `analyze` on a background queue so
+/// AVAudioEngine tap callbacks never hop a 8192-pt FFT onto the main actor.
+final class LiveSpectrumEngine: @unchecked Sendable {
+    let fftSize = 8192
+    private let ring: SampleRing
+    private let analyzer: SpectrumAnalyzer
+    private let queue = DispatchQueue(label: "crayonpiano.fft", qos: .userInteractive)
+    private let lock = NSLock()
+    private var busy = false
+    private var pending = false
+    private var sampleRate: Double = 44100
+    private var config = PeakPickConfig(
+        sensitivity: 0.58,
+        chords: true,
+        concertA: PitchMath.a4Ref,
+        autotune: true,
+        bands: [(PitchMath.mixedLoHz, PitchMath.mixedHiHz)],
+        foldOctaves: false
+    )
+
+    init() {
+        analyzer = SpectrumAnalyzer(fftSize: fftSize)
+        ring = SampleRing(capacity: fftSize * 2)
+    }
+
+    func push(_ samples: [Float], sampleRate: Double) {
+        lock.lock()
+        self.sampleRate = sampleRate
+        lock.unlock()
+        ring.push(samples)
+    }
+
+    func setConfig(_ config: PeakPickConfig) {
+        lock.lock()
+        self.config = config
+        lock.unlock()
+    }
+
+    func reset() {
+        queue.async { [weak self] in
+            self?.analyzer.reset()
+            self?.ring.clear()
+        }
+    }
+
+    func schedule(now: Double, onResult: @escaping (PeakPickResult, [SpectralCluster], Double) -> Void) {
+        lock.lock()
+        if busy {
+            pending = true
+            lock.unlock()
+            return
+        }
+        busy = true
+        lock.unlock()
+        queue.async { [weak self] in
+            self?.run(now: now, onResult: onResult)
+        }
+    }
+
+    private func run(now: Double, onResult: @escaping (PeakPickResult, [SpectralCluster], Double) -> Void) {
+        lock.lock()
+        let config = self.config
+        let sr = sampleRate
+        lock.unlock()
+        let window = ring.latest(fftSize)
+        let result = analyzer.analyze(samples: window, sampleRate: sr, now: now, config: config)
+        let clustered = DensityCluster.cluster(peaks: result.mixPeaks)
+        onResult(result, clustered, sr)
+        lock.lock()
+        let again = pending
+        pending = false
+        if !again { busy = false }
+        lock.unlock()
+        if again {
+            queue.async { [weak self] in
+                self?.run(now: ProcessInfo.processInfo.systemUptime, onResult: onResult)
+            }
+        }
     }
 }
