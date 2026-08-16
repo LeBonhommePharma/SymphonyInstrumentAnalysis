@@ -512,14 +512,23 @@ Lignes noires = tout le monde change ensemble ; lignes ambre = texture mince.
 
 
 def main() -> None:
-    data = json.loads(CHORD_JSON.read_text())
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--chords", type=Path, default=CHORD_JSON)
+    ap.add_argument("--out-dir", type=Path, default=OUT)
+    args = ap.parse_args()
+    if not args.chords.is_file():
+        raise SystemExit(f"missing chord JSON: {args.chords}")
+
+    data = json.loads(args.chords.read_text())
     timeline = data["timeline"]
     duration = float(data["duration_sec"])
 
-    p_timeline = OUT / "chord_layers_timeline.png"
-    p_sync = OUT / "chord_layers_sync.png"
-    facet_dir = OUT / "chord_layers_facets"
-    p_md = OUT / "chord_visual_layers.md"
+    p_timeline = args.out_dir / "chord_layers_timeline.png"
+    p_sync = args.out_dir / "chord_layers_sync.png"
+    facet_dir = args.out_dir / "chord_layers_facets"
+    p_md = args.out_dir / "chord_visual_layers.md"
 
     print("plotting layered timeline…")
     plot_layered_timeline(timeline, duration, p_timeline)

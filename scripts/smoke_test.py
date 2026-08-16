@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -389,6 +390,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must have layout-aware keys and three highlight states")
     if "midiForKid" not in html and "DUAL.midiForKid" not in html:
         raise SystemExit("HTML piano must play notes through midiForKid")
+    if "canUseLocalLabeler" not in html or 'host === "127.0.0.1"' not in html:
+        raise SystemExit("HTML piano must gate the 127.0.0.1 labeler to localhost")
     if "crayon-piano-scores" not in html:
         raise SystemExit("HTML piano must persist high scores")
     if 'id="spec"' not in html or "drawSpecPlot" not in html:
@@ -463,8 +466,77 @@ def check_crayon_piano() -> None:
         if node.returncode != 0:
             raise SystemExit(f"dual_keyboard.js failed:\n{node.stdout}\n{node.stderr}")
         print((node.stdout or "").strip() or "dual_keyboard.js: OK")
+    check_visualize_cli()
+    check_swift_cluster_fixtures()
 
 
+def check_visualize_cli() -> None:
+    py = sys.executable
+    for name in ("visualize_chords.py", "visualize_chord_layers.py", "resynth_from_chords.py"):
+        proc = subprocess.run([py, str(SCRIPTS / name), "--help"], capture_output=True, text=True)
+        if proc.returncode != 0 or "--chords" not in (proc.stdout + proc.stderr):
+            raise SystemExit(f"{name} must expose --chords: {proc.stdout}{proc.stderr}")
+    with tempfile.TemporaryDirectory() as td:
+        out = Path(td)
+        chords = SCRIPTS.parent / "analysis_out" / "final_song_chords.json"
+        missing_wav = out / "nope.wav"
+        env = dict(os.environ)
+        env["MPLBACKEND"] = "Agg"
+        proc = subprocess.run(
+            [
+                py,
+                str(SCRIPTS / "visualize_chords.py"),
+                "--chords",
+                str(chords),
+                "--wav",
+                str(missing_wav),
+                "--out-dir",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(f"visualize_chords without WAV failed:\n{proc.stdout}\n{proc.stderr}")
+        if "skipping chroma heatmap" not in proc.stdout:
+            raise SystemExit("visualize_chords must skip the heatmap when the WAV is missing")
+        if not (out / "chord_progression_stacks.png").is_file():
+            raise SystemExit("visualize_chords should still write stack/sync/network without a WAV")
+        src = (SCRIPTS / "resynth_from_chords.py").read_text(encoding="utf-8")
+        if "hash(key)" in src or "zlib.adler32" not in src:
+            raise SystemExit("resynth seeds must use zlib.adler32, not hash()")
+    print("visualize/resynth CLI: OK")
+
+
+def check_swift_cluster_fixtures() -> None:
+    swiftc = subprocess.run(["swiftc", "--version"], capture_output=True, text=True)
+    if swiftc.returncode != 0:
+        print("swiftc: skipped cluster fixtures")
+        return
+    with tempfile.TemporaryDirectory() as td:
+        binary = Path(td) / "run_cluster_fixtures"
+        proc = subprocess.run(
+            [
+                "swiftc",
+                "-o",
+                str(binary),
+                str(SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "DensityCluster.swift"),
+                str(SCRIPTS / "run_cluster_fixtures.swift"),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(f"swiftc cluster fixtures failed:\n{proc.stdout}\n{proc.stderr}")
+        run = subprocess.run(
+            [str(binary), str(SCRIPTS.parent)],
+            capture_output=True,
+            text=True,
+        )
+        if run.returncode != 0:
+            raise SystemExit(f"Swift cluster fixtures failed:\n{run.stdout}\n{run.stderr}")
+        print((run.stdout or "").strip() or "swift cluster fixtures: OK")
 
 
 def _write_pcm(path: Path, x: np.ndarray, sr: int) -> None:

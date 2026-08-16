@@ -225,7 +225,7 @@ def plot_sync_dwell(timeline: list[dict], duration: float, path: Path) -> None:
     # histogram of dwell times under
     ax2 = fig.add_axes([0.06, 0.24, 0.88, 0.09])
     ax2.set_facecolor("#eceae4")
-    bins = np.linspace(0, max(dwells) + 0.05, 12)
+    bins = np.linspace(0, (max(dwells) if dwells else 0.0) + 0.05, 12)
     ax2.hist(dwells, bins=bins, color="#5a7d9a", edgecolor="white", alpha=0.85)
     ax2.set_xlabel(
         "Durée (secondes) — la plupart des accords sont des flashs courts",
@@ -411,9 +411,13 @@ def plot_transition_network(timeline: list[dict], path: Path) -> None:
 
 
 def write_markdown(
-    paths: dict[str, Path],
+    paths: dict[str, Path | str],
     timeline: list[dict],
     duration: float,
+    *,
+    out_dir: Path,
+    wav: str,
+    chords: str,
 ) -> Path:
     dwells = [s["end"] - s["start"] for s in timeline]
     med = float(np.median(dwells))
@@ -460,7 +464,7 @@ Astuce : **Blueberry = La / A** — c’est la note que les orchestres utilisent
 ## Les images / The pictures
 
 ### 1. Carte des crayons / Pitch-color map
-`{paths['heatmap'].name}`
+`{paths['heatmap'].name if isinstance(paths['heatmap'], Path) else paths['heatmap']}`
 
 Les rangées sont les 12 crayons. Une **bande brillante** = ce crayon chante fort.
 Plusieurs bandes ensemble = plusieurs sons en même temps (un accord).
@@ -491,46 +495,68 @@ Parfois un seul crayon change ; parfois tout le sandwich se recolore.
 
 ## Source
 
-- Audio: `captures/final_song.wav`
-- Accords: `analysis_out/final_song_chords.json`
+- Audio: `{wav}`
+- Accords: `{chords}`
 - Couleurs partagées: `scripts/chord_pitch_colors.py` (macOS Crayons.clr)
 """
-    out = OUT / "chord_visual_analysis.md"
+    out = out_dir / "chord_visual_analysis.md"
     out.write_text(md, encoding="utf-8")
     return out
 
 
 def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
-    data = json.loads(CHORD_JSON.read_text(encoding="utf-8"))
+    import argparse
+
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--wav", type=Path, default=WAV)
+    ap.add_argument("--chords", type=Path, default=CHORD_JSON)
+    ap.add_argument("--out-dir", type=Path, default=OUT)
+    args = ap.parse_args()
+    if not args.chords.is_file():
+        raise SystemExit(f"missing chord JSON: {args.chords}")
+
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    data = json.loads(args.chords.read_text(encoding="utf-8"))
     timeline = data["timeline"]
     duration = float(data["duration_sec"])
 
-    print("Loading WAV…")
-    x, sr = load_wav(WAV)
-    print(f"sr={sr}, samples={len(x)}, dur={len(x)/sr:.2f}s")
-    print("Computing chroma…")
-    chroma, times = compute_chroma(x, sr)
-
     paths = {
-        "heatmap": OUT / "chord_chroma_heatmap.png",
-        "stacks": OUT / "chord_progression_stacks.png",
-        "sync": OUT / "chord_sync_dwell.png",
-        "network": OUT / "chord_transition_network.png",
+        "stacks": args.out_dir / "chord_progression_stacks.png",
+        "sync": args.out_dir / "chord_sync_dwell.png",
+        "network": args.out_dir / "chord_transition_network.png",
     }
 
     print("Plotting stacks…")
     plot_progression_stacks(timeline, duration, paths["stacks"])
     print("Plotting sync/dwell…")
     plot_sync_dwell(timeline, duration, paths["sync"])
-    print("Plotting heatmap…")
-    plot_chroma_heatmap(chroma, times, timeline, paths["heatmap"])
     print("Plotting network…")
     plot_transition_network(timeline, paths["network"])
-    md = write_markdown(paths, timeline, duration)
+    if args.wav.is_file():
+        print("Loading WAV…")
+        x, sr = load_wav(args.wav)
+        print(f"sr={sr}, samples={len(x)}, dur={len(x)/sr:.2f}s")
+        print("Computing chroma…")
+        chroma, times = compute_chroma(x, sr)
+        paths["heatmap"] = args.out_dir / "chord_chroma_heatmap.png"
+        print("Plotting heatmap…")
+        plot_chroma_heatmap(chroma, times, timeline, paths["heatmap"])
+    else:
+        print(f"WAV missing ({args.wav}); skipping chroma heatmap")
+        paths["heatmap"] = args.out_dir / "(skipped — no WAV)"
+
+    md = write_markdown(
+        paths,
+        timeline,
+        duration,
+        out_dir=args.out_dir,
+        wav=str(args.wav),
+        chords=str(args.chords),
+    )
     print("Wrote", md)
     for k, p in paths.items():
-        print(f"{k}: {p} ({p.stat().st_size} bytes)")
+        if isinstance(p, Path) and p.is_file():
+            print(f"{k}: {p} ({p.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":

@@ -1368,6 +1368,10 @@
   const SPEC_DB_HI = 0;
   const LABEL_URL = "http://127.0.0.1:4174/label";
   const LABEL_EVERY_MS = 1600;
+  function canUseLocalLabeler() {
+    const host = (location && location.hostname) || "";
+    return host === "127.0.0.1" || host === "localhost";
+  }
   const FFT_SIZE = 8192;
   const WAVE_WINDOW_SEC = 6;
 
@@ -1900,6 +1904,10 @@
   }
 
   async function probeFm() {
+    if (!canUseLocalLabeler()) {
+      fmAvailable = false;
+      return;
+    }
     try {
       const r = await fetch("http://127.0.0.1:4174/health", { signal: abortAfter(400) });
       if (!r.ok) {
@@ -1930,7 +1938,7 @@
       });
       syncTrackUi();
     }
-    if (fmAvailable === false) {
+    if (fmAvailable === false || !canUseLocalLabeler()) {
       applyHeuristic();
       return;
     }

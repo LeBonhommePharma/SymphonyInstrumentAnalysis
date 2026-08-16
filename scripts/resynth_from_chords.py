@@ -6,9 +6,11 @@ register/role across layers; stems are written separately and also summed.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import wave
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -316,7 +318,7 @@ def synthesize_layers(
             layer = layer_by_key[key]
             chunk = np.zeros(n, dtype=np.float64)
             for fi, freq in enumerate(freqs):
-                seed = (si * 9973 + fi * 131 + hash(key) % 10007) & 0xFFFFFFFF
+                seed = (si * 9973 + fi * 131 + (zlib.adler32(key.encode()) % 10007)) & 0xFFFFFFFF
                 # slight amp taper if a layer somehow gets multiple notes
                 chunk += tone_for_layer(freq, n, sr, layer, seed) * (0.85**fi)
             if fade > 1:
@@ -457,15 +459,32 @@ def save_layer_figure(timeline: list[dict], duration: float, path: Path) -> None
 
 
 def main() -> None:
-    data = json.loads(CHORD_JSON.read_text())
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--chords", type=Path, default=CHORD_JSON)
+    ap.add_argument("--out-dir", type=Path, default=ROOT / "analysis_out")
+    args = ap.parse_args()
+    if not args.chords.is_file():
+        raise SystemExit(f"missing chord JSON: {args.chords}")
+
+    out = args.out_dir
+    out_dir = out / "resynth_layers"
+    out_mix = out / "resynth_from_chords_stems.wav"
+    out_legacy = out / "resynth_from_chords.wav"
+    out_preview = out / "resynth_from_chords_preview.wav"
+    out_md = out / "resynth_from_chords.md"
+    out_layers_md = out / "resynth_layers.md"
+    out_fig = out / "resynth_layers_map.png"
+
+    data = json.loads(args.chords.read_text())
     timeline = data["timeline"]
     duration = float(data.get("duration_sec") or (timeline[-1]["end"] if timeline else 60.0))
     if timeline:
         duration = max(duration, float(timeline[-1]["end"]) + 0.5)
 
     six = {}
-    if SIX_INST_JSON.exists():
-        six = json.loads(SIX_INST_JSON.read_text())
+    six_path = args.chords.with_name("final_song_six_instruments.json")
+    if six_path.exists():
+        six = json.loads(six_path.read_text())
 
     buffers = synthesize_layers(timeline, duration, SR)
     # per-layer peak normalize lightly so quiet layers remain audible when soloed,
@@ -478,21 +497,20 @@ def main() -> None:
     for key in buffers:
         buffers[key] = buffers[key] * shared_scale
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     stem_paths: list[Path] = []
     for L in LAYERS:
-        p = OUT_DIR / L.filename
+        p = out_dir / L.filename
         write_wav_mono(p, buffers[L.key], SR)
         stem_paths.append(p)
 
     left, right = mix_stereo(buffers)
-    write_wav_stereo(OUT_MIX, left, right, SR)
-    # also keep a mono legacy flattened sum for older references
-    write_wav_mono(OUT_LEGACY_MIX, (left + right) * 0.5, SR)
+    write_wav_stereo(out_mix, left, right, SR)
+    write_wav_mono(out_legacy, (left + right) * 0.5, SR)
     n_prev = int(PREVIEW_SEC * SR)
-    write_wav_stereo(OUT_PREVIEW, left[:n_prev], right[:n_prev], SR)
+    write_wav_stereo(out_preview, left[:n_prev], right[:n_prev], SR)
 
-    save_layer_figure(timeline, duration, OUT_FIG)
+    save_layer_figure(timeline, duration, out_fig)
 
     n_chords = len(timeline)
     example_rows = "\n".join(build_assignment_log(timeline, 10))
@@ -506,7 +524,7 @@ def main() -> None:
 
     layers_md = f"""# Layered chord resynthesis (Audacity-style stems)
 
-Reconstruction from **chord / pitch-class analysis only** (`final_song_chords.json`).
+Reconstruction from **chord / pitch-class analysis only** (`{args.chords.name}`).
 No mic capture WAV was used as an audio source.
 
 ## Ensemble guess (wooden chords, outdoor park)
@@ -539,24 +557,24 @@ Example assignments (first segments):
 {stem_list}
 
 ### Mixes
-- `{OUT_MIX.relative_to(ROOT)}` — **stereo stems mix** (panned layers summed; play this)
-- `{OUT_LEGACY_MIX.relative_to(ROOT)}` — mono sum of the same layers (legacy path)
-- `{OUT_PREVIEW.relative_to(ROOT)}` — first {PREVIEW_SEC:.0f}s stereo preview
-- `{OUT_FIG.name if OUT_FIG.exists() else "resynth_layers_map.png"}` — optional layer map figure
+- `{out_mix}` — **stereo stems mix** (panned layers summed; play this)
+- `{out_legacy}` — mono sum of the same layers (legacy path)
+- `{out_preview}` — first {PREVIEW_SEC:.0f}s stereo preview
+- `{out_fig.name if out_fig.exists() else "resynth_layers_map.png"}` — optional layer map figure
 
 ## Fidelity
 
 Readable wooden-chord sketch of analyzed pitch stacks and timing — not the original performance.
 Each layer has a distinct envelope/harmonic recipe so ears can separate musicians.
 """
-    OUT_LAYERS_MD.write_text(layers_md)
+    out_layers_md.write_text(layers_md)
 
     md = f"""# Resynthesis from chord analysis (layered)
 
 This audio is a **reconstruction synthesized from chord / pitch-class / frequency analysis only**,
 now as **separate musician/instrument layers** (not one flattened pad).
 
-- Source data: `analysis_out/final_song_chords.json`
+- Source data: `{args.chords}`
 - Ensemble: upright bass, cello, acoustic guitar ×2, nylon guitar, viola/violin sheen
 - Constraints: wooden chords only; **no clarinet**; outdoor park guess
 - **No original recording** used as an audio source
@@ -577,16 +595,16 @@ See **`analysis_out/resynth_layers.md`** for the Audacity-style stem → role �
 
 Crude but separable: each stem carries only its register/role notes with a distinct timbre.
 """
-    OUT_MD.write_text(md)
+    out_md.write_text(md)
 
     print(f"duration_sec={duration:.2f} segments={n_chords}")
     for p in stem_paths:
         print(f"stem {p}")
-    print(f"mix {OUT_MIX}")
-    print(f"legacy_mono {OUT_LEGACY_MIX}")
-    print(f"md {OUT_LAYERS_MD}")
-    if OUT_FIG.exists():
-        print(f"fig {OUT_FIG}")
+    print(f"mix {out_mix}")
+    print(f"legacy_mono {out_legacy}")
+    print(f"md {out_layers_md}")
+    if out_fig.exists():
+        print(f"fig {out_fig}")
 
 
 if __name__ == "__main__":
