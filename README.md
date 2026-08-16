@@ -4,14 +4,16 @@ Standalone mic-capture + spectral analysis project (**not** related to FlexAIDdS
 
 **iOS / iPadOS / Mac (no ports):** the app ships as a Swift Playgrounds package [`ios/CrayonPiano.swiftpm`](ios/CrayonPiano.swiftpm) — run it directly on **iPadOS 27** in Swift Playgrounds (no Mac needed) or on **macOS 27** in Xcode / Swift Playgrounds. Tap keys, listen through the mic, or replay the built-in demo on the scrolling waveform. See [`ios/README.md`](ios/README.md).
 
-**Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold piano keys or type the computer keyboard — **Z = Do3**, **D = Do4**, **Q = La4** — to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. Live mic on iPhone needs the native app above (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
+**Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold piano keys or type the computer keyboard — **Z = Do3**, **D = Do4**, **Q = La4** — to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. Live mic on **iPhone 15 Pro** / **iPad A16**: use the HTTPS piano (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
 
-**Terminal (same layout):** `.venv/bin/python scripts/crayon_piano.py` — Listen / Rejouer, musician lanes, chroma, keyboard. No time slider. Optional `--wav` 16-bit PCM.
+**Terminal (same layout):** `bash scripts/run_tui.sh` in Ghostty, or `.venv/bin/python scripts/crayon_piano.py` — Listen / Rejouer, density lanes, chroma, keyboard, play-along score. Optional `--wav` 16-bit PCM.
 
 Records from the best available macOS mic, denoises, then estimates:
 
-- likely instrument families (vocals/lyrics de-emphasized)
-- note sequences with frequencies in Hz
+- clustered sources and note sequences (same 27.5–5000 Hz peak-picker as the crayon piano; vocals and dense highs included)
+- play-along scoring: held / need / hit on US or Canadian French CSA keys
+
+**Install + test on this Mac (Ghostty), iPhone 15 Pro, and iPad A16:** [docs/INSTALL_AND_TEST.md](docs/INSTALL_AND_TEST.md). macOS one-shot: `bash scripts/install_macos.sh` then `bash scripts/run_tui.sh`.
 
 ## Public live listen (phone on 5G, any network)
 
@@ -99,6 +101,13 @@ Do **not** add a `_github-pages-challenge-…` TXT until GitHub shows the token 
 If GitHub Pages is not on for this repo yet: **Settings → Pages → Source: GitHub Actions** ([open](https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis/settings/pages)). The workflow is `.github/workflows/pages.yml`. Actions cannot create the site until that source is selected.
 
 ## Setup
+
+macOS (Homebrew + Ghostty):
+
+```bash
+bash scripts/install_macos.sh
+bash scripts/run_tui.sh
+```
 
 Debian/Ubuntu (install OS packages first; `python3-venv` matches the default `python3`):
 

@@ -13,7 +13,9 @@ See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README
   (`file://`) — replay synthesizes a demo if the WAV is missing. Live mic on iPhone still
   needs the native app (Safari will not grant `getUserMedia` to `file://`).
 - **Terminal piano** (`scripts/crayon_piano.py`): Textual TUI matching the HTML layout
-  (`piano/ui_contract.json`). `.venv/bin/python scripts/crayon_piano.py` or `--self-test`.
+  (`piano/ui_contract.json`). On this Mac in Ghostty: `bash scripts/install_macos.sh` then
+  `bash scripts/run_tui.sh` (AVFoundation mic). `--self-test` needs no mic.
+  Device runbook: [`docs/INSTALL_AND_TEST.md`](docs/INSTALL_AND_TEST.md).
 - **Public silent tutorial** (`docs/`): GitHub Pages. Live listen of the device’s current audio.
   Track discrimination uses the same float-dB peak-picker + density cluster as the crayon piano
   (27.5–5000 Hz; vocals and dense highs included).

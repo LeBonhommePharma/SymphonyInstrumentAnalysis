@@ -29,6 +29,7 @@ if str(_SCRIPTS) not in sys.path:
 
 from analyze_instruments import load_wav
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
+from list_mics import list_audio_devices
 from keyboard_layout import (
     ScoreKeeper,
     ScoreStore,
@@ -166,8 +167,28 @@ class RingBuffer:
             return out
 
 
+def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
+    """ffmpeg capture pipelines. macOS uses AVFoundation; Linux tries Pulse/ALSA/OpenAL."""
+    rate = str(sr)
+    pcm = ["-ac", "1", "-ar", rate, "-f", "s16le", "-"]
+    head = ["ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error"]
+    cmds: list[list[str]] = []
+    if sys.platform == "darwin":
+        indices = [idx for idx, _name in list_audio_devices()] or [0]
+        for idx in indices[:4]:
+            cmds.append([*head, "-f", "avfoundation", "-i", f":{idx}", *pcm])
+    cmds.extend(
+        [
+            [*head, "-f", "pulse", "-i", "default", *pcm],
+            [*head, "-f", "alsa", "-i", "default", *pcm],
+            [*head, "-f", "openal", "-i", "", *pcm],
+        ]
+    )
+    return cmds
+
+
 class MicStream:
-    """Best-effort Linux capture via ffmpeg. Never uses AVFoundation."""
+    """Live capture via ffmpeg. On macOS this is AVFoundation (Ghostty / Terminal)."""
 
     def __init__(self, sr: int) -> None:
         self.sr = sr
@@ -179,25 +200,8 @@ class MicStream:
 
     def start(self) -> str:
         self.stop()
-        cmds = (
-            [
-                "ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error",
-                "-f", "pulse", "-i", "default",
-                "-ac", "1", "-ar", str(self.sr), "-f", "s16le", "-",
-            ],
-            [
-                "ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error",
-                "-f", "alsa", "-i", "default",
-                "-ac", "1", "-ar", str(self.sr), "-f", "s16le", "-",
-            ],
-            [
-                "ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error",
-                "-f", "openal", "-i", "",
-                "-ac", "1", "-ar", str(self.sr), "-f", "s16le", "-",
-            ],
-        )
         last_err = MIC_ERR
-        for cmd in cmds:
+        for cmd in mic_ffmpeg_cmds(self.sr):
             try:
                 proc = subprocess.Popen(
                     cmd,
@@ -1272,6 +1276,10 @@ def self_test() -> int:
         raise SystemExit("highlight hit missing")
     if midi_for_char("q", "us") != midi_for_char("q", "csa"):
         raise SystemExit("CSA and US must share letter-key midis")
+    if sys.platform == "darwin":
+        cmds = mic_ffmpeg_cmds(48000)
+        if not any("avfoundation" in cmd for cmd in cmds):
+            raise SystemExit("macOS TUI listen must capture via AVFoundation")
     print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK, layout OK")
     return 0
 

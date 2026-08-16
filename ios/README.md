@@ -11,16 +11,20 @@ Playgrounds). Requires iOS/iPadOS 17+.
 
 ## Test it now
 
-### Option A — instant, any device, zero build (web)
-Open `web/keyboard.html` in **Safari** on macOS 27 or iPadOS 27 (double-tap the file / open from
-the Files app). Tap keys, tap the crayon swatches, hit **Rejouer** for the demo, drag the
-waveform lane to scrub. Everything works offline.
+Device matrix (Ghostty TUI, **iPhone 15 Pro**, **iPad A16**): [docs/INSTALL_AND_TEST.md](../docs/INSTALL_AND_TEST.md).
 
-- macOS Safari: **live mic works** too (click Écouter, allow the mic).
-- iPadOS Safari from a `file://` page: tap-to-play, replay and the waveform work, but Safari
-  blocks the mic on `file://` — use Option B for live mic on iPad.
+### Option A — instant, any device, zero build (HTTPS)
+On the **iPhone 15 Pro** or **iPad A16**, Safari:
 
-### Option B — run the native app on iPadOS 27 (no Mac)
+- Live listen: https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/
+- Piano: https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
+
+Allow Microphone. `file://` blocks the mic on iPhone; use HTTPS.
+
+Local file: open `web/keyboard.html` in Safari on the Mac (mic works). On iPad Files,
+tap-to-play and **Rejouer** work offline; live mic still needs HTTPS or Option B/C.
+
+### Option B — native app on **iPad A16** (Swift Playgrounds, no Mac)
 1. Install **Swift Playgrounds** from the App Store (free).
 2. Get `ios/CrayonPiano.swiftpm` onto the iPad. Any of:
    - On GitHub tap **Code ▸ Download ZIP**, unzip in **Files**, or
@@ -32,14 +36,15 @@ waveform lane to scrub. Everything works offline.
 Swift Playgrounds builds a real app on the iPad — no developer account or provisioning needed
 to run it there.
 
-### Option C — run the native app on macOS 27
-Double-click `ios/CrayonPiano.swiftpm`. It opens in **Xcode 15+** (or **Swift Playgrounds for
-Mac**). Then either:
+### Option C — native app on **iPhone 15 Pro** or iPad A16 via Xcode
+Swift Playgrounds does **not** run on iPhone. On this Mac:
 
-- Press **▶** with destination **My Mac (Designed for iPad)** to run it on the Mac, or
-- Pick an **iOS Simulator** (e.g. iPhone 16 / iPad Pro), or
-- Select a plugged-in iPhone/iPad and Run (set your Team under Signing if prompted — free
-  personal team is fine).
+1. Enable **Developer Mode** on the phone/iPad, plug in USB, Trust.
+2. Open `ios/CrayonPiano.swiftpm` in **Xcode 27**.
+3. Signing → Personal Team. Destination → **iPhone 15 Pro** or **iPad A16**.
+4. Run ▶. Trust the developer certificate on the device if prompted.
+
+Mac destination **My Mac (Designed for iPad)** also works from the same package.
 
 ---
 
@@ -72,4 +77,6 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
 | `PianoSession.swift` | mic, tap tones, built-in demo, waveform peaks |
 | `PianoKeyboardView.swift` | multi-touch keyboard |
 | `WaveformTrackView.swift` | scrolling DAW-style waveform timeline |
-| `ContentView.swift` | iPhone / iPad layout |
+| `DualKeyboard.swift` / `DualKeyboardView.swift` | US / CSA typing board + hardware keys |
+| `KeyboardLayout.swift` | held / need / hit + score store |
+| `ContentView.swift` | iPhone 15 Pro / iPad A16 layout |
