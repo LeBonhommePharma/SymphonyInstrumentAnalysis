@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC_HTML = ROOT / "web" / "keyboard.html"
 SRC_JS = ROOT / "web" / "dual_keyboard.js"
+SRC_DSP = ROOT / "web" / "crayon_dsp.js"
 OUT = ROOT / "docs" / "piano"
 CANONICAL = "https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/"
 
@@ -43,8 +44,8 @@ HEAD_INJECT = f"""  <link rel="canonical" href="{CANONICAL}">
 
 
 def stage() -> None:
-    if not SRC_HTML.is_file() or not SRC_JS.is_file():
-        raise SystemExit("web/keyboard.html and web/dual_keyboard.js are required")
+    if not SRC_HTML.is_file() or not SRC_JS.is_file() or not SRC_DSP.is_file():
+        raise SystemExit("web/keyboard.html, dual_keyboard.js, and crayon_dsp.js are required")
     html = SRC_HTML.read_text(encoding="utf-8")
     if "</style>" not in html or "<body>" not in html:
         raise SystemExit("keyboard.html is missing expected markers")
@@ -55,7 +56,8 @@ def stage() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "index.html").write_text(html, encoding="utf-8")
     (OUT / "dual_keyboard.js").write_text(SRC_JS.read_text(encoding="utf-8"), encoding="utf-8")
-    print(f"staged {OUT / 'index.html'} and {OUT / 'dual_keyboard.js'}")
+    (OUT / "crayon_dsp.js").write_text(SRC_DSP.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"staged {OUT / 'index.html'}, dual_keyboard.js, crayon_dsp.js")
 
 
 def main() -> None:

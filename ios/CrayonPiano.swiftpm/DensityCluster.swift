@@ -13,6 +13,7 @@ struct SpectralCluster {
 }
 
 enum DensityCluster {
+    /// Ports scripts/density_cluster.py. Shared cases live in piano/cluster_fixtures.json.
     /// No count cap — every independent fund stays a source. Harmonics already folded.
 
     static func cluster(peaks: [SpecPeak]) -> [SpectralCluster] {

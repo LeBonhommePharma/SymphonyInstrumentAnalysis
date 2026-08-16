@@ -7,8 +7,10 @@ with overtones spanning 80–2000 Hz is ONE track, not five Hz-band guesses.
 """
 from __future__ import annotations
 
+import json
 import math
 import sys
+from pathlib import Path
 
 def group_harmonic_funds(peaks: list[dict]) -> list[dict]:
     funds: list[dict] = []
@@ -175,6 +177,45 @@ def tone_stack(f0: float, db0: float = -20.0, n_harm: int = 6) -> list[dict]:
     return [{"f": f0 * n, "db": db0 - 4.0 * (n - 1)} for n in range(1, n_harm + 1)]
 
 
+def fixture_cases() -> list[dict]:
+    return [
+        {
+            "name": "solo220",
+            "peaks": tone_stack(220.0, -16.0, 8),
+            "merge_nearby": True,
+            "expect_n": 1,
+            "expect_f0": [220.0],
+        },
+        {
+            "name": "two_sources",
+            "peaks": tone_stack(110.0, -18.0, 5) + tone_stack(523.25, -22.0, 4),
+            "merge_nearby": True,
+            "expect_n": 2,
+            "expect_f0": [110.0, 523.25],
+        },
+        {
+            "name": "ceg_offline",
+            "peaks": tone_stack(130.81, -18.0, 4)
+            + tone_stack(164.81, -20.0, 4)
+            + tone_stack(196.0, -21.0, 3),
+            "merge_nearby": False,
+            "expect_n": 3,
+            "expect_f0": [130.81, 164.81, 196.0],
+        },
+    ]
+
+
+def write_fixtures(path: Path) -> None:
+    cases = []
+    for raw in fixture_cases():
+        got = cluster_peaks(raw["peaks"], merge_nearby=raw["merge_nearby"])
+        if len(got) != raw["expect_n"]:
+            raise SystemExit(f"fixture {raw['name']} expected {raw['expect_n']} got {len(got)}")
+        cases.append(raw)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"cases": cases}, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     solo = cluster_peaks(tone_stack(220.0, -16.0, 8))
     if len(solo) != 1:
@@ -240,7 +281,9 @@ def main() -> None:
         f"solo={len(solo)} voice_span={len(voice_span)} two={len(two)} "
         f"chord={len(chordish)} psy={len(psy)} distinct={len(distinct)}"
     )
-    print("density_cluster: OK")
+    fixtures = Path(__file__).resolve().parents[1] / "piano" / "cluster_fixtures.json"
+    write_fixtures(fixtures)
+    print(f"density_cluster: OK wrote {fixtures}")
 
 
 if __name__ == "__main__":
