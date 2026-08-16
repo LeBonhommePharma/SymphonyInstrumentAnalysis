@@ -167,7 +167,10 @@ def check_public_site() -> None:
         docs / "tutorial" / "styles.css",
         docs / "piano" / "index.html",
         docs / "piano" / "dual_keyboard.js",
+        docs / "piano" / "crayon_dsp.js",
         docs / ".nojekyll",
+        SCRIPTS.parent / "piano" / "cluster_fixtures.json",
+        SCRIPTS.parent / "web" / "crayon_dsp.js",
     ]
     missing = [str(path) for path in required if not path.is_file()]
     if missing:
@@ -197,6 +200,8 @@ def check_public_site() -> None:
         raise SystemExit("tutorial hub must map computer keys with the kid crayon map")
     if "dual_keyboard.js" not in tutorial:
         raise SystemExit("tutorial must load dual_keyboard.js for the shared key map")
+    if "crayon_dsp.js" not in tutorial:
+        raise SystemExit("tutorial must load the shared crayon_dsp.js")
     if "CODE_TO_MIDI" in app_js:
         raise SystemExit("tutorial must not keep the leftover piano-roll CODE_TO_MIDI")
     if "theme.js" not in tutorial:
@@ -260,6 +265,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must use a Logic-style arrange playhead")
     if "Contrebasse" in html or "Violoncelle" in html or "Guitare A" in html:
         raise SystemExit("HTML piano must not idle five hardcoded musician chips")
+    if "crayon_dsp.js" not in html:
+        raise SystemExit("HTML piano must load crayon_dsp.js for the shared peak/cluster DSP")
     if "groupHarmonicFunds" not in html or "densityClusterFunds" not in html:
         raise SystemExit("HTML piano must density-cluster independent tracks")
     if "selectedTrackIds" not in html:
@@ -442,6 +449,14 @@ def check_crayon_piano() -> None:
             capture_output=True,
             text=True,
         )
+        dsp = subprocess.run(
+            ["node", str(SCRIPTS.parent / "web" / "crayon_dsp.js")],
+            capture_output=True,
+            text=True,
+        )
+        if dsp.returncode != 0:
+            raise SystemExit(f"crayon_dsp.js failed:\n{dsp.stdout}\n{dsp.stderr}")
+        print((dsp.stdout or "").strip() or "crayon_dsp.js: OK")
     except FileNotFoundError:
         node = None
     if node is not None:
