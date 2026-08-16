@@ -385,6 +385,10 @@ def check_crayon_piano() -> None:
     tui = (SCRIPTS / "crayon_piano.py").read_text(encoding="utf-8")
     if "avfoundation" not in tui or "mic_ffmpeg_cmds" not in tui:
         raise SystemExit("TUI listen must capture via AVFoundation on macOS")
+    if "ClusterTrackSet" not in tui or "cluster_peaks" not in tui:
+        raise SystemExit("TUI must density-cluster live tracks instead of five musician bands")
+    if "for mus in MUSICIANS" in tui and "track-{mus.id}" in tui:
+        raise SystemExit("TUI must not idle five hardcoded musician chips")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "crayon_piano.py"), "--self-test"],
         capture_output=True,

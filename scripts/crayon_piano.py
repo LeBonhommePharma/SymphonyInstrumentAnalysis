@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import select
 import subprocess
 import sys
@@ -28,7 +29,8 @@ _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
-from analyze_instruments import load_wav
+from analyze_instruments import hz_to_note, load_wav
+from density_cluster import cluster_peaks, heuristic_label
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 from list_mics import ranked_audio_devices
 from keyboard_layout import (
@@ -70,6 +72,7 @@ from crayon_piano_lib import (
     envelope_at,
     fmt_time,
     freq_matches_cluster,
+    hz_to_midi,
     lab_rgb,
     mix_rgb,
     midi_to_hz,
@@ -343,7 +346,7 @@ class Chip(Static):
 
 
 class WaveStack(Widget):
-    """Stacked filled envelopes — one lane per selected musician. No time slider."""
+    """Stacked filled envelopes — one lane per density cluster. No time slider."""
 
     DEFAULT_CSS = """
     WaveStack {
@@ -364,17 +367,19 @@ class WaveStack(Widget):
         app = cast(CrayonPianoApp, self.app)
         width = max(8, self.size.width)
         height = max(1, self.size.height)
-        musicians = app.tracks.active()
-        n = max(1, len(musicians))
+        lanes = app.active_cluster_lanes()
+        n = max(1, len(lanes))
         lane_h = max(1, height // n)
         extra = height - lane_h * n
         t = app.view_time()
         mode = app.mode
         ph = int(round(playhead_frac(mode) * (width - 1)))
         lines: list[Content] = []
-        for i, mus in enumerate(musicians):
+        if not lanes:
+            lines.extend(self._empty_bed(width, height))
+        for i, lane in enumerate(lanes):
             rows = lane_h + (1 if i < extra else 0)
-            lines.extend(self._lane_lines(app, mus, width, rows, t, ph, mode))
+            lines.extend(self._lane_lines(app, lane, width, rows, t, ph, mode))
         while len(lines) < height:
             lines.append(Content.blank(width, rgb_style(bg=THEME_PAPER)))
         joined = lines[0]
@@ -382,36 +387,33 @@ class WaveStack(Widget):
             joined = Content.assemble(joined, "\n", line)
         return joined
 
+    def _empty_bed(self, width: int, height: int) -> list[Content]:
+        paper = THEME_PAPER
+        return [Content.blank(width, rgb_style(bg=paper)) for _ in range(height)]
+
     def _lane_lines(
         self,
         app: CrayonPianoApp,
-        musician: Musician,
+        lane: dict,
         width: int,
         rows: int,
         t: float,
         ph: int,
         mode: Mode,
     ) -> list[Content]:
-        rgb = musician.rgb
+        midi = int(round(hz_to_midi(float(lane["f0"])))) if lane.get("f0") else MIDI_LO
+        rgb = crayon_of(midi)
         rgb_future = dim_rgb(rgb, 0.38)
         paper = THEME_PAPER
         cols: list[list[str]] = [column_blocks(0.0, rows) for _ in range(width)]
         amps = [0.0] * width
-        if mode == "live":
-            hist = app.live_hist.get(musician.id, deque())
+        hist = app.live_hist.get(int(lane["id"]), deque())
+        if mode in ("live", "replay", "idle"):
             for x in range(width):
                 dt_cols = ph - x
                 idx = len(hist) - 1 - dt_cols
                 if 0 <= idx < len(hist):
                     amps[x] = hist[idx]
-        elif mode == "replay" or mode == "idle":
-            env = app.envelopes.get(musician.id)
-            dur = app.duration
-            for x in range(width):
-                tt = t + (x - ph) / COLS_PER_SEC
-                if env is None or tt < 0 or tt > dur:
-                    continue
-                amps[x] = envelope_at(env, tt)
         else:
             raise RuntimeError(f"unhandled mode: {mode}")
         for x in range(width):
@@ -437,7 +439,7 @@ class WaveStack(Widget):
                 parts.append((ch if ch != " " else " ", rgb_style(fg=color, bg=paper)))
             line = cells_to_content(parts)
             if r == 0:
-                name = musician.fr
+                name = str(lane.get("label") or hz_to_note(float(lane.get("f0") or 0)) or "?")
                 if len(name) > width - 2:
                     name = name[: max(1, width - 2)]
                 overlay = Content.styled(name, rgb_style(fg=rgb, bg=paper, dim=True))
@@ -747,11 +749,11 @@ class CrayonPianoApp(App[None]):
         Binding("ctrl+l", "listen", "Écouter", show=False, priority=True),
         Binding("ctrl+r", "replay", "Rejouer", show=False, priority=True),
         Binding("ctrl+0", "tous", "Tous", show=False, priority=True),
-        Binding("ctrl+1", "musician('bass')", "1", show=False, priority=True),
-        Binding("ctrl+2", "musician('cello')", "2", show=False, priority=True),
-        Binding("ctrl+3", "musician('guitarA')", "3", show=False, priority=True),
-        Binding("ctrl+4", "musician('guitarB')", "4", show=False, priority=True),
-        Binding("ctrl+5", "musician('nylon')", "5", show=False, priority=True),
+        Binding("ctrl+1", "cluster_n(1)", "1", show=False, priority=True),
+        Binding("ctrl+2", "cluster_n(2)", "2", show=False, priority=True),
+        Binding("ctrl+3", "cluster_n(3)", "3", show=False, priority=True),
+        Binding("ctrl+4", "cluster_n(4)", "4", show=False, priority=True),
+        Binding("ctrl+5", "cluster_n(5)", "5", show=False, priority=True),
         Binding("ctrl+k", "chords", "Accords", show=False, priority=True),
         Binding("ctrl+u", "unmute", "Entendre", show=False, priority=True),
         Binding("ctrl+a", "autotune", "Auto", show=False, priority=True),
@@ -777,7 +779,9 @@ class CrayonPianoApp(App[None]):
         self.envelopes = envelopes if envelopes is not None else compute_band_envelopes(
             self.audio, self.sr
         )
-        self.tracks = TrackSet()
+        self.tracks = ClusterTrackSet()
+        self.live_clusters: list[dict] = []
+        self.next_track_id = 1
         self.picker = PeakPicker()
         self.mode: Mode = "idle"
         self.sensitivity = SENS_DEFAULT
@@ -792,7 +796,7 @@ class CrayonPianoApp(App[None]):
         self.abs_gate = -48.0
         self.held: set[int] = set()
         self.mic_error = ""
-        self.live_hist: dict[str, deque[float]] = {m.id: deque(maxlen=400) for m in MUSICIANS}
+        self.live_hist: dict[int, deque[float]] = {}
         self.mic = MicStream(self.sr)
         self.player = QuietPlayer()
         self._last_seek_play = 0.0
@@ -817,12 +821,7 @@ class CrayonPianoApp(App[None]):
             yield Chip("a Auto-accord", id="tog-auto", classes="-on")
         with HorizontalGroup(id="tracks"):
             yield Chip("Tous\n27.5–5000 Hz", id="track-all", classes="track -on")
-            for mus in MUSICIANS:
-                yield Chip(
-                    f"{mus.fr}\n{int(mus.lo)}–{int(mus.hi)} Hz",
-                    id=f"track-{mus.id}",
-                    classes="track -on",
-                )
+            yield HorizontalGroup(id="track-live")
         yield WaveStack(id="waves")
         yield ChromaBars(id="chroma")
         yield Static("", id="lit")
@@ -863,7 +862,9 @@ class CrayonPianoApp(App[None]):
             self.action_tous()
         elif wid.startswith("track-"):
             event.stop()
-            self.action_musician(wid.split("-", 1)[1])
+            tail = wid.split("-", 1)[1]
+            if tail.isdigit():
+                self.action_cluster(int(tail))
 
     def _sens_label(self) -> str:
         return f"[ ] Sens {self.sensitivity}"
@@ -920,8 +921,8 @@ class CrayonPianoApp(App[None]):
         self.mic_error = ""
         self._show_err("")
         self.picker.reset()
-        for q in self.live_hist.values():
-            q.clear()
+        self.live_hist.clear()
+        self.live_clusters = []
         self.mode = "live"
         self._live_mono = time.monotonic()
         self._refresh_chrome()
@@ -946,11 +947,15 @@ class CrayonPianoApp(App[None]):
         self._paint_tracks()
         self.query_one("#waves", WaveStack).refresh()
 
-    def action_musician(self, ident: str) -> None:
-        self.tracks.click_musician(ident)
+    def action_cluster(self, ident: int) -> None:
+        self.tracks.click(ident)
         self.picker.reset()
         self._paint_tracks()
         self.query_one("#waves", WaveStack).refresh()
+
+    def action_cluster_n(self, n: int) -> None:
+        if 1 <= n <= len(self.live_clusters):
+            self.action_cluster(int(self.live_clusters[n - 1]["id"]))
 
     def action_chords(self) -> None:
         self.chords_on = not self.chords_on
@@ -1064,21 +1069,47 @@ class CrayonPianoApp(App[None]):
         err.update(msg)
         err.display = bool(msg)
 
+    def active_cluster_lanes(self) -> list[dict]:
+        if not self.live_clusters:
+            return []
+        if self.tracks.is_tous():
+            return list(self.live_clusters)
+        return [t for t in self.live_clusters if self.tracks.is_on(int(t["id"]))]
+
     def _paint_tracks(self) -> None:
         tous = self.tracks.is_tous()
         all_chip = self.query_one("#track-all", Chip)
         all_chip.set_class(tous, "-on")
         all_chip.styles.background = Color(*(TOUS_RGB if tous else mix_rgb(TOUS_RGB, THEME_BG, 0.25)))
         all_chip.styles.color = Color(*THEME_INK)
-        for mus in MUSICIANS:
-            chip = self.query_one(f"#track-{mus.id}", Chip)
-            on = mus.id in self.tracks.selected
+        all_chip.update(f"Tous\n{len(self.live_clusters)} pistes")
+        try:
+            row = self.query_one("#track-live", HorizontalGroup)
+        except Exception:
+            return
+        existing = {child.id: child for child in row.children if child.id}
+        want = {f"track-{t['id']}" for t in self.live_clusters}
+        for cid, widget in existing.items():
+            if cid not in want:
+                widget.remove()
+        for t in self.live_clusters:
+            cid = f"track-{t['id']}"
+            midi = int(round(hz_to_midi(float(t["f0"])))) if t.get("f0") else MIDI_LO
+            rgb = crayon_of(midi)
+            label = f"{t.get('label') or hz_to_note(float(t['f0'])) or '?'}\n{int(round(t['f0']))} Hz"
+            chip = existing.get(cid)
+            if chip is None:
+                chip = Chip(label, id=cid, classes="track")
+                row.mount(chip)
+            else:
+                chip.update(label)
+            on = tous or self.tracks.is_on(int(t["id"]))
             chip.set_class(on, "-on")
             if on:
-                chip.styles.background = Color(*mus.rgb)
-                chip.styles.color = Color(*lab_rgb(mus.rgb))
+                chip.styles.background = Color(*rgb)
+                chip.styles.color = Color(*lab_rgb(rgb))
             else:
-                chip.styles.background = Color(*mix_rgb(mus.rgb, THEME_BG, 0.16))
+                chip.styles.background = Color(*mix_rgb(rgb, THEME_BG, 0.16))
                 chip.styles.color = Color(*THEME_MUTED)
 
     def _refresh_chrome(self) -> None:
@@ -1196,6 +1227,7 @@ class CrayonPianoApp(App[None]):
         else:
             raise RuntimeError(f"unhandled mode: {self.mode}")
         spec, bin_hz = rfft_db(window, self.sr)
+        now = time.monotonic()
         frame = self.picker.process(
             spec,
             bin_hz,
@@ -1203,7 +1235,8 @@ class CrayonPianoApp(App[None]):
             chords=self.chords_on,
             sensitivity=self.sensitivity,
             autotune=self.autotune_on,
-            now=time.monotonic(),
+            now=now,
+            live_clusters=self.live_clusters,
         )
         self.lit = frame.lit
         self.chroma = frame.chroma
@@ -1211,13 +1244,67 @@ class CrayonPianoApp(App[None]):
         self.score.set_needed({n.midi for n in frame.lit})
         for midi in list(self.held):
             self.score.press(midi)
-        if self.mode == "live":
-            peak = max(frame.band_energy.values()) or 1e-9
-            for mus in MUSICIANS:
-                amp = min(1.0, frame.band_energy[mus.id] / peak)
-                self.live_hist[mus.id].append(amp)
+        clustered = cluster_peaks(frame.mix_peaks)
+        self._sync_clusters(clustered, now)
         if frame.peaks and self.lit:
             self.lit[0].freq = frame.peaks[0][0]
+
+    def _sync_clusters(self, clusters: list[dict], now: float) -> None:
+        used: set[int] = set()
+        for c in clusters:
+            f0 = float(c["f0"])
+            if f0 <= 0:
+                continue
+            best: dict | None = None
+            best_cost = 0.45
+            for t in self.live_clusters:
+                if t["id"] in used or t["f0"] <= 0:
+                    continue
+                cost = abs(math.log2(f0 / float(t["f0"])))
+                if cost < best_cost:
+                    best_cost = cost
+                    best = t
+            energy = min(1.0, max(0.0, (float(c["db"]) + 80.0) / 50.0))
+            if best is not None:
+                used.add(int(best["id"]))
+                best["f0"] = float(best["f0"]) * 0.55 + f0 * 0.45
+                best["db"] = float(c["db"])
+                best["harm"] = float(c["harm"])
+                best["energy"] = energy
+                best["last"] = now
+                name = heuristic_label(best["f0"], best["harm"])
+                if name:
+                    best["label"] = name
+                self.live_hist.setdefault(int(best["id"]), deque(maxlen=400)).append(energy)
+            else:
+                tid = self.next_track_id
+                self.next_track_id += 1
+                label = heuristic_label(f0, float(c["harm"])) or hz_to_note(f0) or str(int(round(f0)))
+                self.live_clusters.append(
+                    {
+                        "id": tid,
+                        "f0": f0,
+                        "db": float(c["db"]),
+                        "harm": float(c["harm"]),
+                        "energy": energy,
+                        "last": now,
+                        "label": label,
+                    }
+                )
+                used.add(tid)
+                self.live_hist.setdefault(tid, deque(maxlen=400)).append(energy)
+        for t in self.live_clusters:
+            if int(t["id"]) not in used:
+                t["energy"] = float(t["energy"]) * 0.72
+        self.live_clusters = [
+            t
+            for t in self.live_clusters
+            if now - float(t["last"]) <= 1.4 and float(t["energy"]) >= 0.04
+        ]
+        live_ids = {int(t["id"]) for t in self.live_clusters}
+        self.tracks.prune(live_ids)
+        self.live_hist = {i: h for i, h in self.live_hist.items() if i in live_ids}
+        self._paint_tracks()
 
 
 def self_test() -> int:
@@ -1280,6 +1367,8 @@ def self_test() -> int:
     app = CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes)
     if app.mode != "idle" or "bass" not in app.envelopes:
         raise SystemExit("app did not instantiate with demo envelopes")
+    if not isinstance(app.tracks, ClusterTrackSet):
+        raise SystemExit("TUI tracks must be a ClusterTrackSet")
 
     x440 = spec_x_of(440.0)
     x_a0 = spec_x_of(SPEC_F_LO)
