@@ -33,6 +33,7 @@ from analyze_instruments import hz_to_note, load_wav
 from density_cluster import cluster_peaks, heuristic_label
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 from list_mics import ranked_audio_devices
+from macos_audio import ensure_macos_input, pcm_s16le_is_silent
 from keyboard_layout import (
     ScoreKeeper,
     ScoreStore,
@@ -196,6 +197,24 @@ def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
 FIRST_AUDIO_WAIT_S = 1.25
 
 
+def _first_signal_chunk(stdout, wait_s: float) -> bytes:
+    """Read until the first non-silent packet, or until wait_s elapses."""
+    deadline = time.monotonic() + wait_s
+    got = bytearray()
+    while time.monotonic() < deadline:
+        remaining = max(0.0, deadline - time.monotonic())
+        ready, _, _ = select.select([stdout], [], [], remaining)
+        if not ready:
+            break
+        chunk = stdout.read1(4096) if hasattr(stdout, "read1") else stdout.read(4096)
+        if not chunk:
+            break
+        got.extend(chunk)
+        if not pcm_s16le_is_silent(bytes(got)):
+            return bytes(got)
+    return bytes(got)
+
+
 class MicStream:
     """Live capture via ffmpeg. On macOS this is AVFoundation (Ghostty / Terminal)."""
 
@@ -209,6 +228,7 @@ class MicStream:
 
     def start(self) -> str:
         self.stop()
+        ensure_macos_input()
         last_err = MIC_ERR
         for cmd in mic_ffmpeg_cmds(self.sr):
             try:
@@ -223,13 +243,8 @@ class MicStream:
             if stdout is None:
                 proc.kill()
                 continue
-            ready, _, _ = select.select([stdout], [], [], FIRST_AUDIO_WAIT_S)
-            if not ready or proc.poll() is not None:
-                proc.kill()
-                last_err = MIC_ERR
-                continue
-            raw = stdout.read1(4096) if hasattr(stdout, "read1") else stdout.read(4096)
-            if not raw:
+            raw = _first_signal_chunk(stdout, FIRST_AUDIO_WAIT_S)
+            if proc.poll() is not None or pcm_s16le_is_silent(raw):
                 proc.kill()
                 last_err = MIC_ERR
                 continue
@@ -1400,6 +1415,10 @@ def self_test() -> int:
             want = f":{reliable[0][0]}"
             if want not in first_av:
                 raise SystemExit(f"TUI must open {reliable[0][1]} before Continuity mics")
+        if not pcm_s16le_is_silent(b"\x00\x00" * 16):
+            raise SystemExit("TUI must treat all-zero ffmpeg PCM as no mic")
+        if pcm_s16le_is_silent(b"\x01\x00"):
+            raise SystemExit("TUI must keep a non-zero first packet")
     print("crayon_piano self-test: demo, 5 envelopes, bass>0, App() OK, 440Hz tick OK, layout OK")
     return 0
 

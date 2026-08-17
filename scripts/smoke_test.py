@@ -90,6 +90,20 @@ def check_mic_device_rank() -> None:
     print("mic device rank: OK")
 
 
+def check_macos_audio() -> None:
+    from macos_audio import pcm_s16le_is_silent, self_test as macos_audio_self_test
+    from record_mic import probe_score
+
+    macos_audio_self_test()
+    if probe_score({"rms": 0.0, "peak": 0.0, "snr_like": 12.0}) >= 0:
+        raise SystemExit("silent probe must not win device selection")
+    if probe_score({"rms": 0.02, "peak": 0.1, "snr_like": 4.0}) <= 0:
+        raise SystemExit("live probe must score above silent devices")
+    if not pcm_s16le_is_silent(b"\x00\x00" * 32):
+        raise SystemExit("zero PCM must count as silent")
+    print("macos audio helpers: OK")
+
+
 def check_capture_scripts() -> None:
     py = sys.executable
     for name, extra in (
@@ -427,6 +441,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("TUI listen must capture via AVFoundation on macOS")
     if "read1(4096)" not in tui:
         raise SystemExit("TUI first mic read must use read1 so a short packet cannot block")
+    if "pcm_s16le_is_silent" not in tui or "ensure_macos_input" not in tui:
+        raise SystemExit("TUI listen must skip silent ffmpeg devices after ensuring macOS input")
     rec = (SCRIPTS / "record_mic.py").read_text(encoding="utf-8")
     if "highpass=f=70" in rec:
         raise SystemExit("record_mic default highpass must not cut A0–C2")
@@ -846,6 +862,7 @@ def check_spectrum_scale() -> None:
 def main() -> None:
     check_ffmpeg()
     check_mic_device_rank()
+    check_macos_audio()
     check_capture_scripts()
     check_public_site()
     check_analyze_edges()
