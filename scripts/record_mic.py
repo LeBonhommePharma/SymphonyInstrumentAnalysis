@@ -14,7 +14,14 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from list_mics import ffmpeg_capture_timeout_s, ranked_audio_devices, require_audio_devices  # noqa: E402
+from macos_audio import SILENT_PEAK, ensure_macos_input  # noqa: E402
 from probe_mics import record_probe, wav_stats  # noqa: E402
+
+
+def probe_score(st: dict[str, float]) -> float:
+    if st["peak"] <= SILENT_PEAK or st["rms"] < SILENT_PEAK:
+        return -1.0
+    return st["rms"] * float(np.log1p(st["snr_like"]))
 
 
 def pick_best(seconds: float = 2.0) -> tuple[int, str]:
@@ -27,14 +34,17 @@ def pick_best(seconds: float = 2.0) -> tuple[int, str]:
             out = Path(td) / f"d{idx}.wav"
             ok = record_probe(idx, seconds, out)
             st = wav_stats(out) if ok else {"rms": 0.0, "peak": 0.0, "snr_like": 0.0}
-            score = st["rms"] * float(np.log1p(st["snr_like"]))
+            score = probe_score(st)
             hung = "" if ok else " timed out"
+            skip = " silent" if ok and score < 0 else ""
             print(
                 f"probe [{idx}] {name}: rms={st['rms']:.5f} peak={st['peak']:.5f} "
-                f"score={score:.6f}{hung}"
+                f"score={max(score, 0.0):.6f}{hung}{skip}"
             )
             if score > best[0]:
                 best = (score, idx, name)
+    if best[0] < 0:
+        print("WARNING: all probes look silent; using the ranked built-in mic.")
     return best[1], best[2]
 
 
@@ -52,6 +62,7 @@ def main() -> None:
     ap.add_argument("--probe-seconds", type=float, default=2.0)
     args = ap.parse_args()
 
+    print("ensure:", ensure_macos_input())
     devices = {i: n for i, n in require_audio_devices()}
     if args.device is None:
         print("Auto-selecting lowest-noise / strongest mic...")

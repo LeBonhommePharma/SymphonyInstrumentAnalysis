@@ -23,6 +23,8 @@ export MPLBACKEND=Agg
 .venv/bin/python scripts/density_cluster.py
 .venv/bin/python scripts/keyboard_layout.py
 .venv/bin/python scripts/crayon_piano.py --self-test
+.venv/bin/python scripts/macos_audio.py --self-test
+.venv/bin/python scripts/macos_audio.py --ensure
 .venv/bin/python - <<'PY'
 import sys
 from pathlib import Path

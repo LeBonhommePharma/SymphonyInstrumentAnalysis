@@ -16,6 +16,7 @@ from list_mics import (
     ranked_audio_devices,
     require_audio_devices,
 )
+from macos_audio import SILENT_PEAK, ensure_macos_input
 
 EMPTY_STATS = {"rms": 0.0, "peak": 0.0, "snr_like": 0.0, "noise": 0.0, "signal": 0.0}
 
@@ -80,6 +81,7 @@ def main() -> None:
     ap.add_argument("--seconds", type=float, default=2.5)
     args = ap.parse_args()
 
+    print("ensure:", ensure_macos_input())
     devices = ranked_audio_devices(require_audio_devices())
     print(f"Probing {len(devices)} device(s) for {args.seconds:.1f}s each...")
     ranked: list[tuple[float, int, str, dict[str, float]]] = []
@@ -100,11 +102,17 @@ def main() -> None:
                 f"snr~={st['snr_like']:.2f} score={score:.6f}{tag}"
             )
 
-    usable = [row for row in ranked if not is_unreliable_audio_device(row[2])]
-    pick_from = usable or ranked
+    usable = [
+        row
+        for row in ranked
+        if not is_unreliable_audio_device(row[2]) and row[3]["peak"] > SILENT_PEAK
+    ]
+    pick_from = usable or [
+        row for row in ranked if not is_unreliable_audio_device(row[2])
+    ] or ranked
     pick_from.sort(reverse=True)
     best_score, best_idx, best_name, best_st = pick_from[0]
-    if best_st["peak"] <= 0 or best_st["rms"] < 1e-6:
+    if best_st["peak"] <= SILENT_PEAK or best_st["rms"] < SILENT_PEAK:
         print("\nWARNING: all probes look silent. Check mic permissions for Terminal/ffmpeg.")
     print(f"\nBEST: [{best_idx}] {best_name} (score={best_score:.6f})")
     print(best_idx)
