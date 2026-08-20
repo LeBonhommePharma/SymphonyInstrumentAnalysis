@@ -1,7 +1,30 @@
-/* US ANSI + Canadian French CSA. Mirrors scripts/dual_keyboard.py.
-   One layout at a time; the picker remaps glyphs and hardware together.
+/* US ANSI + Canadian French CSA. Geometry, glyph tables and the finger gate
+   mirror scripts/dual_keyboard.py; the octave shift and the live glyph layer
+   below are web-only and have no Python counterpart.
    Character keys are bound to crayon notes (KeyZ = Do3, KeyD = Do4, KeyQ = La4).
-   10 fingers max unless the extra key is well clustered. */
+   10 fingers max unless the extra key is well clustered.
+
+   INPUT IS LAYOUT-INDEPENDENT. Notes are keyed on `KeyboardEvent.code`, the
+   physical key position, which does not change when the OS keyboard layout
+   changes. Verified on macOS 27 by sending the same virtual keycodes through
+   both the U.S. and the Canadian-CSA input sources: `code` was identical for
+   every key, `key` changed on 6 of 9 (VK 50 -> Backquote/`` ` `` vs
+   Backquote/ù; VK 44 -> Slash/'/' vs Slash/'é', and so on). So both boards are
+   live at the same time and there is nothing to detect for input purposes —
+   `keyByCodeAny` resolves against the union of the layouts.
+
+   THE PICKER IS A LABELLING CHOICE ONLY. It decides which glyphs are painted
+   on the caps; it must never decide which keys produce notes.
+
+   GLYPH TABLES BELOW ARE THE PC/ISO CONVENTION AND ARE WRONG ON APPLE ISO
+   HARDWARE for exactly two keys. Read from macOS's own Canadian-CSA layout via
+   UCKeyTranslate: virtual keycode 50 (-> code `Backquote`) produces "ù", and
+   virtual keycode 10 / kVK_ISO_Section (-> code `IntlBackslash`) produces
+   "/" "\" "|". The table below has those two the other way round, because
+   Apple ISO boards put `Backquote` left of Z and `IntlBackslash` left of
+   Digit1, the reverse of a PC ISO board. Rather than fork the table per
+   platform, the live glyph layer (`loadLayoutMap` / `observeGlyph`) overrides
+   it at runtime with the browser's own values. */
 (function (global) {
   const MAX_FINGERS = 10;
   const CLUSTER_EPS = 1.2;
@@ -193,6 +216,25 @@
     return null;
   }
 
+  /* Resolve a physical `code` against the union of every layout, so a CSA
+     board and a US board are both live no matter which one the picker is
+     painting. CSA is searched first because it is the superset (it is the only
+     one carrying IntlBackslash). */
+  function keyByCodeAny(code) {
+    return keyByCode(CSA, code) || keyByCode(US, code);
+  }
+
+  function allCodes() {
+    const seen = Object.create(null);
+    const out = [];
+    [CSA, US].forEach(function (l) {
+      l.keys.forEach(function (k) {
+        if (!seen[k.code]) { seen[k.code] = 1; out.push(k.code); }
+      });
+    });
+    return out;
+  }
+
   function center(layout, key) {
     return [layout.x0 + key.col + key.w / 2, key.row + key.h / 2];
   }
@@ -365,17 +407,152 @@
   const NOTE_INDEX = {};
   NOTE_KIDS.forEach(function (kid, i) { NOTE_INDEX[kid] = i; });
 
-  function midiForKid(kid) {
+  /* ── Octave shift ──────────────────────────────────────────────────────
+     47 keys cannot cover an 88-key piano. At rest the map spans MIDI 47..94
+     (Si2..La#6); the instrument is 21..108 (La0..Do8). Do1 = MIDI 24 is two
+     octaves below the resting floor, so it is unreachable without transposing.
+     That is arithmetic, not preference — there has to be an octave control.
+
+     Range -3..+2 is chosen so that every one of the 88 keys is reachable:
+       -3 puts Slash (base 57) on 21 = La0, the lowest key on the piano
+       -2 puts KeyZ  (base 48) on 24 = Do1
+       +2 puts Digit2 (base 84) on 108 = Do8, the highest key
+     Shifted notes outside 21..108 return null, so a cap that would fall off
+     the instrument goes inert instead of playing something that is not there. */
+  const PIANO_LO = 21;
+  const PIANO_HI = 108;
+  const OCTAVE_MIN = -3;
+  const OCTAVE_MAX = 2;
+  let octave = 0;
+
+  function clampOctave(n) {
+    n = Math.round(Number(n) || 0);
+    return n < OCTAVE_MIN ? OCTAVE_MIN : n > OCTAVE_MAX ? OCTAVE_MAX : n;
+  }
+  function getOctave() { return octave; }
+  function setOctave(n) { octave = clampOctave(n); return octave; }
+  function nudgeOctave(d) { return setOctave(octave + (Number(d) || 0)); }
+
+  /** Untransposed note for a physical key. Never moves. */
+  function baseMidiForKid(kid) {
     if (kid === "IntlBackslash") return INTL_BACKSLASH_MIDI;
     const i = NOTE_INDEX[kid];
     return i == null ? null : KEY_Z_MIDI + i;
   }
 
-  function kidForMidi(midi) {
-    if (midi === INTL_BACKSLASH_MIDI) return "IntlBackslash";
-    const i = midi - KEY_Z_MIDI;
+  /** Note this key plays right now, i.e. base note plus the octave shift. */
+  function midiForKid(kid) {
+    const base = baseMidiForKid(kid);
+    if (base == null) return null;
+    const m = base + 12 * octave;
+    return m < PIANO_LO || m > PIANO_HI ? null : m;
+  }
+
+  function kidForBaseMidi(base) {
+    if (base === INTL_BACKSLASH_MIDI) return "IntlBackslash";
+    const i = base - KEY_Z_MIDI;
     if (i < 0 || i >= NOTE_KIDS.length) return null;
     return NOTE_KIDS[i];
+  }
+
+  function kidForMidi(midi) {
+    return kidForBaseMidi(midi - 12 * octave);
+  }
+
+  /* ── Glyph labelling ───────────────────────────────────────────────────
+     The static tables above are a fallback. The truth about what a physical
+     key prints is whatever the browser says, and there are two ways to ask:
+
+       1. navigator.keyboard.getLayoutMap() — exact, whole-board, but Chromium
+          only and needs a secure context.
+       2. the `key` of a real keydown — universal, but only tells you about
+          keys the user has actually pressed.
+
+     Both are used. (1) seeds the board where available; (2) corrects it as
+     the user plays, which is what carries Safari and Firefox. Neither can
+     produce a blank cap: an unknown code falls back to the static glyph. */
+  const liveGlyphs = Object.create(null);
+  let layoutMapSize = 0;
+  let layoutMapSupported = null;
+
+  function printable(g) {
+    return typeof g === "string" && g.length > 0 && g.length <= 2 && g !== " " &&
+      !/^[A-Z][a-z]+$/.test(g);            // rejects "Enter", "Shift", "Dead"
+  }
+
+  function setLiveGlyph(code, g) {
+    if (!code || !printable(g)) return false;
+    if (liveGlyphs[code] === g) return false;
+    liveGlyphs[code] = g;
+    return true;
+  }
+
+  /** Record what a real keydown says this physical key prints. */
+  function observeGlyph(ev) {
+    if (!ev || ev.altKey || ev.metaKey || ev.ctrlKey) return false;
+    let g = ev.key;
+    if (!printable(g)) return false;
+    if (g.length === 1 && g.toLowerCase() !== g.toUpperCase()) g = g.toLowerCase();
+    return setLiveGlyph(ev.code, g);
+  }
+
+  /** Chromium-only whole-board read. Resolves to a report, never rejects. */
+  function loadLayoutMap() {
+    const nav = typeof navigator !== "undefined" ? navigator : null;
+    const kb = nav && nav.keyboard;
+    if (!kb || typeof kb.getLayoutMap !== "function") {
+      layoutMapSupported = false;
+      return Promise.resolve({
+        supported: false, size: 0,
+        secureContext: typeof isSecureContext !== "undefined" ? isSecureContext : null
+      });
+    }
+    return kb.getLayoutMap().then(function (map) {
+      layoutMapSupported = true;
+      let n = 0;
+      map.forEach(function (glyph, code) { if (setLiveGlyph(code, glyph)) n++; });
+      layoutMapSize = map.size;
+      return { supported: true, size: map.size, applied: n };
+    }).catch(function () {
+      layoutMapSupported = false;
+      return { supported: false, size: 0, error: true };
+    });
+  }
+
+  /** What to paint on the cap for `code`, under `layout` as the fallback. */
+  function glyphForCode(code, layout) {
+    if (liveGlyphs[code]) return liveGlyphs[code];
+    const k = layout ? keyByCode(layout, code) : keyByCodeAny(code);
+    if (k && k.base) return k.base;
+    return code;
+  }
+
+  /* Which board to paint, from evidence rather than from a guess. Only the
+     glyphs that actually differ between the two layouts are consulted; every
+     one of these was read back from a real browser under both input sources.
+     `Backquote: ù` is the Apple-ISO CSA signature, `IntlBackslash: ù` the PC
+     one — either is decisive. */
+  const CSA_SIGNATURE = {
+    Backquote: ["ù"], IntlBackslash: ["ù"], Slash: ["é"],
+    Quote: ["è"], Backslash: ["à"], BracketRight: ["ç"], BracketLeft: ["^"]
+  };
+
+  function detectLayoutId() {
+    const codes = Object.keys(CSA_SIGNATURE);
+    for (let i = 0; i < codes.length; i++) {
+      const g = liveGlyphs[codes[i]];
+      if (g && CSA_SIGNATURE[codes[i]].indexOf(g) >= 0) return "csa";
+    }
+    return liveGlyphs.Backquote || liveGlyphs.Slash ? "us" : null;
+  }
+
+  function glyphReport() {
+    return {
+      supported: layoutMapSupported,
+      size: layoutMapSize,
+      observed: Object.keys(liveGlyphs).length,
+      detected: detectLayoutId()
+    };
   }
 
   function noteLabelFr(midi) {
@@ -452,6 +629,8 @@
     LAYOUTS: LAYOUTS,
     keyById: keyById,
     keyByCode: keyByCode,
+    keyByCodeAny: keyByCodeAny,
+    allCodes: allCodes,
     center: center,
     clusterHeld: clusterHeld,
     canAccept: canAccept,
@@ -459,9 +638,22 @@
     FingerGate: FingerGate,
     sameHeld: sameHeld,
     midiForKid: midiForKid,
+    baseMidiForKid: baseMidiForKid,
     kidForMidi: kidForMidi,
     noteLabelFr: noteLabelFr,
     KEY_Z_MIDI: KEY_Z_MIDI,
+    PIANO_LO: PIANO_LO,
+    PIANO_HI: PIANO_HI,
+    OCTAVE_MIN: OCTAVE_MIN,
+    OCTAVE_MAX: OCTAVE_MAX,
+    getOctave: getOctave,
+    setOctave: setOctave,
+    nudgeOctave: nudgeOctave,
+    loadLayoutMap: loadLayoutMap,
+    observeGlyph: observeGlyph,
+    glyphForCode: glyphForCode,
+    detectLayoutId: detectLayoutId,
+    glyphReport: glyphReport,
     selfTest: selfTest
   };
 
@@ -515,7 +707,72 @@
     US.keys.concat(CSA.keys).forEach(function (k) {
       if (k.kind === "char" && midiForKid(k.kid) == null) throw new Error("unmapped " + k.kid);
     });
-    return "dual_keyboard.js: US=" + US.keys.length + " CSA=" + CSA.keys.length + " gate=10+cluster notes=Z/D/Q OK";
+
+    /* ── input is layout-independent ──────────────────────────────────────
+       Every code either layout carries must resolve without being told which
+       layout is on screen, and must give the same note either way. This is
+       the whole point of keying on `code`. */
+    setOctave(0);
+    const codes = allCodes();
+    if (codes.length !== 59) throw new Error("union of codes is 59, got " + codes.length);
+    codes.forEach(function (c) {
+      if (!keyByCodeAny(c)) throw new Error("union lookup missed " + c);
+    });
+    if (!keyByCodeAny("IntlBackslash")) throw new Error("IntlBackslash must resolve with no layout named");
+    US.keys.forEach(function (k) {
+      const viaUS = keyByCode(US, k.code);
+      const viaAny = keyByCodeAny(k.code);
+      if (!viaAny) throw new Error("shared code unresolved " + k.code);
+      if (midiForKid(viaUS.kid) !== midiForKid(viaAny.kid)) {
+        throw new Error("same physical key, different note across layouts: " + k.code);
+      }
+    });
+
+    /* ── octave shift, and Do1 in particular ──────────────────────────── */
+    if (getOctave() !== 0) throw new Error("octave starts at 0");
+    if (midiForKid("KeyZ") !== 48) throw new Error("octave 0 leaves Z on Do3");
+    if (setOctave(-2) !== -2) throw new Error("setOctave(-2)");
+    if (midiForKid("KeyZ") !== 24) throw new Error("octave -2 must put Z on MIDI 24");
+    if (noteLabelFr(midiForKid("KeyZ")) !== "Do1") throw new Error("MIDI 24 is Do1");
+    if (kidForMidi(24) !== "KeyZ") throw new Error("Do1 binds back to Z at octave -2");
+    if (setOctave(-3) !== -3) throw new Error("setOctave(-3)");
+    if (midiForKid("Slash") !== PIANO_LO) throw new Error("octave -3 must reach La0 = 21");
+    if (midiForKid("KeyZ") !== null) throw new Error("notes below the piano must go inert");
+    if (setOctave(2) !== 2) throw new Error("setOctave(2)");
+    if (midiForKid("Digit2") !== PIANO_HI) throw new Error("octave +2 must reach Do8 = 108");
+    if (setOctave(-99) !== OCTAVE_MIN || setOctave(99) !== OCTAVE_MAX) throw new Error("octave clamps");
+    // Every one of the 88 keys must be reachable from some octave.
+    const reach = {};
+    for (let o = OCTAVE_MIN; o <= OCTAVE_MAX; o++) {
+      setOctave(o);
+      NOTE_KIDS.concat(["IntlBackslash"]).forEach(function (k) {
+        const m = midiForKid(k);
+        if (m != null) reach[m] = 1;
+      });
+    }
+    for (let m = PIANO_LO; m <= PIANO_HI; m++) {
+      if (!reach[m]) throw new Error("MIDI " + m + " (" + noteLabelFr(m) + ") is unreachable");
+    }
+    setOctave(0);
+    if (midiForKid("KeyZ") !== 48) throw new Error("octave resets");
+
+    /* ── glyph layer is labelling only, and never blank ───────────────── */
+    if (glyphForCode("KeyZ", US) !== "z") throw new Error("US glyph");
+    if (glyphForCode("Slash", CSA) !== "é") throw new Error("CSA glyph");
+    if (!glyphForCode("NoSuchCode", US)) throw new Error("unknown code must still label");
+    const beforeNote = midiForKid("Slash");
+    observeGlyph({ code: "Slash", key: "é" });
+    if (glyphForCode("Slash", US) !== "é") throw new Error("observed glyph must win over the static table");
+    if (midiForKid("Slash") !== beforeNote) throw new Error("relabelling must not move a note");
+    if (detectLayoutId() !== "csa") throw new Error("é on Slash is the CSA signature");
+    observeGlyph({ code: "Backquote", key: "ù" });
+    if (glyphForCode("Backquote", US) !== "ù") throw new Error("Apple-ISO CSA puts ù on Backquote");
+    delete liveGlyphs.Slash;
+    delete liveGlyphs.Backquote;
+
+    return "dual_keyboard.js: US=" + US.keys.length + " CSA=" + CSA.keys.length +
+      " union=" + codes.length + " gate=10+cluster notes=Z/D/Q octave=" +
+      OCTAVE_MIN + ".." + OCTAVE_MAX + " Do1@-2 88/88 reachable OK";
   }
 
   if (typeof process !== "undefined" && process.argv && /dual_keyboard\.js$/.test(String(process.argv[1] || ""))) {

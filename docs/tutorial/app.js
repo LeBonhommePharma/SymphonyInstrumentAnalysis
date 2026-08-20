@@ -1304,6 +1304,11 @@
     // the keycap and the matching 88-key, and scores if that note was needed.
     const boardEl = document.getElementById("typingBoard");
     if (boardEl && window.TypingBoard && window.DUAL) {
+      const $octNow = document.getElementById("octNow");
+      const $octDown = document.getElementById("octDown");
+      const $octUp = document.getElementById("octUp");
+      const $kbRange = document.getElementById("kbRange");
+      const $kbLayoutTut = document.getElementById("kbLayoutTut");
       typingBoard = new window.TypingBoard(boardEl, {
         onHeld: function (held) {
           computerHeld = held;
@@ -1315,9 +1320,42 @@
             }
           });
           lightPiano(neededMidis);
+        },
+        // Keep the octave readable on screen. The reason Do1 was hard to find
+        // is that nothing ever said where the keyboard was sitting.
+        onMeta: function (meta) {
+          if ($octNow) {
+            $octNow.textContent = (meta.octave > 0 ? "+" : "") + meta.octave;
+          }
+          if ($octDown) $octDown.disabled = meta.octave <= window.DUAL.OCTAVE_MIN;
+          if ($octUp) $octUp.disabled = meta.octave >= window.DUAL.OCTAVE_MAX;
+          if ($kbRange && meta.range) {
+            $kbRange.innerHTML = "";
+            $kbRange.appendChild(document.createTextNode(t("octRange") + " "));
+            const b = document.createElement("b");
+            b.textContent = meta.range.loLabel + "–" + meta.range.hiLabel;
+            $kbRange.appendChild(b);
+          }
+          if ($kbLayoutTut) {
+            Array.prototype.forEach.call($kbLayoutTut.querySelectorAll("[data-layout]"), function (btn) {
+              btn.setAttribute("aria-pressed", String(btn.dataset.layout === meta.board));
+            });
+          }
         }
       });
       typingBoard.listen(window);
+      if ($octDown || $octUp) {
+        [[$octDown, -1], [$octUp, 1]].forEach(function (pair) {
+          if (pair[0]) pair[0].addEventListener("click", function () { typingBoard.nudgeOctave(pair[1]); });
+        });
+      }
+      if ($kbLayoutTut) {
+        $kbLayoutTut.addEventListener("click", function (ev) {
+          const btn = ev.target.closest("[data-layout]");
+          if (btn) typingBoard.setBoard(btn.dataset.layout);
+        });
+      }
+      typingBoard.emitMeta();
     } else {
       window.addEventListener("keydown", function (ev) {
         if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;

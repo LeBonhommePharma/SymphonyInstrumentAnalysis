@@ -380,9 +380,14 @@
       </div>
       <div class="type-head">
         <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
-        <pre id="typeOut" class="type-out" data-hint="US · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
+        <pre id="typeOut" class="type-out" data-hint="Lettrage US · les deux claviers jouent · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
         <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
-        <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Disposition">
+        <div class="kb-picker" id="kbOctave" role="group" aria-label="Octave">
+          <button type="button" data-oct="-1" aria-label="Octave -1" title="↓">−</button>
+          <span class="kb-oct-now" id="kbOctNow" aria-live="polite">octave 0 · Si2–La♯6</span>
+          <button type="button" data-oct="1" aria-label="Octave +1" title="↑">+</button>
+        </div>
+        <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Lettrage">
           <button type="button" data-layout="us" aria-pressed="true">US</button>
           <button type="button" data-layout="csa" aria-pressed="false">Canadien français</button>
         </div>
@@ -1244,9 +1249,17 @@
     });
   }
 
-  function keyLabel(key) {
+  /* True until the reader picks a layout by hand. The browser reports the
+     active OS input source, which is not the same thing as the legends
+     printed on the board in front of you — plug a CSA keyboard into a machine
+     set to U.S. and every cap lies. Clicking the picker says so, and an
+     explicit choice has to win over the inference. */
+  let liveLettering = true;
+
+  function keyLabel(key, layout) {
     if (key.kind === "space") return "";
     if (key.kind !== "char") return key.base;
+    if (liveLettering) return DUAL.glyphForCode(key.code || key.kid, layout);
     return key.base;
   }
 
@@ -1274,7 +1287,7 @@
       el.style.height = (key.h / 5 * 100) + "%";
       el.style.zIndex = key.h > 1 ? "0" : "1";
       const main = document.createElement("span");
-      main.textContent = keyLabel(key) || (key.kind === "space" ? "" : key.base);
+      main.textContent = keyLabel(key, layout) || (key.kind === "space" ? "" : key.base);
       el.appendChild(main);
       const midi = DUAL.midiForKid(key.kid);
       if (midi != null) {
@@ -1303,6 +1316,54 @@
     return wrap;
   }
 
+  /* ── Octave ───────────────────────────────────────────────────────────
+     47 keys cannot cover 88 notes, so the board has to be able to move. The
+     bound codes are all letters, digits and punctuation, so the arrows are
+     free — nothing that plays a note is shadowed. */
+  const OCTAVE_KEYS = { ArrowDown: -1, ArrowUp: 1 };
+
+  function octaveRangeLabel() {
+    let lo = null, hi = null;
+    DUAL.allCodes().forEach(function (c) {
+      const m = DUAL.midiForKid(c);
+      if (m == null) return;
+      if (lo == null || m < lo) lo = m;
+      if (hi == null || m > hi) hi = m;
+    });
+    return lo == null ? "" : DUAL.noteLabelFr(lo) + "–" + DUAL.noteLabelFr(hi);
+  }
+
+  function renderOctave() {
+    const el = document.getElementById("kbOctNow");
+    const o = DUAL.getOctave();
+    if (el) el.textContent = "octave " + (o > 0 ? "+" : "") + o + " · " + octaveRangeLabel();
+    const box = document.getElementById("kbOctave");
+    if (box) {
+      const down = box.querySelector('[data-oct="-1"]');
+      const up = box.querySelector('[data-oct="1"]');
+      if (down) down.disabled = o <= DUAL.OCTAVE_MIN;
+      if (up) up.disabled = o >= DUAL.OCTAVE_MAX;
+    }
+    if ($dualBoards) $dualBoards.dataset.octave = String(o);
+  }
+
+  function shiftOctave(d) {
+    const before = DUAL.getOctave();
+    if (DUAL.nudgeOctave(d) === before) return;
+    releaseTypedHolds();
+    rebuildBoard();
+    syncPianoBinds();
+    syncLayoutPicker();
+    renderOctave();
+  }
+
+  function hasStoredLayout() {
+    try {
+      const saved = localStorage.getItem("crayon-kb-layout");
+      return saved === "csa" || saved === "us";
+    } catch (e) { return false; }
+  }
+
   function readStoredLayout() {
     try {
       const saved = localStorage.getItem("crayon-kb-layout");
@@ -1315,10 +1376,15 @@
     return DUAL.LAYOUTS[activeBoard] || DUAL.US;
   }
 
+  /* Names the lettering, not the input: both boards are always live. Reads
+     the notes off the current octave so the hint cannot go stale. */
   function layoutHint(id) {
-    return id === "csa"
-      ? "Canadien français · Z=Do3 · D=Do4 · Q=La4"
-      : "US · Z=Do3 · D=Do4 · Q=La4";
+    const z = DUAL.midiForKid("KeyZ");
+    const d = DUAL.midiForKid("KeyD");
+    const q = DUAL.midiForKid("KeyQ");
+    const note = function (m) { return m == null ? "—" : DUAL.noteLabelFr(m); };
+    return (id === "csa" ? "Lettrage canadien français" : "Lettrage US") +
+      " · les deux claviers jouent · Z=" + note(z) + " · D=" + note(d) + " · Q=" + note(q);
   }
 
   function syncLayoutPicker() {
@@ -1339,7 +1405,21 @@
     $dualBoards.appendChild(buildOneBoard(selectedLayout()));
   }
 
-  function setLayout(id) {
+  /* Repaint the glyph text on the caps that already exist. Never rebuilds:
+     a rebuild inside a keydown throws away the elements the held state points
+     at, which leaves the note stuck on. */
+  function relabelBoard() {
+    const layout = selectedLayout();
+    keyEls.forEach(function (el) {
+      const key = DUAL.keyById(layout, el.dataset.kid) || DUAL.keyByCodeAny(el.dataset.kid);
+      if (!key) return;
+      const main = el.firstChild;
+      if (main) main.textContent = keyLabel(key, layout) || (key.kind === "space" ? "" : key.base);
+    });
+  }
+
+  function setLayout(id, manual) {
+    if (manual) liveLettering = false;
     const next = id === "csa" ? "csa" : "us";
     if (next !== activeBoard) {
       releaseTypedHolds();
@@ -1367,9 +1447,26 @@
       $kbLayout.addEventListener("click", function (ev) {
         const btn = ev.target.closest("[data-layout]");
         if (!btn) return;
-        setLayout(btn.dataset.layout);
+        setLayout(btn.dataset.layout, true);
       });
     }
+    const $kbOctave = document.getElementById("kbOctave");
+    if ($kbOctave) {
+      $kbOctave.addEventListener("click", function (ev) {
+        const btn = ev.target.closest("[data-oct]");
+        if (btn) shiftOctave(Number(btn.dataset.oct));
+      });
+    }
+    renderOctave();
+    /* Ask Chromium what this keyboard actually prints and adopt it. On Safari
+       and Firefox this resolves unsupported and the per-keydown glyph
+       correction in onHwKeyDown carries the labelling instead. Either way
+       nothing here changes which key plays which note. */
+    DUAL.loadLayoutMap().then(function () {
+      const want = DUAL.detectLayoutId();
+      if (want && want !== activeBoard && !hasStoredLayout()) setLayout(want);
+      else { relabelBoard(); syncPianoBinds(); }
+    });
     if ($typeClear) {
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
@@ -1588,13 +1685,17 @@
       const bind = el.querySelector(".bind");
       if (!bind) return;
       const kid = DUAL.kidForMidi(midi);
-      if (!kid || (kid === "IntlBackslash" && layout.id !== "csa")) {
+      // IntlBackslash exists on ISO boards only, so only hint it when the CSA
+      // board is on screen or the browser has said the key is really there.
+      const isoHidden = kid === "IntlBackslash" &&
+        layout.id !== "csa" && DUAL.detectLayoutId() !== "csa";
+      if (!kid || isoHidden) {
         bind.textContent = "";
         el.classList.remove("bound");
         return;
       }
-      const key = DUAL.keyById(layout, kid);
-      bind.textContent = key && key.kind === "char" ? key.base : "";
+      const key = DUAL.keyById(layout, kid) || DUAL.keyByCodeAny(kid);
+      bind.textContent = key && key.kind === "char" ? keyLabel(key, layout) : "";
       el.classList.toggle("bound", !!bind.textContent);
     });
   }
@@ -1627,16 +1728,38 @@
     renderKbMeta();
   }
 
+  /* Which board a physical `code` belongs to for bookkeeping. Input itself
+     never consults the painted board — see resolveHw. */
+  function boardForCode(layout, code) {
+    if (DUAL.keyByCode(layout, code)) return layout.id;
+    return DUAL.keyByCode(DUAL.CSA, code) ? "csa" : "us";
+  }
+
+  /* Resolve on the physical key position against the union of the layouts, so
+     a Canadian-French board and a US board are both live at the same time.
+     The picker chooses lettering; it must not choose which keys work. */
+  function resolveHw(layout, code) {
+    return DUAL.keyByCode(layout, code) || DUAL.keyByCodeAny(code);
+  }
+
   function onHwKeyDown(ev) {
     if (ev.repeat) return;
     if (ev.metaKey) return;
     const isCtrlKey = ev.code === "ControlLeft" || ev.code === "ControlRight";
     if (ev.ctrlKey && !ev.altKey && !isCtrlKey) return;
+    if (OCTAVE_KEYS[ev.code] != null) {
+      ev.preventDefault();
+      shiftOctave(OCTAVE_KEYS[ev.code]);
+      return;
+    }
     const layout = DUAL.LAYOUTS[activeBoard] || DUAL.US;
-    const key = DUAL.keyByCode(layout, ev.code);
+    // Learn the real glyph for this key from the browser. Labelling only, and
+    // in place — see relabelBoard.
+    if (liveLettering && DUAL.observeGlyph(ev)) { relabelBoard(); syncPianoBinds(); }
+    const key = resolveHw(layout, ev.code);
     if (!key) return;
     ev.preventDefault();
-    const held = { board: layout.id, kid: key.kid };
+    const held = { board: boardForCode(layout, ev.code), kid: key.kid };
     const already = keyStillHeld(held);
     if (!fingerGate.down("hw-" + ev.code, held)) return;
     if (!already) applyTyped(layout.id, key.kid);
@@ -1648,8 +1771,8 @@
 
   function onHwKeyUp(ev) {
     const layout = DUAL.LAYOUTS[activeBoard] || DUAL.US;
-    const key = DUAL.keyByCode(layout, ev.code);
-    const held = key ? { board: layout.id, kid: key.kid } : null;
+    const key = resolveHw(layout, ev.code);
+    const held = key ? { board: boardForCode(layout, ev.code), kid: key.kid } : null;
     if (key) releaseTyped(layout.id, key.kid);
     fingerGate.up("hw-" + ev.code);
     if (held && !keyStillHeld(held)) {
