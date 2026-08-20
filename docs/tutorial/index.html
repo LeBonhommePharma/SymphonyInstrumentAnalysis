@@ -88,10 +88,24 @@
     <section class="card">
       <div class="head-row">
         <span class="eyebrow" data-i18n="kbEyebrow">computer keyboard</span>
-        <span class="meta" data-i18n="kbMetaTut">type to play · Z=Do3 · D=Do4 · Q=La4 · US</span>
+        <span class="meta" data-i18n="kbMetaTut">type to play · Z=Do3 · D=Do4 · Q=La4 · both boards live</span>
       </div>
+      <div class="kb-controls">
+        <span class="stat-label" data-i18n="octLabel">octave</span>
+        <span class="kb-oct" role="group" aria-label="Octave">
+          <button type="button" id="octDown" data-oct="-1" aria-label="Octave down" title="↓">−</button>
+          <span class="kb-oct-now" id="octNow" aria-live="polite">0</span>
+          <button type="button" id="octUp" data-oct="1" aria-label="Octave up" title="↑">+</button>
+        </span>
+        <span class="kb-range" id="kbRange" aria-live="polite"></span>
+        <span class="kb-layout" id="kbLayoutTut" role="radiogroup" aria-label="Lettering">
+          <button type="button" data-layout="us" aria-pressed="true">US</button>
+          <button type="button" data-layout="csa" aria-pressed="false">CSA</button>
+        </span>
+      </div>
+      <p class="meter-hint" data-i18n="kbHint">Both keyboards play at once — notes follow the physical key, not the letter printed on it. ↑ ↓ shift the octave; Do1 is two octaves down.</p>
       <div class="board-scroll">
-        <div class="typing-board" id="typingBoard" data-layout="us"></div>
+        <div class="typing-board" id="typingBoard" data-layout="us" data-octave="0"></div>
       </div>
     </section>
 

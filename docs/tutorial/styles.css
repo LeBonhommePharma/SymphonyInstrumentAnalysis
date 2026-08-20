@@ -148,6 +148,65 @@
 .cap-mod { background: rgba(255, 255, 255, 0.02); }
 .cap-mod .cap-glyph { color: var(--fg-muted); }
 .cap-mod .cap-note { color: transparent; }
+/* A note key the current octave has pushed off the ends of the 88-key piano.
+   It is still a real key, it just has nothing to play from here. */
+.cap-inert { opacity: 0.32; }
+.cap-inert .cap-note::after { content: "—"; color: var(--fg-muted); }
+
+.kb-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 10px;
+}
+.kb-oct {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.kb-oct button {
+  min-width: 34px;
+  min-height: 34px;
+  background: transparent;
+  border: 0;
+  color: var(--fg);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.kb-oct button:hover { background: rgba(255, 255, 255, 0.06); }
+.kb-oct button[disabled] { opacity: 0.3; cursor: default; }
+.kb-oct .kb-oct-now {
+  min-width: 88px;
+  padding: 0 8px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--teal);
+}
+.kb-range { color: var(--fg-muted); font-size: 12px; }
+.kb-range b { color: var(--fg); font-weight: 600; }
+.kb-layout {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-left: auto;
+}
+.kb-layout button {
+  min-height: 34px;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.kb-layout button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); color: var(--fg); }
 
 /* ── Stage ─────────────────────────────────────────────────────────────── */
 .stage { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(240px, 1fr); gap: 14px; align-items: start; }
