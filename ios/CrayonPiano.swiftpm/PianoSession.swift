@@ -124,6 +124,8 @@ final class PianoSession: ObservableObject {
     private var lastAutoSceneAt: TimeInterval = 0
     private var lastAutoStyle: SceneStyle?
     private var brightnessObserver: NSObjectProtocol?
+    private var interruptionObserver: NSObjectProtocol?
+    private var wasLiveBeforeInterruption = false
     private var lastClusters: [SpectralCluster] = []
     private var lastPeaks: [SpecPeak] = []
 
@@ -151,6 +153,18 @@ final class PianoSession: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor in self?.considerAmbient() }
+        }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            let info = note.userInfo
+            let typeRaw = (info?[AVAudioSessionInterruptionTypeKey] as? UInt) ?? 0
+            let optionsRaw = (info?[AVAudioSessionInterruptionOptionKey] as? UInt) ?? 0
+            Task { @MainActor in
+                self?.handleInterruption(typeRaw: typeRaw, optionsRaw: optionsRaw)
+            }
         }
         considerAmbient()
         displayPulse.onTick = { [weak self] in
@@ -271,7 +285,9 @@ final class PianoSession: ObservableObject {
         if down { noteOn(midi) } else { noteOff(midi) }
     }
 
-    func stopLive() {
+    /// `releaseSession: false` is for internal hand-offs that immediately need the
+    /// session again (Listen -> Replay); bouncing it would interrupt the other app twice.
+    func stopLive(releaseSession: Bool = true) {
         persistScore(source: "live")
         engine.inputNode.removeTap(onBus: 0)
         didInstallTap = false
@@ -281,11 +297,12 @@ final class PianoSession: ObservableObject {
         hint = ""
         if !voices.isEmpty { ensureMixerTap() }
         armDisplayPulse()
+        if releaseSession { releaseSessionIfIdle() }
     }
 
     func startReplay() {
         errorMessage = nil
-        if mode == .live { stopLive() }
+        if mode == .live { stopLive(releaseSession: false) }
         do {
             try configureSession()
             try startEngineIfNeeded()
@@ -591,10 +608,53 @@ final class PianoSession: ObservableObject {
         }
     }
 
+    private static let mixingBlockedNotice =
+        "Cette sortie ne partage pas l’audio : l’autre app sera mise en pause."
+
     private func configureSession() throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetoothHFP, .mixWithOthers])
         try session.setActive(true)
+        noteMixingRouteIfDegraded(session)
+    }
+
+    /// Some routes (notably a few Bluetooth configurations) will not honour
+    /// `.mixWithOthers`. Issue #50 asks that we say so in the UI rather than
+    /// interrupting the other app silently.
+    private func noteMixingRouteIfDegraded(_ session: AVAudioSession) {
+        if session.categoryOptions.contains(.mixWithOthers) {
+            if errorMessage == Self.mixingBlockedNotice { errorMessage = nil }
+            return
+        }
+        errorMessage = Self.mixingBlockedNotice
+    }
+
+    /// Hand the audio session back so whatever else was playing regains priority
+    /// immediately. Only safe once nothing else here still needs I/O: iOS refuses
+    /// deactivation while the engine is running, and held voices still need it.
+    private func releaseSessionIfIdle() {
+        guard mode == .idle, voices.isEmpty, !mixerTapOn else { return }
+        if engine.isRunning { engine.stop() }
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            // Best effort: deactivation throws while any I/O is still winding down.
+        }
+    }
+
+    /// A call (or any other interruption) mid-listen must not leave a dead analyser.
+    private func handleInterruption(typeRaw: UInt, optionsRaw: UInt) {
+        switch AVAudioSession.InterruptionType(rawValue: typeRaw) {
+        case .began:
+            wasLiveBeforeInterruption = (mode == .live)
+            if mode == .live { stopLive(releaseSession: false) }
+        case .ended:
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
+            if wasLiveBeforeInterruption && options.contains(.shouldResume) { startLive() }
+            wasLiveBeforeInterruption = false
+        default:
+            break
+        }
     }
 
     private func startEngineIfNeeded() throws {
