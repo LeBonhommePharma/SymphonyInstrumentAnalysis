@@ -237,8 +237,9 @@ def check_public_site() -> None:
         raise SystemExit("tutorial must not keep the leftover piano-roll CODE_TO_MIDI")
     if "theme.js" not in tutorial:
         raise SystemExit("tutorial must load the shared theme switch")
-    if "data-theme-auto" not in tutorial:
-        raise SystemExit("tutorial must include Auto lighting")
+    # No Auto lighting assertion here: the #49 UI refresh (constraint 5) removed the
+    # scene switcher from the docs pages, which ship dark-only. theme.js is still
+    # loaded and asserted above. web/keyboard.html keeps its own control (see line ~433).
     if "specYOfDb" not in app_js and "yOfDb" not in app_js:
         raise SystemExit("tutorial spectrum must plot dBFS, not byte-log")
     if "requestAnimationFrame(tick)" not in app_js:
