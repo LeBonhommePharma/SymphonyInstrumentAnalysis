@@ -65,6 +65,8 @@
   const bootstrap = document.getElementById("bootstrap");
 
   let audioCtx = null;
+  let iosMicAcknowledged = false;
+  let typingBoard = null;
   let analyser = null;
   let sourceNode = null;
   let stream = null;
@@ -151,7 +153,10 @@
     document.body.classList.toggle("is-listening", on);
     if (livePill) {
       livePill.hidden = !on;
-      livePill.textContent = on ? t("hudLive") : t("hudOff");
+      // Keep the pulsing dot; only the label text changes.
+      const lab = livePill.querySelector("[data-i18n]");
+      if (lab) lab.textContent = on ? t("hudLive") : t("hudOff");
+      else livePill.textContent = on ? t("hudLive") : t("hudOff");
     }
     if (bootstrap) bootstrap.classList.toggle("hidden", on || demoMode);
   }
@@ -223,6 +228,12 @@
       specCanvas.height = sh;
     }
     updateTracksHeading();
+    // Under prefers-reduced-motion there is no rAF loop, so a resize is the
+    // only thing that refreshes the frame — take a live one while listening.
+    if (reducedMotion() && analyser && audioCtx) {
+      tick();
+      return;
+    }
     drawTracks(lastElapsed);
     drawSpec(lastClusters, audioCtx ? audioCtx.sampleRate : 44100);
   }
@@ -635,8 +646,12 @@
   }
 
   function specBed() {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue("--panel-dark").trim();
-    return raw || "#0c1017";
+    return "#070b12";
+  }
+
+  /** True while the OS asks us to keep still. Checked live, not cached. */
+  function reducedMotion() {
+    return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
 
   function drawSpec(clusters, sampleRate) {
@@ -645,10 +660,10 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx.fillStyle = specBed();
     ctx.fillRect(0, 0, width, height);
-    const padL = 40 * dpr;
-    const padR = 12 * dpr;
-    const padT = 24 * dpr;
-    const padB = 30 * dpr;
+    const padL = 42 * dpr;
+    const padR = 16 * dpr;
+    const padT = 20 * dpr;
+    const padB = 28 * dpr;
     const plotW = Math.max(8, width - padL - padR);
     const plotH = Math.max(8, height - padT - padB);
     const fLo = 27.5;
@@ -664,10 +679,10 @@
       return padT + plotH - Math.max(0, Math.min(1, t)) * plotH;
     }
 
-    ctx.strokeStyle = "rgba(148,163,184,0.18)";
+    ctx.strokeStyle = "rgba(34,211,238,0.10)";
     ctx.lineWidth = Math.max(1, dpr * 0.5);
     ctx.font = 10 * dpr + "px ui-monospace, SFMono-Regular, Menlo, monospace";
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = "#6b7690";
     ctx.textBaseline = "middle";
     [-90, -60, -30, 0].forEach(function (db) {
       const y = yOfDb(db);
@@ -693,15 +708,16 @@
       const x = xOf(row[1]);
       const mark = row[1] === 440;
       ctx.beginPath();
-      ctx.strokeStyle = mark ? "rgba(248,250,252,0.45)" : "rgba(148,163,184,0.14)";
+      ctx.strokeStyle = mark ? "rgba(251,191,36,0.4)" : "rgba(34,211,238,0.08)";
+      ctx.lineWidth = Math.max(1, dpr * (mark ? 0.9 : 0.5));
       ctx.moveTo(x, padT);
       ctx.lineTo(x, padT + plotH);
       ctx.stroke();
-      ctx.fillStyle = mark ? "#e2e8f0" : "#94a3b8";
+      ctx.fillStyle = mark ? "#fbbf24" : "#6b7690";
       ctx.textBaseline = "top";
       ctx.fillText(row[0], x, padT + plotH + 6 * dpr);
     });
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = "#6b7690";
     ctx.textAlign = "right";
     ctx.fillText(t("specAxisHz"), width - 8 * dpr, padT + plotH + 6 * dpr);
 
@@ -719,16 +735,25 @@
       }
       ctx.lineTo(xOf(i1 * binHz), padT + plotH);
       ctx.closePath();
-      ctx.fillStyle = "rgba(45, 212, 191, 0.28)";
+      // Aurora fill: the curve is the real analyser trace, only the wash is new.
+      const aurora = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      aurora.addColorStop(0, "rgba(34,211,238,0.02)");
+      aurora.addColorStop(0.55, "rgba(34,211,238,0.16)");
+      aurora.addColorStop(1, "rgba(34,211,238,0.34)");
+      ctx.fillStyle = aurora;
       ctx.fill();
       ctx.beginPath();
       ctx.moveTo(xOf(i0 * binHz), yOfDb(specDb[i0]));
       for (let i = i0; i <= i1; i += 1) {
         ctx.lineTo(xOf(i * binHz), yOfDb(specDb[i]));
       }
-      ctx.strokeStyle = "rgba(45, 212, 191, 0.9)";
-      ctx.lineWidth = Math.max(1.2, dpr);
+      ctx.save();
+      ctx.shadowColor = "rgba(34,211,238,0.65)";
+      ctx.shadowBlur = 14 * dpr;
+      ctx.strokeStyle = "rgba(103,232,249,0.95)";
+      ctx.lineWidth = Math.max(1.4, dpr * 1.1);
       ctx.stroke();
+      ctx.restore();
     }
 
     (clusters || []).forEach(function (c, i) {
@@ -736,34 +761,86 @@
       const db = typeof c.db === "number" ? c.db : -30;
       const x = xOf(f);
       const y = yOfDb(db);
+      // Rainbow is reserved for note-data; the loudest cluster is ΔG gold.
+      const loudest = i === 0;
       const rgb = crayonOf(Math.round(69 + 12 * Math.log2(f / 440))).rgb;
-      const r = (i === 0 ? 6 : 4.5) * dpr;
-      ctx.fillStyle = "rgb(" + rgb.join(",") + ")";
+      const r = (loudest ? 7 : 4.5) * dpr;
+      ctx.fillStyle = loudest ? "#fbbf24" : "rgb(" + rgb.join(",") + ")";
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "rgba(248,250,252,0.75)";
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
       ctx.lineWidth = Math.max(1, dpr * 0.7);
       ctx.stroke();
-      ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 " + 10 * dpr + "px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillStyle = "#eaf2ff";
+      ctx.font = "600 " + 10 * dpr + "px ui-monospace, SFMono-Regular, Menlo, monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
       ctx.fillText(hzToNote(f), x, y - 7 * dpr);
     });
+  }
 
-    if (clusters && clusters[0]) {
-      ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 " + 11 * dpr + "px ui-sans-serif, system-ui, sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "top";
-      ctx.fillText(
-        hzToNote(clusters[0].f || clusters[0].f0) + "  " +
-          (clusters[0].f || clusters[0].f0).toFixed(0) + " Hz · " + clusters.length,
-        padL + 8 * dpr,
-        8 * dpr
-      );
+  /**
+   * Which piano keys the current music is asking for.
+   *
+   * Restored: tick() has called pickLitMidis since a799006 but the definition
+   * was lost in the 4dbe720 DSP extraction, so every analysis frame threw
+   * "pickLitMidis is not defined" and the live spectrum never drew. Ported
+   * from the piano page so both surfaces score identically, with the constants
+   * from piano/dsp_contract.json: MIDI 21–108, smooth 0.62/0.38,
+   * sensitivity 0.58, absGate = −48 − s·36, relative gate 10 + s·18,
+   * chords ≤ 8.
+   */
+  function pickLitMidis(spec, binHz) {
+    const MIDI_LO = 21;
+    const MIDI_HI = 108;
+    const nKeys = MIDI_HI - MIDI_LO + 1;
+    if (keySmooth.length !== nKeys) keySmooth = new Array(nKeys).fill(-120);
+
+    const score = new Array(nKeys).fill(-120);
+    const n = spec.length;
+    const i0 = Math.max(1, Math.floor(27.5 / binHz));
+    const i1 = Math.min(n - 2, Math.ceil(5000 / binHz));
+    const peaks = [];
+    for (let i = i0; i <= i1; i += 1) {
+      const freq = i * binHz;
+      const db = spec[i];
+      if (db > spec[i - 1] && db >= spec[i + 1] && db > spec[i - 2] && db >= spec[i + 2]) {
+        const denom = spec[i - 1] - 2 * spec[i] + spec[i + 1];
+        const delta = denom ? 0.5 * (spec[i - 1] - spec[i + 1]) / denom : 0;
+        peaks.push({ freq: (i + delta) * binHz, db: db });
+      }
+      const midi = Math.round(69 + 12 * Math.log2(Math.max(1e-6, freq) / 440));
+      if (midi >= MIDI_LO && midi <= MIDI_HI && db > score[midi - MIDI_LO]) {
+        score[midi - MIDI_LO] = db;
+      }
     }
+    peaks.sort(function (a, b) { return b.db - a.db; });
+    for (let p = 0; p < peaks.length; p += 1) {
+      const midi = Math.round(69 + 12 * Math.log2(Math.max(1e-6, peaks[p].freq) / 440));
+      if (midi < MIDI_LO || midi > MIDI_HI) continue;
+      const idx = midi - MIDI_LO;
+      if (peaks[p].db + 2 > score[idx]) score[idx] = peaks[p].db + 2;
+    }
+
+    let loudest = -120;
+    for (let i = 0; i < nKeys; i += 1) {
+      keySmooth[i] = 0.62 * keySmooth[i] + 0.38 * score[i];
+      if (keySmooth[i] > loudest) loudest = keySmooth[i];
+    }
+
+    const sens = 0.58;
+    const gate = Math.max(-48 - sens * 36, loudest - (10 + sens * 18));
+    const candidates = [];
+    for (let i = 0; i < nKeys; i += 1) {
+      const s = keySmooth[i];
+      if (s < gate) continue;
+      const left = i > 0 ? keySmooth[i - 1] : -999;
+      const right = i < nKeys - 1 ? keySmooth[i + 1] : -999;
+      if (s >= left && s >= right) candidates.push({ midi: i + MIDI_LO, s: s });
+    }
+    candidates.sort(function (a, b) { return b.s - a.s; });
+    return candidates.slice(0, 8).map(function (c) { return c.midi; });
   }
 
   function tick() {
@@ -790,7 +867,12 @@
       quietEl.textContent = t("quietPitch");
       const f = clusters[0].f;
       noteEl.textContent = hzToNote(f);
-      hzEl.textContent = f.toFixed(1) + " Hz";
+      hzEl.textContent = "";
+      hzEl.appendChild(document.createTextNode(f.toFixed(1)));
+      const unit = document.createElement("span");
+      unit.className = "unit";
+      unit.textContent = "Hz";
+      hzEl.appendChild(unit);
       lightPiano(new Set(litMidis));
       peaksEl.textContent = clusters
         .slice(0, 10)
@@ -803,24 +885,63 @@
     } else if (kind === "noise") {
       quietEl.textContent = t("quietNoise");
       noteEl.textContent = "—";
-      hzEl.textContent = t("hzNoPitch");
+      hzEl.textContent = "—";
       lightPiano([]);
       peaksEl.textContent = t("peaksNoise");
       hardEl.textContent = t("hardNoise");
     } else {
       quietEl.textContent = heardSound ? t("quietAfter") : t("quietIdle");
       noteEl.textContent = "—";
-      hzEl.textContent = t("hzWaitingDevice");
+      hzEl.textContent = "—";
       lightPiano([]);
     }
+    // prefers-reduced-motion: no rAF loop. One frame, redrawn on resize.
+    if (reducedMotion()) { raf = 0; return; }
     raf = requestAnimationFrame(tick);
   }
 
-  function canShareTabAudio() {
-    const isiOS =
+  function isIOS() {
+    return (
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    return Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isiOS;
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  function canShareTabAudio() {
+    return Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isIOS();
+  }
+
+  /**
+   * iOS only: warn before the first getUserMedia of the session.
+   *
+   * getUserMedia({audio}) makes iOS switch the shared audio session to a
+   * record category, which interrupts other apps. There is no mixWithOthers
+   * on the web, so this cannot be prevented from a page — the honest thing is
+   * to say so before taking the mic rather than surprising the listener.
+   * Resolves true when the visitor confirms.
+   */
+  function confirmIOSMic() {
+    if (!isIOS() || iosMicAcknowledged) return Promise.resolve(true);
+    const gate = document.getElementById("bootstrap");
+    const warn = document.getElementById("iosWarn");
+    if (!gate || !warn) {
+      iosMicAcknowledged = true;
+      return Promise.resolve(true);
+    }
+    warn.hidden = false;
+    gate.hidden = false;
+    gate.classList.remove("hidden");
+    return new Promise(function (resolve) {
+      const buttons = gate.querySelectorAll("[data-action='mic']");
+      function accept() {
+        iosMicAcknowledged = true;
+        buttons.forEach(function (b) { b.removeEventListener("click", accept); });
+        gate.hidden = true;
+        gate.classList.add("hidden");
+        resolve(true);
+      }
+      buttons.forEach(function (b) { b.addEventListener("click", accept); });
+    });
   }
 
   function listenErrorKey(err, kind) {
@@ -895,19 +1016,38 @@
     if (!(opts && opts.holdTick)) tick();
   }
 
+  /**
+   * Fully release the microphone.
+   *
+   * On iOS this is the only lever the web has: stopping every track and
+   * closing the AudioContext lets the OS drop the recording audio session, so
+   * whatever was playing before can resume. It does NOT prevent the
+   * interruption in the first place — see iosMicWarn / the AVAudioSession
+   * issue on the native app.
+   */
   function stopListen() {
     cancelAnimationFrame(raf);
-    if (sourceNode) sourceNode.disconnect();
+    raf = 0;
+    if (sourceNode) {
+      try { sourceNode.disconnect(); } catch (e) { /* already gone */ }
+    }
     sourceNode = null;
-    if (audioCtx) audioCtx.close();
-    audioCtx = null;
+    if (analyser) {
+      try { analyser.disconnect(); } catch (e) { /* already gone */ }
+    }
     analyser = null;
     if (stream) {
       stream.getTracks().forEach(function (track) {
-        track.stop();
+        try { track.stop(); } catch (e) { /* already stopped */ }
       });
       stream = null;
     }
+    if (audioCtx) {
+      try {
+        if (audioCtx.state !== "closed") audioCtx.close();
+      } catch (e) { /* already closed */ }
+    }
+    audioCtx = null;
     setTabFallback(false);
     setListeningUi(false);
   }
@@ -957,6 +1097,8 @@
 
   async function listenSmart() {
     if (listenBusy) return;
+    // Say what the mic will do to other audio before opening it (iOS only).
+    await confirmIOSMic();
     listenBusy = true;
     setTabFallback(false);
     try {
@@ -1094,7 +1236,7 @@
       quietEl.textContent = t("quietIdle");
       peaksEl.textContent = t("peaksWaiting");
       hardEl.textContent = t("hardDefault");
-      hzEl.textContent = t("hzWaiting");
+      hzEl.textContent = "—";
     }
     drawTracks(lastElapsed);
   }
@@ -1134,33 +1276,69 @@
         setStatusKey("statusStopped");
       });
     });
+    // Structural breakpoints come from a ResizeObserver on the page root, not
+    // media queries, so layout can change shape and not just style.
+    const pageEl = document.getElementById("page");
+    if (pageEl) {
+      const measure = function () {
+        const w = pageEl.clientWidth;
+        pageEl.setAttribute("data-narrow", w < 720 ? "1" : "0");
+        pageEl.setAttribute("data-mid", w < 1040 ? "1" : "0");
+      };
+      measure();
+      if (window.ResizeObserver) new window.ResizeObserver(measure).observe(pageEl);
+      else window.addEventListener("resize", measure);
+    }
+    // Tab/system audio only exists where getDisplayMedia does (never iOS).
+    document.body.classList.toggle("can-share", canShareTabAudio());
     setStatusKey("footerHint");
     quietEl.textContent = t("quietIdle");
     peaksEl.textContent = t("peaksWaiting");
     hardEl.textContent = t("hardDefault");
-    hzEl.textContent = t("hzWaiting");
+    hzEl.textContent = "—";
     updateTracksHeading();
     setListeningUi(false);
-    lightPiano(new Set([60, 64, 67]));
-    window.addEventListener("keydown", function (ev) {
-      if (ev.repeat || ev.metaKey || ev.ctrlKey) return;
-      const midi = midiForKid(ev.code);
-      if (midi == null) return;
-      ev.preventDefault();
-      computerHeld.add(midi);
-      if (neededMidis.has(midi) && !scoreAwarded.has(midi)) {
-        scoreAwarded.add(midi);
-        scoreNow += 10 + scoreStreak;
-        scoreStreak += 1;
-      }
-      lightPiano(neededMidis);
-    });
-    window.addEventListener("keyup", function (ev) {
-      const midi = midiForKid(ev.code);
-      if (midi == null) return;
-      computerHeld.delete(midi);
-      lightPiano(neededMidis);
-    });
+    lightPiano([]);  // nothing is lit until real audio asks for it
+    // The on-screen board owns the held set: it runs DUAL.FingerGate (the
+    // clustered 10-finger rule) and paints the caps. A held note lights both
+    // the keycap and the matching 88-key, and scores if that note was needed.
+    const boardEl = document.getElementById("typingBoard");
+    if (boardEl && window.TypingBoard && window.DUAL) {
+      typingBoard = new window.TypingBoard(boardEl, {
+        onHeld: function (held) {
+          computerHeld = held;
+          held.forEach(function (midi) {
+            if (neededMidis.has(midi) && !scoreAwarded.has(midi)) {
+              scoreAwarded.add(midi);
+              scoreNow += 10 + scoreStreak;
+              scoreStreak += 1;
+            }
+          });
+          lightPiano(neededMidis);
+        }
+      });
+      typingBoard.listen(window);
+    } else {
+      window.addEventListener("keydown", function (ev) {
+        if (ev.repeat || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+        const midi = midiForKid(ev.code);
+        if (midi == null) return;
+        ev.preventDefault();
+        computerHeld.add(midi);
+        if (neededMidis.has(midi) && !scoreAwarded.has(midi)) {
+          scoreAwarded.add(midi);
+          scoreNow += 10 + scoreStreak;
+          scoreStreak += 1;
+        }
+        lightPiano(neededMidis);
+      });
+      window.addEventListener("keyup", function (ev) {
+        const midi = midiForKid(ev.code);
+        if (midi == null) return;
+        computerHeld.delete(midi);
+        lightPiano(neededMidis);
+      });
+    }
     if (new URLSearchParams(window.location.search).has("demo")) {
       fillExampleTracks();
     }
