@@ -1,119 +1,207 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-scheme="dark">
 <head>
   <meta charset="utf-8">
-  <script>
-  (function () {
-    try {
-      var t = localStorage.getItem("crayon-theme");
-      var mode = localStorage.getItem("crayon-theme-mode");
-      var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
-      if (mode !== "manual" || !t || !ok[t]) {
-        var h = new Date().getHours();
-        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
-        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
-        else if (h >= 17) t = light ? "light" : "night";
-        else t = light ? "day" : "light";
-      }
-      document.documentElement.setAttribute("data-theme", t);
-      document.documentElement.setAttribute("data-scheme", (t === "day" || t === "light") ? "light" : "dark");
-    } catch (e) {}
-  })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title data-i18n-title="howTitle">How this works (explained like you are 5) — Symphony</title>
   <meta name="description" content="Sound is air wiggling. We count Hertz, then name notes. Live listen stays silent. English and French.">
+  <meta name="theme-color" content="#0a0e14">
   <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html">
   <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html?lang=en">
   <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/how-to.html?lang=fr">
-  <link rel="stylesheet" href="tutorial/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="flexaid.css">
   <script src="theme.js"></script>
   <style>
-    .prose { background: var(--card); border-radius: 22px; padding: 22px; box-shadow: var(--shadow); max-width: 46rem; }
-    .prose h1 { font-family: Georgia, serif; margin-top: 0; }
-    .prose h2 { font-size: 1.15rem; margin: 1.4em 0 0.4em; }
-    .prose p, .prose li { color: var(--muted); line-height: 1.5; }
-    .prose img { width: 100%; height: auto; border-radius: 16px; }
-    .prose table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
-    .prose th, .prose td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
-    .home-link { color: var(--muted); text-decoration: none; }
+    .eli5-head { display: flex; flex-direction: column; gap: 14px; max-width: 70ch; }
+    .eli5-head h1 { font-weight: 700; font-size: clamp(1.7rem, 4.2vw, 2.9rem); line-height: 1.05; letter-spacing: -0.015em; }
+    .eli5-lead { font-size: clamp(0.96rem, 1.4vw, 1.08rem); line-height: 1.65; max-width: 66ch; color: var(--fg-muted); }
+    .gold-edge {
+      border-left: 3px solid var(--gold);
+      padding: 2px 0 2px 14px;
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--fg);
+    }
+    .eli5-p { font-size: 14.5px; line-height: 1.65; max-width: 70ch; color: var(--fg-muted); }
+
+    /* ── Kid words vs Hertz, on a shared log axis ───────────────────────── */
+    .band-panel { background: var(--bg-card); border: 1px solid var(--teal-08); border-radius: var(--r-lg); overflow: hidden; }
+    .band-row { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr) 110px minmax(140px,1.5fr); gap: 14px; align-items: center; }
+    .band-head { padding: 11px 16px; background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--teal-08); }
+    .band-head > span {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: var(--tracking-label);
+      text-transform: uppercase; color: var(--fg-muted);
+    }
+    .band-body .band-row { padding: 13px 16px; border-bottom: 1px solid rgba(34,211,238,0.06); transition: background var(--t-fast) var(--ease-out); }
+    .band-body .band-row:last-child { border-bottom: 0; }
+    .band-body .band-row:hover { background: rgba(34,211,238,0.04); }
+    .band-kid { color: var(--fg); font-size: 13.5px; }
+    .band-grown { color: var(--fg-muted); font-size: 13.5px; }
+    .band-hz { font-family: var(--font-mono); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--teal); }
+    .band-bar { display: block; }
+    .band-track { display: block; position: relative; height: 8px; border-radius: var(--r-pill); background: rgba(255,255,255,0.05); }
+    .band-fill { position: absolute; top: 0; bottom: 0; border-radius: var(--r-pill); }
+    .page[data-narrow="1"] .band-row { grid-template-columns: 1fr 1fr auto; }
+    .page[data-narrow="1"] .band-bar { display: none; }
+    .band-meta { text-align: right; margin-bottom: 8px; }
+
+    .duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; align-items: start; }
+    .duo h2 { font-size: 15px; font-weight: 600; color: var(--fg); margin: 6px 0 8px; }
+    .duo p { font-size: 13.5px; line-height: 1.6; color: var(--fg-muted); }
+    .layer { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; }
+    .layer-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
+    .layer-name { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; }
+    .chev { display: flex; align-items: flex-start; gap: 9px; margin-top: 9px; font-size: 13.5px; line-height: 1.55; color: var(--fg-muted); }
+    .chev::before { content: "\203A"; color: rgba(34,211,238,0.45); font-family: var(--font-mono); flex: 0 0 auto; }
+
+    .gold-panel {
+      background: var(--gold-06); border: 1px solid var(--gold-35); border-radius: var(--r-lg);
+      padding: clamp(20px, 3vw, 30px);
+      display: flex; align-items: center; gap: clamp(18px, 3vw, 40px); flex-wrap: wrap;
+    }
+    .gold-panel .gp-copy { flex: 1 1 320px; display: flex; flex-direction: column; gap: 9px; }
+    .gold-panel h2 { font-size: clamp(1.05rem, 2.2vw, 1.5rem); font-weight: 700; color: var(--fg); }
+    .gp-stats { display: flex; align-items: flex-end; gap: clamp(18px, 3vw, 34px); }
+    .gp-stats > div + div { padding-left: clamp(18px, 3vw, 34px); border-left: 1px solid var(--gold-35); }
+    .gp-stats .stat-num { font-size: clamp(2rem, 5vw, 3.2rem); margin-top: 6px; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <p class="crumb">
-      <span>
-        <a class="home-link" href="./" data-i18n="howBackHub">Symphony</a>
-        ·
-        <a class="home-link" href="piano/" data-i18n="crumbPiano">Piano</a>
-        ·
-        <a class="home-link" href="https://thebonhomme.com/">thebonhomme.com</a>
-      </span>
-      <span class="crumb-tools">
-        <span class="scenes" role="radiogroup" data-theme-group aria-label="Look">
-          <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
-          <button type="button" class="scene" data-theme-set="day" aria-label="Day" title="Day"></button>
-          <button type="button" class="scene" data-theme-set="light" aria-label="Light" title="Light"></button>
-          <button type="button" class="scene" data-theme-set="dark" aria-label="Dark" title="Dark"></button>
-          <button type="button" class="scene" data-theme-set="night" aria-label="Night" title="Night"></button>
-          <button type="button" class="scene" data-theme-set="stealth" aria-label="Stealth" title="Stealth"></button>
-        </span>
-        <span class="lang-switch" role="group" aria-label="English / Français">
-          <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
-          <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
-        </span>
-      </span>
+  <nav class="nav">
+    <a class="brand" href="./" aria-label="Symphony">
+      <span class="brand-chip">Hz</span>
+      <span class="brand-word">Symphony</span>
+    </a>
+    <div class="nav-links">
+      <a href="tutorial/" data-i18n="navLive">Live listen</a>
+      <a href="piano/" data-i18n="navPiano">Piano</a>
+      <a href="how-to.html" aria-current="page" data-i18n="navHow">How it works</a>
+    </div>
+    <div class="lang-switch" role="group" aria-label="English / Français">
+      <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+    </div>
+  </nav>
+
+  <div class="page" id="page">
+    <header class="eli5-head">
+      <span class="eyebrow eyebrow-page" data-i18n="howEyebrow">explained like you are 5</span>
+      <h1 data-i18n="howH1">Sound is air wiggling</h1>
+      <p class="eli5-lead" data-i18n="howP1">Sound is air wiggling. Slow wiggles are low notes. Fast wiggles are high notes. We count the wiggles in one second. That count is Hertz (Hz).</p>
+      <p class="gold-edge" data-i18n="howP2">A piano A is about 440 Hz. A low bass note can be near 110 Hz.</p>
+      <p class="eli5-p" data-i18n="howP3">Open this on the device that is already making sound, including a phone on 5G. The page stays silent. Soft auto-gain lifts quiet rooms and headphone bleed. Tracks are density-clustered on the fly. No melody? It still draws voices and noise. It never fakes a tune.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="tutorial/" data-i18n="howOpenTutorial">Open the silent live tutorial</a>
+        <a class="btn btn-outline" href="piano/" data-i18n="howOpenPiano">Open the crayon piano (US or Canadian French)</a>
+      </div>
+    </header>
+
+    <hr class="divider">
+
+    <section>
+      <div class="head-row">
+        <span class="eyebrow" data-i18n="howH2Table">Kid words vs Hertz</span>
+        <span class="meta band-meta">27.5 Hz &rarr; 5000 Hz &middot; <span data-i18n="logAxis">log axis</span></span>
+      </div>
+      <!-- Bar geometry: left% = (log2(lo) − log2(27.5)) / (log2(5000) − log2(27.5)) × 100 -->
+      <div class="band-panel">
+        <div class="band-row band-head">
+          <span data-i18n="howThKid">Kid words</span>
+          <span data-i18n="howThGrown">Grown-up words</span>
+          <span data-i18n="howThHz">Typical Hz</span>
+          <span class="band-bar" aria-hidden="true"></span>
+        </div>
+        <div class="band-body">
+          <div class="band-row">
+            <span class="band-kid" data-i18n="howRowBoomKid">Boom / rumble</span>
+            <span class="band-grown" data-i18n="howRowBoomGrown">Bass foundation</span>
+            <span class="band-hz">40&ndash;250</span>
+            <span class="band-bar"><span class="band-track"><span class="band-fill" style="left:7.20%;width:35.22%;background:linear-gradient(90deg,rgba(167,139,250,.85),rgba(139,123,240,.35))"></span></span></span>
+          </div>
+          <div class="band-row">
+            <span class="band-kid" data-i18n="howRowBodyKid">Warm body</span>
+            <span class="band-grown" data-i18n="howRowBodyGrown">Low-mid</span>
+            <span class="band-hz">250&ndash;500</span>
+            <span class="band-bar"><span class="band-track"><span class="band-fill" style="left:42.42%;width:13.32%;background:linear-gradient(90deg,rgba(139,123,240,.85),rgba(34,211,238,.35))"></span></span></span>
+          </div>
+          <div class="band-row">
+            <span class="band-kid" data-i18n="howRowTuneKid">Tune you can hum</span>
+            <span class="band-grown" data-i18n="howRowTuneGrown">Mid melody</span>
+            <span class="band-hz">500&ndash;2000</span>
+            <span class="band-bar"><span class="band-track"><span class="band-fill" style="left:55.75%;width:26.64%;background:linear-gradient(90deg,rgba(34,211,238,.85),rgba(251,191,36,.35))"></span></span></span>
+          </div>
+          <div class="band-row">
+            <span class="band-kid" data-i18n="howRowAirKid">Sparkle / air</span>
+            <span class="band-grown" data-i18n="howRowAirGrown">High color</span>
+            <span class="band-hz">2000&ndash;5000</span>
+            <span class="band-bar"><span class="band-track"><span class="band-fill" style="left:82.39%;width:17.61%;background:linear-gradient(90deg,rgba(251,191,36,.85),rgba(251,191,36,.35))"></span></span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="duo">
+      <article class="card">
+        <span class="eyebrow" data-i18n="howH2Useful">useful</span>
+        <h2 data-i18n="howSandwichTitle">A song is a sandwich, not a blob</h2>
+        <p data-i18n="howSandwichIntro">Three layers, bottom to top:</p>
+        <div class="layer">
+          <span class="layer-dot" style="background:#A78BFA;box-shadow:0 0 10px rgba(167,139,250,.5)"></span>
+          <p><span class="layer-name" style="color:#A78BFA" data-i18n="howBoomName">Boom</span> &mdash; <span data-i18n="howBoom">the bottom. Left hand and bass.</span></p>
+        </div>
+        <div class="layer">
+          <span class="layer-dot" style="background:#22D3EE;box-shadow:0 0 10px rgba(34,211,238,.5)"></span>
+          <p><span class="layer-name" style="color:#22D3EE" data-i18n="howTuneName">Tune</span> &mdash; <span data-i18n="howTune">the middle. The part you can hum.</span></p>
+        </div>
+        <div class="layer">
+          <span class="layer-dot" style="background:#FBBF24;box-shadow:0 0 10px rgba(251,191,36,.5)"></span>
+          <p><span class="layer-name" style="color:#FBBF24" data-i18n="howSparkleName">Sparkle</span> &mdash; <span data-i18n="howSparkle">the top. Extra shine and air.</span></p>
+        </div>
+        <p style="margin-top:12px" data-i18n="howSandwichOut">The tool writes that recipe in Hertz. Then you can practice one layer at a time.</p>
+      </article>
+
+      <article class="card">
+        <span class="eyebrow" data-i18n="howH2Hard">why live is hard</span>
+        <h2 data-i18n="howHardTitle">Naming notes while the song is still playing</h2>
+        <p data-i18n="howHardIntro">It is like reading a page someone is still flipping:</p>
+        <p class="chev" data-i18n="howHardLi1">Many notes stack at once (chords).</p>
+        <p class="chev" data-i18n="howHardLi2">Piano keys ring extra high copies called overtones.</p>
+        <p class="chev" data-i18n="howHardLi3">The computer needs a little bite of sound before it can guess.</p>
+        <p style="margin-top:12px" data-i18n="howHardOut">So the grown-up tool records, then looks. Tiny delay, better answer. The live page shows the messy moving picture so the delay makes sense.</p>
+      </article>
+    </section>
+
+    <section class="gold-panel">
+      <div class="gp-copy">
+        <span class="eyebrow" style="color:var(--gold)" data-i18n="howH2Piano">piano superpower</span>
+        <h2 data-i18n="howPianoTitle">Find it. Play it. Match it.</h2>
+        <p style="color:var(--fg-muted);font-size:13.5px;line-height:1.6" data-i18n="howPianoP">If the loudest wiggle is 440 Hz, that is the A key. Find it. Play it. Match it. That is ear training: hearing a map, not a blur.</p>
+      </div>
+      <div class="gp-stats">
+        <div>
+          <span class="stat-label" data-i18n="howTheKey">the key</span>
+          <span class="stat-num n-gold">A4</span>
+        </div>
+        <div>
+          <span class="stat-label" data-i18n="howTheWiggle">the wiggle</span>
+          <span class="stat-num n-teal">440 Hz</span>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider">
+    <p class="site-foot">
+      <span data-i18n="hubFoot">Grown-up CLI stays on a Mac. Public pages: English and French first. Source:</span>
+      <a href="https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis">GitHub</a>
+      <span data-i18n="hubFamily">· part of the Le Bonhomme Pharma family</span>
     </p>
-    <article class="prose">
-      <h1 data-i18n="howH1">How this works (explained like you are 5)</h1>
-      <p data-i18n="howP1">Sound is air wiggling. Slow wiggles are low notes. Fast wiggles are high notes. We count the wiggles in one second. That count is Hertz (Hz).</p>
-      <p data-i18n="howP2">A piano A is about 440 Hz. A low bass note can be near 110 Hz.</p>
-      <p data-i18n="howP3">Open this on the device that is already making sound, including a phone on 5G. The page stays silent. Soft auto-gain lifts quiet rooms and headphone bleed. Tracks are density-clustered on the fly. No melody? It still draws voices and noise. It never fakes a tune.</p>
-      <p>
-        <a class="primary" style="text-decoration:none;display:inline-block;margin:8px 8px 16px 0" href="tutorial/" data-i18n="howOpenTutorial">Open the silent live tutorial</a>
-        <a class="ghost" style="text-decoration:none;display:inline-block;margin:8px 0 16px" href="piano/" data-i18n="howOpenPiano">Open the crayon piano (US or Canadian French)</a>
-      </p>
-      <p><img src="howto-eli5.png" width="1600" height="900" data-i18n-alt="howImgAlt" alt="Four-step how-to: play a song, the mic listens, look at the wiggles, then name the sounds in Hertz."></p>
-
-      <h2 data-i18n="howH2Useful">Useful</h2>
-      <p data-i18n="howSandwichIntro">A song is a sandwich, not a blob:</p>
-      <ul>
-        <li data-i18n="howBoom">Boom on the bottom = left hand / bass</li>
-        <li data-i18n="howTune">Tune in the middle = the part you can hum</li>
-        <li data-i18n="howSparkle">Sparkle on top = extra shine</li>
-      </ul>
-      <p data-i18n="howSandwichOut">The tool writes that recipe in Hertz. Then you can practice one layer at a time.</p>
-
-      <h2 data-i18n="howH2Hard">Why doing it live is hard</h2>
-      <p data-i18n="howHardIntro">Naming notes while the song is still happening is like reading a page someone is still flipping:</p>
-      <ul>
-        <li data-i18n="howHardLi1">Many notes stack (chords)</li>
-        <li data-i18n="howHardLi2">Piano keys ring extra high copies called overtones</li>
-        <li data-i18n="howHardLi3">The computer needs a little bite of sound before it can guess</li>
-      </ul>
-      <p data-i18n="howHardOut">So the grown-up tool records, then looks. Tiny delay, better answer. The live page shows the messy moving picture so the delay makes sense.</p>
-
-      <h2 data-i18n="howH2Piano">Piano superpower</h2>
-      <p data-i18n="howPianoP">If the loudest wiggle is 440 Hz, that is the A key. Find it. Play it. Match it. That is ear training: hearing a map, not a blur.</p>
-
-      <h2 data-i18n="howH2Table">Kid words vs Hertz</h2>
-      <table>
-        <thead>
-          <tr>
-            <th data-i18n="howThKid">Kid words</th>
-            <th data-i18n="howThGrown">Grown-up words</th>
-            <th data-i18n="howThHz">Typical Hz</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td data-i18n="howRowBoomKid">Boom / rumble</td><td data-i18n="howRowBoomGrown">Bass foundation</td><td>40–250</td></tr>
-          <tr><td data-i18n="howRowBodyKid">Warm body</td><td data-i18n="howRowBodyGrown">Low-mid</td><td>250–500</td></tr>
-          <tr><td data-i18n="howRowTuneKid">Tune you can hum</td><td data-i18n="howRowTuneGrown">Mid melody</td><td>500–2000</td></tr>
-          <tr><td data-i18n="howRowAirKid">Sparkle / air</td><td data-i18n="howRowAirGrown">High color</td><td>2000–5000</td></tr>
-        </tbody>
-      </table>
-    </article>
   </div>
+
   <script src="i18n.js"></script>
+  <script src="hero_axis.js"></script>
 </body>
 </html>

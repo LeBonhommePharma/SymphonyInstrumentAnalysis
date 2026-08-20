@@ -1,146 +1,134 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-scheme="dark">
 <head>
   <meta charset="utf-8">
-  <script>
-  (function () {
-    try {
-      var t = localStorage.getItem("crayon-theme");
-      var mode = localStorage.getItem("crayon-theme-mode");
-      var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
-      if (mode !== "manual" || !t || !ok[t]) {
-        var h = new Date().getHours();
-        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
-        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
-        else if (h >= 17) t = light ? "light" : "night";
-        else t = light ? "day" : "light";
-      }
-      document.documentElement.setAttribute("data-theme", t);
-      document.documentElement.setAttribute("data-scheme", (t === "day" || t === "light") ? "light" : "dark");
-    } catch (e) {}
-  })();
-  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title data-i18n-title="tutTitle">Live listen — Symphony Instrument Analysis</title>
   <meta name="description" content="Silent live audio analysis. Soft auto-gain for quiet rooms and headphone bleed. Density-clustered tracks — lane count follows the sound. English and French.">
-  <meta name="theme-color" content="#0c1017">
+  <meta name="theme-color" content="#0a0e14">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/">
   <link rel="alternate" hreflang="en" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=en">
   <link rel="alternate" hreflang="fr" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/tutorial/?lang=fr">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../flexaid.css">
   <link rel="stylesheet" href="styles.css">
   <script src="../theme.js"></script>
 </head>
 <body>
-  <div class="app">
-    <p class="crumb">
-      <span>
-        <a href="https://thebonhomme.com/">thebonhomme.com</a>
-        ·
-        <a href="../">Symphony</a>
-        ·
-        <a href="../piano/" data-i18n="crumbPiano">Piano</a>
-        ·
-        <a href="../how-to.html" data-i18n="crumbEli5">ELI5</a>
-      </span>
-      <span class="crumb-tools">
-        <span class="scenes" role="radiogroup" data-theme-group aria-label="Look">
-          <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
-          <button type="button" class="scene" data-theme-set="day" aria-label="Day" title="Day"></button>
-          <button type="button" class="scene" data-theme-set="light" aria-label="Light" title="Light"></button>
-          <button type="button" class="scene" data-theme-set="dark" aria-label="Dark" title="Dark"></button>
-          <button type="button" class="scene" data-theme-set="night" aria-label="Night" title="Night"></button>
-          <button type="button" class="scene" data-theme-set="stealth" aria-label="Stealth" title="Stealth"></button>
-        </span>
-        <span class="lang-switch" role="group" aria-label="English / Français">
-          <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
-          <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
-        </span>
-      </span>
-    </p>
+  <nav class="nav">
+    <a class="brand" href="../" aria-label="Symphony">
+      <span class="brand-chip">Hz</span>
+      <span class="brand-word">Symphony</span>
+    </a>
+    <div class="nav-links">
+      <a href="./" aria-current="page" data-i18n="navLive">Live listen</a>
+      <a href="../piano/" data-i18n="navPiano">Piano</a>
+      <a href="../how-to.html" data-i18n="navHow">How it works</a>
+    </div>
+    <div class="lang-switch" role="group" aria-label="English / Français">
+      <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+    </div>
+  </nav>
 
-    <header class="hero">
-      <div class="hero-copy">
-        <div class="badge-row">
-          <span class="badge" data-i18n="tutBadge">Silent · audio only · EN/FR</span>
-          <span class="live-pill" id="livePill" hidden>live</span>
+  <div class="page" id="page">
+    <header class="hero live-hero">
+      <canvas class="hero-canvas" id="spec" aria-label="Live spectrum, log Hz against dBFS"></canvas>
+      <div class="hero-scrim"></div>
+      <div class="hero-content">
+        <div class="hero-copy">
+          <div class="badge-row">
+            <span class="eyebrow eyebrow-page" data-i18n="tutEyebrow">silent live listen</span>
+            <span class="pill" id="livePill" hidden><span class="dot"></span><span data-i18n="pillLive">Live</span></span>
+          </div>
+          <h1 data-i18n="tutH1">See what this device is playing</h1>
+          <p class="hero-lead" data-i18n="tutLead">This page never plays a song. One tap opens the mic — and if the room is quiet it listens to what this computer is playing, drawing every frequency it hears.</p>
+          <div class="cta-row">
+            <button class="btn btn-primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
+            <button class="btn btn-outline" type="button" data-action="stop" data-i18n="btnStop">Stop</button>
+            <button class="btn btn-muted share-only" type="button" data-action="system" id="tabFallback" data-i18n="btnTab">This computer</button>
+          </div>
+          <p class="silent-note" data-i18n="tutSilentNote">Silent — analysis only. Never pauses your music.</p>
         </div>
-        <h1 data-i18n="tutH1">See what this device is playing</h1>
-        <p data-i18n="tutLead">
-          This page never plays a song. One tap asks for the microphone. If
-          nothing is around, live listen moves to what this computer is playing.
-        </p>
-      </div>
-      <div class="controls">
-        <button class="primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
-        <button class="secondary share-only" type="button" data-action="system" id="tabFallback" data-i18n="btnTab">This computer is playing</button>
-        <button class="ghost" type="button" data-action="stop" data-i18n="btnStop">Stop</button>
+        <div class="readout">
+          <div>
+            <span class="stat-label" data-i18n="labelNote">closest note</span>
+            <strong class="stat-num n-gold breathe" id="note">&mdash;</strong>
+          </div>
+          <div>
+            <span class="stat-label" data-i18n="labelHz">fundamental</span>
+            <strong class="stat-num n-teal" id="hz" data-i18n="hzWaitingDevice">waiting</strong>
+          </div>
+        </div>
       </div>
     </header>
 
-    <section class="meter-bar" aria-label="Input level">
+    <section class="card card-sm meter-bar" aria-label="Input level">
       <div class="meter-label">
-        <span data-i18n="meterLabel">Input</span>
-        <span id="gainReadout" class="gain">×1.0</span>
+        <span class="stat-label" data-i18n="meterLabel">Input</span>
+        <span id="gainReadout" class="gain">&times;1.0</span>
       </div>
       <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
       <p class="meter-hint" data-i18n="meterHint">Works with quiet rooms and headphone leak — no need to blast the speaker.</p>
     </section>
 
-    <section class="panel piano-stage">
-      <h3 data-i18n="pianoFull">Full piano · A0 to C8</h3>
+    <section class="card">
+      <div class="head-row">
+        <span class="eyebrow" data-i18n="pianoFull">full piano · A0–C8</span>
+        <span class="meta" data-i18n="pianoMeta">lit = notes in the sound · type Z D Q to play</span>
+      </div>
       <div class="piano-wrap">
         <div class="piano" id="piano" aria-label="Full piano, A0 to C8"></div>
       </div>
     </section>
 
+    <section class="card">
+      <div class="head-row">
+        <span class="eyebrow" data-i18n="kbEyebrow">computer keyboard</span>
+        <span class="meta" data-i18n="kbMetaTut">type to play · Z=Do3 · D=Do4 · Q=La4 · US</span>
+      </div>
+      <div class="board-scroll">
+        <div class="typing-board" id="typingBoard" data-layout="us"></div>
+      </div>
+    </section>
+
     <main class="stage">
-      <section class="panel daw-panel">
-        <h3 id="tracksHeading">Live tracks · 0 instruments</h3>
-        <canvas id="tracks" height="160" aria-label="Logic-style waveform tracks from density clustering"></canvas>
-        <p class="silent" id="quiet">Tap Listen. Soft gain will lift whatever the mic can hear.</p>
-        <div class="note-row">
-          <div class="note-card">
-            <span data-i18n="labelNote">Closest piano name</span>
-            <strong id="note">—</strong>
-          </div>
-          <div class="note-card">
-            <span data-i18n="labelHz">Wiggles per second</span>
-            <strong id="hz">waiting</strong>
-          </div>
-          <div class="note-card">
-            <span>Score</span>
-            <strong id="scoreLine">0</strong>
-          </div>
+      <section class="card">
+        <div class="head-row">
+          <span class="eyebrow" data-i18n="tracksEyebrow">live tracks</span>
+          <span class="meta" id="tracksHeading">density-clustered sources · 0</span>
         </div>
+        <canvas id="tracks" aria-label="Stacked waveform lanes from density clustering"></canvas>
+        <p class="silent" id="quiet" data-i18n="quietIdle">Tap Listen. Soft gain will lift whatever the mic can hear.</p>
       </section>
 
-      <aside class="panel spec-panel">
-        <h3 data-i18n="peaksHeading">Spectrum · clustered sources</h3>
-        <canvas id="spec" height="320"></canvas>
-        <div class="peaks" id="peaks">Waiting for live sound…</div>
-        <div class="hard-flag" id="hard">
-          Lane count is density-clustered on the fly. Quiet is still drawn — we never invent a tune.
+      <aside class="side-col">
+        <div class="card card-sm">
+          <span class="stat-label" data-i18n="labelScore">score</span>
+          <strong class="stat-num" id="scoreLine">0 · best 0</strong>
         </div>
+        <div class="card card-sm">
+          <span class="stat-label" data-i18n="peaksHeading">clustered sources</span>
+          <pre class="peaks" id="peaks" data-i18n="peaksWaiting">Waiting for live sound…</pre>
+        </div>
+        <p class="terra-callout" id="hard" data-i18n="hardClear">Lane count is density-clustered on the fly. Quiet is still drawn — we never invent a tune.</p>
       </aside>
     </main>
 
-    <p class="footer" id="status">
-      Audio only. Mic is the default. On a computer you can share tab audio (video track discarded).
-      Now Playing reaches this page only through the speaker or headphone leak into the mic —
-      websites cannot read Apple’s Now Playing list.
-    </p>
+    <hr class="divider">
+    <p class="site-foot" id="status" data-i18n="statusIdle">Audio only. Now Playing reaches this page only as sound through the mic — the web cannot read the media list of your device.</p>
   </div>
 
   <div class="bootstrap hidden" id="bootstrap" hidden>
     <div class="bootstrap-card">
       <h2 data-i18n="gateTitle">One tap. Mic first.</h2>
-      <p data-i18n="gateBody">
-        Listen asks for the microphone. If there is no music around, it falls
-        through to live listen of this computer. This page never plays sound back.
-      </p>
-      <div class="controls">
-        <button class="primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
+      <p data-i18n="gateBody">Listen asks for the microphone. If there is no music around, it falls through to live listen of this computer. This page never plays sound back.</p>
+      <p class="ios-warn" id="iosWarn" hidden data-i18n="iosMicWarn">On iPhone and iPad, opening the mic makes iOS switch to a recording audio session, so other apps stop playing. That is an iOS rule a web page cannot opt out of. Stop releases the mic so playback can resume.</p>
+      <div class="cta-row">
+        <button class="btn btn-primary" type="button" data-action="mic" data-i18n="btnMic">Listen</button>
       </div>
     </div>
   </div>
@@ -148,6 +136,7 @@
   <script src="../i18n.js"></script>
   <script src="../piano/dual_keyboard.js"></script>
   <script src="../piano/crayon_dsp.js"></script>
+  <script src="../typing_board.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
