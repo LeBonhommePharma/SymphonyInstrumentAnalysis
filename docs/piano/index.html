@@ -1,411 +1,1458 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark" data-scheme="dark">
+<html lang="fr" data-theme="stealth" data-scheme="dark">
 <head>
   <meta charset="utf-8">
+  <style>html,body{background:#0a0e14;color-scheme:dark}
+    .pages-crumb {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 10px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: var(--tracking-label);
+      color: var(--muted);
+    }
+    .pages-crumb a {
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: var(--r-xs);
+      transition: color var(--dt) var(--ease);
+    }
+    .pages-crumb a:hover,
+    .pages-crumb a:focus-visible { color: var(--mint); }
+  </style>
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem("crayon-theme");
+      var mode = localStorage.getItem("crayon-theme-mode");
+      var ok = { day: 1, light: 1, dark: 1, night: 1, stealth: 1 };
+      if (mode !== "manual" || !t || !ok[t]) {
+        var h = new Date().getHours();
+        var light = window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches;
+        if (h >= 21 || h < 6) t = light ? "night" : "stealth";
+        else if (h >= 17) t = light ? "light" : "night";
+        else t = light ? "day" : "light";
+      }
+      var light = t === "day" || t === "light";
+      var bg = { day: "#f2f0ea", light: "#eef1f5", dark: "#101820", night: "#08091a", stealth: "#0a0e14" }[t];
+      document.documentElement.setAttribute("data-theme", t);
+      document.documentElement.setAttribute("data-scheme", light ? "light" : "dark");
+      document.documentElement.style.colorScheme = light ? "light" : "dark";
+      document.documentElement.style.background = bg;
+      document.documentElement.style.backgroundColor = bg;
+    } catch (e) {}
+  })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title data-i18n-title="pianoTitleTag">Piano-crayon — Symphony Instrument Analysis</title>
-  <meta name="description" content="Piano-crayon : écoute live silencieuse, pistes regroupées par densité, 88 touches et clavier US ou canadien français.">
   <meta name="theme-color" content="#0a0e14">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Piano-crayon">
+  <title>Piano-crayon</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../flexaid.css">
-  <script src="../theme.js"></script>
   <style>
-    /* Values the drawing code reads back out of CSS. */
+    /* ══════════════════════════════════════════════════════════════════
+       FlexAID∆S palette · v2 · canonical.
+       Seven crayon-box keys, one thermodynamic quantity each, never
+       reassigned.  Chrome rules: no yellow, no cyan, no salmon;
+       coloured glow, never drop shadow; 40px grid; SF Pro Display body,
+       JetBrains Mono structural.
+
+       The twelve PITCH crayons (const CRAYONS, further down) are NOT
+       chrome.  They are the instrument's safety encoding — D#/Lemon is
+       hue 60.0°, pure yellow, and the highest-contrast colour in the
+       set at 13.31:1 on --key-white.  A blanket no-yellow sweep would
+       destroy the encoding, so the exclusion is declared as a machine-
+       checked allow-list in piano/palette_allowlist.json and enforced
+       by scripts/check_palette.py in CI — not as a comment someone can
+       forget.
+       ══════════════════════════════════════════════════════════════════ */
     :root {
-      --wave-bed: #070b12;
-      --wave-grid: rgba(34, 211, 238, 0.08);
-      --replay: #22d3ee;
-      --replay-on: #fbbf24;
+      /* The seven keys. One quantity each. Never reassigned. */
+      --mint:       #45E0A8;  /* ΔH · enthalpy · brand primary        */
+      --violet:     #8B5CF6;  /* ΔS · configurational entropy         */
+      --tangerine:  #FF9300;  /* ΔG · free energy · stats             */
+      --cherry:     #F5232B;  /* T  · temperature — 12px and up ONLY  */
+      --aqua:       #00A2FF;  /* ΔS_vib · vibrational · tENCoM        */
+      --strawberry: #FF2F92;  /* receptor · pocket · eyebrows         */
+      --magnesium:  #FFFFFF;  /* baseline · apo · reference           */
+
+      /* The one non-crayon functional colour: a scored hit.
+         Matches docs/flexaid.css --hit-ring for the sibling routes. */
+      --hit-ring: #b6ff55;
+
+      /* Structure — 40px grid, canonical radius ladder. */
+      --grid-step: 40px;
+      --r-xs: 3px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --r-pill: 9999px;
+
+      /* Type. SF Pro Display is not redistributable with a public page,
+         so the brand body face falls back to the system stack — the same
+         call docs/flexaid.css makes for the other three Symphony routes.
+         JetBrains Mono is served as a webfont, so structural type is
+         delivered rather than assumed. */
+      --font-body: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --tracking-label: 0.15em;
+
+      /* Cherry's legibility floor, as a token so it is one edit. */
+      --cherry-min-size: 12px;
+    }
+    :root,
+    html[data-theme="stealth"] {
+      --bg: #0a0e14;
       --ink: #d4dced;
       --muted: #8a93a8;
+      --paper: #101820;
+      --paper-ink: #d4dced;
+      --hairline: color-mix(in srgb, var(--mint) 12%, transparent);
+      --hairline-strong: color-mix(in srgb, var(--mint) 22%, transparent);
+      --key-white: #1b2430;
+      --key-white-edge: color-mix(in srgb, var(--mint) 16%, transparent);
+      --key-black: #0c1219;
+      --key-black-edge: #070b12;
+      --live: var(--mint);
+      --stop: var(--cherry);
+      --replay: var(--violet);
+      --replay-on: var(--aqua);
+      --tap: color-mix(in srgb, var(--mint) 18%, transparent);
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --dt: 150ms;
+      --glow: 8%;
+      --wave-bed: #070b12;
+      --wave-grid: color-mix(in srgb, var(--mint) 6%, transparent);
+      --btn-face: #101820;
+      --safe-t: env(safe-area-inset-top, 0px);
+      --safe-r: env(safe-area-inset-right, 0px);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-l: env(safe-area-inset-left, 0px);
     }
-
-    .transport { display: flex; align-items: center; gap: clamp(10px, 1.6vw, 20px); flex-wrap: wrap; padding: 14px 16px; }
-    .transport .title { margin-right: auto; display: flex; flex-direction: column; gap: 4px; }
-    .transport h1 { font-weight: 700; font-size: clamp(1.15rem, 2.4vw, 1.7rem); color: var(--fg); }
-    .transport .readouts { display: flex; align-items: flex-end; gap: clamp(14px, 2vw, 24px); }
-    .transport .readouts > div + div { padding-left: clamp(14px, 2vw, 24px); border-left: 1px solid var(--teal-15); }
-    .transport .readouts .stat-num { font-size: 1.25rem; margin-top: 5px; }
-
-    /* Transport buttons: gold while listening, teal when idle. No pulse ring. */
-    .act {
-      appearance: none; cursor: pointer;
-      border: 1px solid transparent; border-radius: var(--r-md);
-      font-family: var(--font-mono); font-size: 13px; font-weight: 600;
-      padding: 11px 20px; white-space: nowrap;
-      background: var(--teal); color: var(--on-teal); box-shadow: var(--glow-teal);
-      transition: transform var(--t-fast) var(--ease-out), background var(--t-fast) var(--ease-out), box-shadow var(--t-fast) var(--ease-out);
+    /* Light scenes derive the keys toward the ink anchor rather than
+       substituting different hues, so "one colour per quantity, never
+       reassigned" still holds at the token layer. Each derivation is the
+       largest mix that still clears 4.5:1 on both light surfaces —
+       measured, not eyeballed. */
+    html[data-theme="day"] {
+      --bg: #f2f0ea;
+      --ink: #20242c;
+      --muted: #5c6068;
+      --paper: #faf9f6;
+      --paper-ink: #20242c;
+      --hairline: color-mix(in srgb, var(--mint) 32%, transparent);
+      --hairline-strong: color-mix(in srgb, var(--mint) 52%, transparent);
+      --key-white: #ffffff;
+      --key-white-edge: color-mix(in srgb, var(--mint) 38%, transparent);
+      --key-black: #262c34;
+      --key-black-edge: #171c22;
+      --live: color-mix(in srgb, var(--mint) 51%, #0b1016);        /* 4.55:1 */
+      --stop: color-mix(in srgb, var(--cherry) 86%, #0b1016);      /* 4.57:1 */
+      --replay: color-mix(in srgb, var(--violet) 87%, #0b1016);    /* 4.57:1 */
+      --replay-on: color-mix(in srgb, var(--aqua) 67%, #0b1016);   /* 4.54:1 */
+      --tap: color-mix(in srgb, var(--ink) 14%, transparent);
+      --glow: 32%;
+      --wave-bed: #e8e6df;
+      --wave-grid: color-mix(in srgb, var(--ink) 8%, transparent);
+      --btn-face: #faf9f6;
     }
-    .act:hover { transform: translateY(-1px); background: #3fdcf2; }
-    .act:active { transform: translateY(0); }
-    .act.ghost { background: transparent; color: var(--fg); border-color: var(--teal-20); box-shadow: none; }
-    .act.ghost:hover { border-color: var(--teal); color: var(--teal); background: transparent; }
-    .act.on { background: var(--gold); color: var(--on-gold); box-shadow: 0 0 18px rgba(251, 191, 36, 0.3); }
-    .act.on:hover { background: #fcca4a; }
-    .act .glyph { display: none; }
-
-    /* Option pills. FR labels only, per piano/ui_contract.json. */
-    .toggles { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .tog { position: relative; display: inline-flex; }
-    .tog input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .tog .lab {
-      display: inline-flex; align-items: center;
-      border-radius: var(--r-pill); padding: 8px 14px;
-      font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
-      background: transparent; border: 1px solid rgba(138, 147, 168, 0.22); color: var(--fg-muted);
+    html[data-theme="light"] {
+      --bg: #eef1f5;
+      --ink: #1a2028;
+      --muted: #5c6672;
+      --paper: #ffffff;
+      --paper-ink: #1a2028;
+      --hairline: color-mix(in srgb, var(--mint) 32%, transparent);
+      --hairline-strong: color-mix(in srgb, var(--mint) 52%, transparent);
+      --key-white: #f7f8fa;
+      --key-white-edge: color-mix(in srgb, var(--mint) 38%, transparent);
+      --key-black: #232a34;
+      --key-black-edge: #161c24;
+      --live: color-mix(in srgb, var(--mint) 51%, #0b1016);        /* 4.58:1 */
+      --stop: color-mix(in srgb, var(--cherry) 86%, #0b1016);      /* 4.59:1 */
+      --replay: color-mix(in srgb, var(--violet) 87%, #0b1016);    /* 4.59:1 */
+      --replay-on: color-mix(in srgb, var(--aqua) 67%, #0b1016);   /* 4.57:1 */
+      --tap: color-mix(in srgb, var(--ink) 12%, transparent);
+      --glow: 28%;
+      --wave-bed: #e4e9f0;
+      --wave-grid: color-mix(in srgb, var(--ink) 8%, transparent);
+      --btn-face: #ffffff;
+    }
+    html[data-theme="dark"] {
+      --bg: #101820;
+      --ink: #d4dced;
+      --muted: #8a93a8;
+      --paper: #16202b;
+      --paper-ink: #d4dced;
+      --hairline: color-mix(in srgb, var(--mint) 14%, transparent);
+      --hairline-strong: color-mix(in srgb, var(--mint) 26%, transparent);
+      --key-white: #223040;
+      --key-white-edge: color-mix(in srgb, var(--mint) 18%, transparent);
+      --key-black: #0d141c;
+      --key-black-edge: #080d13;
+      --live: var(--mint);
+      --stop: var(--cherry);
+      --replay: var(--violet);
+      --replay-on: var(--aqua);
+      --tap: color-mix(in srgb, var(--mint) 16%, transparent);
+      --glow: 34%;
+      --wave-bed: #0b1219;
+      --wave-grid: color-mix(in srgb, var(--mint) 8%, transparent);
+      --btn-face: #16202b;
+    }
+    /* #08091A is the background the v2 artifact's contrast column is
+       computed against; night is where it lives on this page. */
+    html[data-theme="night"] {
+      --bg: #08091a;
+      --ink: #c8d0e4;
+      --muted: #7a849c;
+      --paper: #0f1226;
+      --paper-ink: #c8d0e4;
+      --hairline: color-mix(in srgb, var(--violet) 20%, transparent);
+      --hairline-strong: color-mix(in srgb, var(--violet) 34%, transparent);
+      --key-white: #1c2138;
+      --key-white-edge: color-mix(in srgb, var(--violet) 24%, transparent);
+      --key-black: #0a0c1c;
+      --key-black-edge: #060713;
+      --live: var(--mint);
+      --stop: var(--cherry);
+      --replay: var(--violet);
+      --replay-on: var(--aqua);
+      --tap: color-mix(in srgb, var(--violet) 18%, transparent);
+      --glow: 38%;
+      --wave-bed: #070818;
+      --wave-grid: color-mix(in srgb, var(--violet) 10%, transparent);
+      --btn-face: #0f1226;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+    html { -webkit-text-size-adjust: 100%; background: var(--bg); color-scheme: dark; }
+    html[data-scheme="light"] { background: var(--bg); color-scheme: light; }
+    body {
+      font-family: var(--font-body);
+      font-optical-sizing: auto;
+      background-color: var(--bg);
+      /* 40px grid, --grid-step unchanged. Coloured glow, never drop shadow. */
+      background-image:
+        linear-gradient(var(--wave-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--wave-grid) 1px, transparent 1px);
+      background-size: var(--grid-step) var(--grid-step);
+      color: var(--ink);
+      transition: background-color var(--dt) var(--ease), color var(--dt) var(--ease);
+      padding:
+        max(14px, var(--safe-t))
+        max(16px, var(--safe-r))
+        max(18px, var(--safe-b))
+        max(16px, var(--safe-l));
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .scenes {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 6px;
+      border-radius: var(--r-pill);
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+    }
+    .scene {
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      min-height: 28px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--r-pill);
       cursor: pointer;
-      transition: background var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent);
+      background: var(--swatch);
     }
-    .tog input:checked + .lab { background: var(--teal-15); border-color: var(--teal); color: var(--teal); }
-    .tog input:focus-visible + .lab { outline: 2px solid var(--teal); outline-offset: 2px; }
-
-    /* Track chips — crayon-tinted, because they encode a note. */
-    .tracks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .tracks .count {
-      min-width: 24px; height: 22px; padding: 0 6px;
-      display: inline-flex; align-items: center; justify-content: center;
-      border: 0; border-radius: var(--r-xs); cursor: pointer;
-      background: var(--teal); color: var(--on-teal);
-      font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    .scene[data-theme-set="day"] { --swatch: #f2f0ea; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 55%, transparent); }
+    .scene[data-theme-set="light"] { --swatch: #eef1f5; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 45%, transparent); }
+    .scene[data-theme-set="dark"] { --swatch: #101820; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 45%, transparent); }
+    .scene[data-theme-set="night"] { --swatch: #08091a; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--violet) 55%, transparent); }
+    .scene[data-theme-set="stealth"] { --swatch: #0a0e14; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 40%, transparent); }
+    .scene-auto {
+      font: 700 0.68rem/1 var(--font-mono);
+      color: var(--ink);
+      background: var(--paper);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 0 1px var(--hairline);
     }
-    .tracks .chip {
-      appearance: none; cursor: pointer;
-      border-radius: var(--r-pill); padding: 6px 11px;
-      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-      background: color-mix(in srgb, var(--crayon, var(--teal)) 14%, transparent);
-      border: 1px solid color-mix(in srgb, var(--crayon, var(--teal)) 45%, transparent);
-      color: var(--crayon, var(--teal));
-      transition: filter var(--t-fast) var(--ease-out);
+    .scene-auto[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
     }
-    .tracks .chip[aria-pressed="false"] { opacity: 0.42; }
-    .tracks .chip.all { background: var(--teal); border-color: var(--teal); color: var(--on-teal); }
-
-    /* Arrange lanes */
-    .arrange { position: relative; display: flex; flex-direction: column; }
-    .arrange-ruler { height: 24px; }
-    .arrange-stack { position: relative; display: flex; }
-    .arrange-heads { width: 96px; flex: 0 0 96px; }
-    .arrange-lane { position: relative; flex: 1; min-width: 0; }
-    .arrange-lane canvas { display: block; width: 100%; height: 300px; border-radius: var(--r-md); background: var(--wave-bed); }
-    .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(234, 242, 255, 0.9); pointer-events: none; }
-    .clock { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--fg); }
-    .tune-line { font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--gold); }
-
-    /* Chroma — 12 pitch classes, the colour key */
-    .chroma { display: flex; align-items: flex-end; gap: clamp(3px, 0.6vw, 8px); height: 190px; }
-    .chroma .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-    .chroma .fill {
-      width: 100%; height: 0%;
-      border-radius: var(--r-xs);
-      background: linear-gradient(180deg, color-mix(in srgb, var(--crayon) 95%, transparent), color-mix(in srgb, var(--crayon) 35%, transparent));
-      box-shadow: 0 0 10px color-mix(in srgb, var(--crayon) 35%, transparent);
-      transition: height 90ms linear;
+    .scene[aria-pressed="true"] {
+      box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px rgba(0,0,0,0.35);
     }
-    .chroma .lab { font-family: var(--font-mono); font-size: 9px; font-weight: 600; text-align: center; color: var(--crayon); margin-top: 5px; }
-
-    /* Lit-note chips */
-    .chips { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--teal-08); }
-    .chips .lit {
-      border-radius: var(--r-pill); padding: 5px 10px;
-      font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-      background: color-mix(in srgb, var(--crayon) 16%, transparent);
-      border: 1px solid color-mix(in srgb, var(--crayon) 50%, transparent);
-      color: var(--crayon);
+    .scene:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 2px;
     }
-    .hz-live { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
-
-    /* 88-key keybed */
-    .board-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--r-md); }
-    #board {
+    h1 {
+      margin: 0 0 2px;
+      font-size: clamp(1.12rem, 2.2vw, 1.48rem);
+      font-weight: 650;
+      letter-spacing: -0.03em;
+    }
+    .work {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 38vw);
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+    .spec-panel h3 {
+      margin: 0 0 6px;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #spec {
+      width: 100%;
+      height: 220px;
+      display: block;
+      border-radius: var(--r-md);
+      background: var(--wave-bed);
+    }
+    @media (max-width: 820px) {
+      .work { grid-template-columns: 1fr; }
+    }
+    button, input, select {
+      font: inherit;
+      font-size: 1rem;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .transport,
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .act,
+    .tog {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      min-height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      background: var(--paper);
+      color: var(--ink);
+      font: 650 0.8rem/1 var(--font-body);
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: var(--tap);
       position: relative;
-      height: clamp(170px, 24vw, 320px);
-      min-width: max(100%, calc(52 * 26px));
+    }
+    .act .lab,
+    .tog .lab {
+      white-space: nowrap;
+    }
+    .act:focus-visible,
+    .tog:focus-within {
+      outline: 1px solid var(--ink);
+      outline-offset: 2px;
+    }
+    .act.playing,
+    .act.live,
+    .tog:has(input:checked) {
+      background: color-mix(in srgb, var(--ink) 12%, var(--paper));
+      border-color: var(--hairline-strong);
+    }
+    .act.loading { opacity: 0.7; }
+    .act .glyph {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 8px;
+      background: currentColor;
+      border-radius: 1px;
+    }
+    .act .glyph.play {
+      width: 0;
+      height: 0;
+      background: none;
+      border-style: solid;
+      border-width: 5px 0 5px 8px;
+      border-color: transparent transparent transparent currentColor;
+    }
+    .act.playing .glyph.play,
+    .act.live .glyph.listen {
+      width: 8px;
+      height: 8px;
+      border: 0;
+      border-radius: 1px;
+      background: currentColor;
+    }
+    .act .glyph.listen {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .tog input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      pointer-events: none;
+    }
+    .scrub {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: end;
+      margin: 0 0 10px;
+    }
+    .arrange {
+      min-width: 0;
+      outline: none;
+      touch-action: none;
+    }
+    .arrange-ruler {
+      height: 18px;
+      position: relative;
+      color: var(--muted);
+      font-size: 0.62rem;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    .arrange-ruler span {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+    }
+    .arrange-ruler span:first-child { transform: none; }
+    .arrange-stack {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      min-height: 64px;
+      max-height: 280px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xs);
+      overflow: hidden;
+      background: var(--wave-bed);
+    }
+    .arrange-heads {
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+      border-right: 1px solid var(--hairline);
+      overflow: auto;
+    }
+    .arrange-head {
+      flex: 1 1 0;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--hairline);
+      cursor: pointer;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+    }
+    .arrange-head:last-child { border-bottom: 0; }
+    .arrange-head.dim { opacity: 0.38; }
+    .arrange-head[aria-pressed="true"] {
+      outline: 1px solid var(--ink);
+      outline-offset: -2px;
+    }
+    .arrange-swatch {
+      width: 28px;
+      height: 8px;
+      border-radius: 1px;
+      background: var(--crayon, var(--replay));
+      flex: 0 0 auto;
+    }
+    .arrange-head .nm {
+      font-size: 0.62rem;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .arrange-lane {
+      position: relative;
+      min-height: 64px;
+      cursor: ew-resize;
+      touch-action: none;
+      contain: layout style;
+    }
+    .arrange-lane canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 2px;
+      margin-left: -1px;
+      background: #e8e8ee;
+      pointer-events: none;
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+    }
+    .playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 7px solid #e8e8ee;
+    }
+    .scrub .clock {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      font-weight: 650;
+      color: var(--ink);
+      font-size: 0.82rem;
+      min-width: 4.8rem;
+      padding-bottom: 6px;
+    }
+    .tracks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: stretch;
+      margin: 0 0 8px;
+      min-height: 44px;
+    }
+    .track-count {
+      width: 28px;
+      min-width: 28px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      font-weight: 650;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xs);
+      background: color-mix(in srgb, var(--ink) 6%, var(--bg));
+      cursor: pointer;
+      padding: 0;
+    }
+    .track-count:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 2px;
+    }
+    .track-btn.off {
+      opacity: 0.28;
+    }
+    .track-btn {
+      position: relative;
+      overflow: hidden;
+      font-size: 0.68rem;
+      font-weight: 650;
+      padding: 0 8px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xs);
+      cursor: pointer;
+      min-width: 44px;
+      min-height: 44px;
+      line-height: 1.1;
+      text-align: center;
+      color: var(--lab, var(--ink));
+      background: color-mix(in srgb, var(--crayon, var(--ink)) 12%, var(--bg));
+      opacity: 0.38;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: var(--tap);
+    }
+    .track-btn .fill {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 100%;
+      transform: scaleY(var(--e, 0));
+      transform-origin: 50% 100%;
+      background: var(--crayon);
+      pointer-events: none;
+    }
+    .track-btn .hz {
+      position: relative;
+      z-index: 1;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    .track-btn.hot {
+      opacity: 1;
+      border-color: color-mix(in srgb, var(--crayon) 55%, var(--hairline));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    .track-btn.dim {
+      opacity: 0.28;
+      min-width: 44px;
+      background: color-mix(in srgb, var(--ink) 8%, var(--bg));
+      border-color: var(--hairline);
+      cursor: default;
+    }
+    .track-btn[aria-pressed="true"] {
+      outline: 1px solid var(--ink);
+      outline-offset: 1px;
+    }
+    .track-btn:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 2px;
+    }
+    .tune-line {
+      font-weight: 650;
+      font-size: 0.88rem;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      color: #7a8a94;
+      margin: 0 0 8px;
+    }
+    .tune-line .muted { color: var(--muted); font-weight: 600; }
+    .chroma {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 2px;
+      height: 56px;
+      margin: 8px 0 8px;
+      padding: 4px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xs);
+    }
+    .chroma .bar {
+      position: relative;
+      background: color-mix(in srgb, var(--ink) 6%, var(--paper));
+      border-radius: 2px 2px 1px 1px;
+      overflow: hidden;
+      border: 1px solid var(--hairline);
+    }
+    .chroma .fill {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 100%;
+      transform: scaleY(0);
+      transform-origin: 50% 100%;
+      background: var(--crayon);
+      transition: transform var(--dt) var(--ease);
+    }
+    .chroma .bar.on .fill {
+      box-shadow: 0 0 8px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    .chroma .lab {
+      position: absolute;
+      left: 0; right: 0; bottom: 3px;
+      text-align: center;
+      font-size: 0.58rem;
+      font-weight: 650;
+      color: var(--ink);
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.72;
+    }
+    .chroma .bar.on .lab { opacity: 1; color: var(--lab, var(--ink)); }
+    .chips {
+      min-height: 36px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border-radius: var(--r-xs);
+      font-weight: 650;
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
+      background: var(--crayon);
+      color: var(--lab, var(--ink));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    .hz-live {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    .type-well {
+      margin: 0 0 12px;
+    }
+    .type-head {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "clear out meta"
+        "oct oct oct"
+        "picker picker picker";
+      gap: 8px;
+      align-items: stretch;
+      margin-bottom: 8px;
+    }
+    @media (min-width: 760px) {
+      .type-head {
+        grid-template-columns: 44px minmax(0, 1fr) auto auto auto;
+        grid-template-areas: "clear out meta oct picker";
+      }
+    }
+    .type-clear { grid-area: clear; }
+    .type-out { grid-area: out; }
+    .kb-meta { grid-area: meta; }
+    /* Both pickers carry .kb-picker, so the octave needs its own cell or it
+       lands on top of the layout picker. */
+    .kb-picker { grid-area: picker; }
+    #kbOctave { grid-area: oct; }
+    .type-clear {
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      background: var(--paper);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .type-out {
+      margin: 0;
+      min-height: 44px;
+      max-height: 88px;
+      overflow: auto;
+      padding: 8px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      background: var(--paper);
+      color: var(--ink);
+      font: 650 0.92rem/1.35 var(--font-mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .type-out:empty::before {
+      content: attr(data-hint);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .kb-picker {
+      display: inline-flex;
+      align-items: stretch;
+      border: 1px solid var(--hairline);
       border-radius: var(--r-md);
       overflow: hidden;
-      background: linear-gradient(180deg, #0c111a, #070b12);
-      box-shadow: inset 0 2px 0 var(--teal-10);
+      background: var(--paper);
+      min-height: 44px;
     }
-    .key {
-      position: absolute; top: 0;
-      appearance: none; padding: 0; margin: 0; cursor: pointer;
-      transition: background-color 90ms linear, box-shadow 90ms linear;
-    }
-    .key.white {
-      height: 100%;
-      border: 0; border-right: 1px solid rgba(10, 14, 20, 0.5);
-      border-radius: 0 0 5px 5px;
-      background: linear-gradient(180deg, #eef2f8, #d9e0ea);
-      box-shadow: inset 0 -10px 14px rgba(10, 14, 20, 0.14);
-    }
-    .key.black {
-      height: 61%; z-index: 2;
-      border: 0; border-radius: 0 0 4px 4px;
-      background: linear-gradient(180deg, #1a2130, #080c13);
-      box-shadow: inset 0 -7px 9px rgba(0, 0, 0, 0.5), 0 3px 5px rgba(0, 0, 0, 0.5);
-    }
-    .key .name {
-      position: absolute; bottom: 7px; left: 0; right: 0;
-      text-align: center;
-      font-family: var(--font-mono); font-size: 9px; font-weight: 600;
-      color: #5b6478; opacity: 0.7; pointer-events: none;
-    }
-    .key .bind {
-      position: absolute; top: 6px; left: 0; right: 0;
-      text-align: center;
-      font-family: var(--font-mono); font-size: 8px; font-weight: 700;
-      color: var(--fg-muted); opacity: 0; pointer-events: none;
-    }
-    .key.bound .bind { opacity: 0.62; }
-    /* need = the music wants it; held = a finger is on it; hit = both, and it scores. */
-    .key.need, .key.on { background: var(--crayon); }
-    .key.white.need, .key.white.on { box-shadow: 0 0 20px color-mix(in srgb, var(--crayon) 55%, transparent), inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
-    .key.black.need, .key.black.on { box-shadow: 0 0 18px color-mix(in srgb, var(--crayon) 60%, transparent), inset 0 0 0 1px rgba(255, 255, 255, 0.2); }
-    .key.held:not(.need):not(.hit) { background: transparent; box-shadow: inset 0 0 0 2px var(--teal); }
-    .key.hit { background: var(--crayon); box-shadow: 0 0 20px color-mix(in srgb, var(--crayon) 55%, transparent), inset 0 0 0 2px var(--hit-ring); }
-    .key.on .name, .key.need .name, .key.hit .name { color: var(--lab); opacity: 1; }
-    .key.on .bind, .key.need .bind, .key.hit .bind { color: var(--lab); opacity: 0.9; }
-
-    /* Typing board — geometry comes from dual_keyboard.js, never redrawn here */
-    .type-well { display: flex; flex-direction: column; gap: 12px; }
-    .type-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .type-out {
-      flex: 1; min-width: 140px; margin: 0;
-      font-family: var(--font-mono); font-size: 12px; color: var(--fg);
-      white-space: pre-wrap; word-break: break-all;
-      min-height: 1.4em;
-    }
-    .type-out:empty::before { content: attr(data-hint); color: var(--fg-muted); }
-    .type-clear {
-      appearance: none; cursor: pointer;
-      background: transparent; border: 1px solid rgba(138, 147, 168, 0.22);
-      border-radius: var(--r-sm); color: var(--fg-muted);
-      font-family: var(--font-mono); font-size: 12px; padding: 5px 9px;
-    }
-    .type-clear:hover { border-color: var(--fg-muted); color: var(--fg); }
-    .kb-meta { font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-muted); }
-    .kb-picker { display: inline-flex; border: 1px solid var(--teal-15); border-radius: var(--r-sm); overflow: hidden; }
     .kb-picker button {
-      appearance: none; border: 0; cursor: pointer; background: transparent;
-      color: var(--fg-muted); font-family: var(--font-mono); font-size: 11px; font-weight: 600;
-      padding: 6px 10px;
+      border: 0;
+      margin: 0;
+      padding: 8px 12px;
+      background: transparent;
+      color: var(--muted);
+      font: 650 0.78rem/1.2 var(--font-body);
+      cursor: pointer;
+      white-space: nowrap;
     }
-    .kb-picker button[aria-pressed="true"] { background: var(--teal); color: var(--on-teal); }
-    .board-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .dual-boards { min-width: 680px; }
-    .kb-wrap { display: flex; flex-direction: column; gap: 8px; }
+    .kb-picker button + button {
+      border-left: 1px solid var(--hairline);
+    }
+    .kb-picker button[aria-pressed="true"] {
+      background: var(--key-white);
+      color: var(--ink);
+    }
+    .kb-picker button:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: -2px;
+    }
+    .dual-boards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .kb-wrap {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 6px 6px 8px;
+      min-width: 0;
+    }
     .kb-title {
-      font-family: var(--font-mono); font-size: 10px;
-      letter-spacing: var(--tracking-label); text-transform: uppercase;
-      color: var(--fg-muted);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 650;
+      letter-spacing: var(--tracking-label);
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 2px 6px 6px;
     }
-    /* Caps are absolutely positioned by buildOneBoard from the DUAL layout. */
-    .kb-board { position: relative; height: clamp(168px, 18vw, 250px); }
+    .kb-board {
+      position: relative;
+      --cols: 15;
+      --rows: 5;
+      --ku: clamp(26px, 5.4vw, 48px);
+      height: calc(var(--rows) * var(--ku));
+      user-select: none;
+      touch-action: none;
+    }
+    .kb-meta {
+      min-width: 7.5rem;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      background: var(--paper);
+      color: var(--ink);
+      font: 650 0.78rem/1.35 var(--font-mono);
+      display: flex;
+      align-items: center;
+    }
+    /* Octave readout. Structural type, so JetBrains Mono; 0.78rem = 12.48px
+       clears the 12px floor, and it is painted --muted, never a crayon. */
+    .kb-oct-now {
+      padding: 0 8px;
+      min-width: 8.5rem;
+      text-align: center;
+      font: 650 0.78rem/1.2 var(--font-mono);
+      letter-spacing: var(--tracking-label);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .kb-picker button[disabled] { opacity: 0.35; cursor: default; }
     .kb-key {
       position: absolute;
-      appearance: none; cursor: pointer;
-      border: 1px solid var(--teal-08); border-radius: 6px;
-      display: flex; flex-direction: column; justify-content: space-between; align-items: stretch;
-      padding: 5px 6px; overflow: hidden;
-      background: linear-gradient(180deg, rgba(22, 28, 40, 0.92), rgba(10, 14, 20, 0.92));
-      font-family: var(--font-mono); font-size: clamp(9px, 1vw, 12px); font-weight: 600;
-      color: var(--fg); line-height: 1.1; text-align: left;
-      transition: background-color 90ms linear, box-shadow 90ms linear, color 90ms linear;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      border: 1px solid var(--key-white-edge);
+      border-radius: var(--r-sm);
+      background: var(--key-white);
+      color: var(--ink);
+      font-weight: 650;
+      font-size: 0.7rem;
+      line-height: 1;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
     }
-    .kb-key > span:first-child { text-transform: uppercase; }
+    .kb-key.mod {
+      font-size: 0.56rem;
+      color: var(--muted);
+    }
+    .kb-key .sub {
+      font-size: 0.5rem;
+      opacity: 0.62;
+      font-weight: 600;
+    }
+    .kb-key.mapped {
+      background: color-mix(in srgb, var(--crayon) 22%, var(--key-white));
+    }
+    /* ── Where LP's 12px floor and LP's safety ruling collide ──────────
+       This was font-size: 0.48rem (7.68px) painted var(--crayon): Do
+       rendered rgb(251,2,7) at 3.08:1 against its own tinted key, and
+       La rendered rgb(0,0,255) at 1.70:1 — the worst text on the page.
+       Resolved by separating the two channels that were being forced
+       through one 7.68px aperture: HUE stays (it is the safety
+       encoding) but moves off the glyph onto a 2px solid crayon rule
+       and the key tint, which are far larger colour samples; LUMINANCE
+       goes to Magnesium, which lifts the worst case from 1.70:1 to
+       7.29:1 and Do from 3.08:1 to 12.66:1.
+       The glyph then reaches the 12px floor wherever the key box allows
+       (--ku is clamp(26px, 5.4vw, 48px), so ≥700px viewport). No crayon
+       is painted as text at any size — scripts/check_palette.py fails
+       the build if that ever comes back. ─────────────────────────────── */
     .kb-key .note {
-      font-size: 8px; font-weight: 700; text-align: right; line-height: 1;
-      color: var(--crayon, var(--fg-muted));
+      font-size: 0.5rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: var(--magnesium);
+      line-height: 1;
+      pointer-events: none;
+      border-bottom: 2px solid transparent;
+      padding-bottom: 1px;
     }
-    .kb-key .sub { font-size: 8px; text-align: right; color: var(--fg-muted); line-height: 1; }
-    .kb-key.mod { background: rgba(255, 255, 255, 0.02); color: var(--fg-muted); }
-    .kb-key.mod .note { color: transparent; }
-    /* Held: crayon fill plus the #b6ff55 hit ring. */
-    .kb-key.on {
+    .kb-key.mapped .note { border-bottom-color: var(--crayon); }
+    html[data-scheme="light"] .kb-key .note { color: var(--ink); }
+    @media (min-width: 700px) {
+      .kb-key .note { font-size: var(--cherry-min-size); }
+    }
+    .kb-key.on,
+    .kb-key.need,
+    .kb-key.hit {
+      background: var(--crayon, var(--replay-on));
+      color: var(--lab, var(--magnesium));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--crayon, var(--replay-on)) var(--glow), transparent);
+    }
+    .kb-key.held:not(.need):not(.hit) {
+      box-shadow: inset 0 0 0 2px var(--ink);
+    }
+    .kb-key.hit {
+      box-shadow: inset 0 0 0 2px var(--hit-ring), 0 0 8px color-mix(in srgb, var(--crayon, var(--replay-on)) var(--glow), transparent);
+    }
+    .kb-key.on .note,
+    .kb-key.need .note,
+    .kb-key.hit .note { color: var(--lab, var(--ink)); opacity: 0.95; border-bottom-color: transparent; }
+    .kb-key.blocked {
+      opacity: 0.32;
+    }
+    .kb-key:focus-visible {
+      outline: 1px solid var(--replay-on);
+      outline-offset: 1px;
+    }
+    .board-well {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: 10px 10px 12px;
+      box-shadow: none;
+      width: calc(100% + 0px);
+    }
+    .piano-strip #board {
+      height: clamp(88px, 14vh, 140px);
+    }
+    .board-wrap {
+      position: relative;
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      padding-bottom: 2px;
+    }
+    #board {
+      position: relative;
+      height: clamp(240px, 32vh, 360px);
+      min-width: max(100%, calc(52 * 28px));
+      width: max(100%, calc(52 * 28px));
+      user-select: none;
+      touch-action: pan-x;
+    }
+    .key {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition:
+        background-color var(--dt) var(--ease),
+        box-shadow var(--dt) var(--ease);
+    }
+    .white {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--key-white);
+      border: 1px solid var(--key-white-edge);
+      border-radius: 0 0 var(--r-sm) var(--r-sm);
+      z-index: 1;
+      cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        inset 0 -8px 12px rgba(0, 0, 0, 0.28);
+    }
+    .white .name {
+      position: absolute;
+      bottom: 8px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 0.62rem;
+      font-weight: 650;
+      color: var(--muted);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    .key .bind {
+      position: absolute;
+      top: 4px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 0.5rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .key.bound .bind { opacity: 0.62; }
+    .black {
+      position: absolute;
+      top: 0;
+      height: 62%;
+      background: var(--key-black);
+      border: 1px solid var(--key-black-edge);
+      border-radius: 0 0 var(--r-xs) var(--r-xs);
+      z-index: 3;
+      cursor: pointer;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04),
+        inset 0 -8px 10px rgba(0, 0, 0, 0.28);
+    }
+    .black .name {
+      position: absolute;
+      bottom: 6px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 0.52rem;
+      font-weight: 650;
+      color: var(--muted);
+      opacity: 0.55;
+      pointer-events: none;
+    }
+    .black .bind { top: 3px; font-size: 0.42rem; }
+    .key.on .bind { color: var(--ink); opacity: 0.88; }
+    .key.on,
+    .key.need {
+      background: var(--crayon) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+      z-index: 4;
+    }
+    .key.need:not(.hit) {
+      box-shadow:
+        inset 0 0 0 2px color-mix(in srgb, var(--crayon) 80%, #fff),
+        0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    .key.held:not(.need):not(.hit) {
+      background: color-mix(in srgb, var(--ink) 16%, var(--key-white)) !important;
+      box-shadow: inset 0 0 0 2px var(--ink);
+      z-index: 4;
+    }
+    .black.held:not(.need):not(.hit) {
+      background: color-mix(in srgb, var(--ink) 26%, var(--key-black)) !important;
+    }
+    .key.hit {
+      background: var(--crayon) !important;
+      box-shadow:
+        inset 0 0 0 3px var(--hit-ring),
+        0 0 18px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+      z-index: 5;
+    }
+    .key.on .name,
+    .key.need .name,
+    .key.hit .name,
+    .key.held .name { color: var(--ink); opacity: 0.92; }
+    .pc-keys {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 0 0 8px;
+      user-select: none;
+    }
+    .pc-row { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+    .pc-key {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: var(--r-xs);
+      border: 1px solid var(--hairline);
+      background: var(--paper);
+      color: var(--muted);
+      font: 650 0.72rem/28px var(--font-mono);
+      text-align: center;
+    }
+    .pc-key.need { background: var(--crayon); color: var(--lab, var(--ink)); }
+    .pc-key.held:not(.need):not(.hit) { box-shadow: inset 0 0 0 2px var(--ink); color: var(--ink); }
+    .pc-key.hit { background: var(--crayon); box-shadow: inset 0 0 0 2px var(--hit-ring); color: var(--lab, var(--ink)); }
+    .score-line {
+      font: 650 0.78rem/1.2 var(--font-mono);
+      color: var(--muted);
+    }
+    .key.harm:not(.on) {
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--crayon) 40%, transparent);
+    }
+    .white.harm:not(.on) {
+      background: color-mix(in srgb, var(--crayon) 11%, var(--key-white));
+    }
+    .black.harm:not(.on) {
+      background: color-mix(in srgb, var(--crayon) 18%, var(--key-black));
+    }
+    .key.study {
+      outline: 1px solid var(--ink);
+      outline-offset: -2px;
+    }
+    .legend {
+      margin-top: 14px;
+      background: transparent;
+      color: var(--paper-ink);
+      border-radius: 0;
+      padding: 8px 0 0;
+      border: none;
+    }
+    .legend h2 {
+      margin: 0 0 8px;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .pencils {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+    }
+    .pencil {
+      border-radius: var(--r-xs);
+      padding: 6px 3px 5px;
+      text-align: center;
+      background: var(--crayon);
+      color: var(--lab, var(--ink));
+      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
+      min-height: 52px;
+    }
+    .pencil .fr { font-weight: 650; font-size: 0.88rem; }
+    details.adv {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    details.adv summary {
+      cursor: pointer;
+      color: var(--ink);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      touch-action: manipulation;
+    }
+    details.adv select {
+      margin-top: 8px;
+      max-width: 100%;
+      min-height: 44px;
+      padding: 8px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--hairline-strong);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 1rem;
+    }
+    .err {
+      /* Cherry carries T. It is legal here because .err inherits the
+         16px body size, well clear of --cherry-min-size. */
+      color: var(--cherry);
+      font-size: 1rem;
+      font-weight: 650;
+      margin: 8px 0;
+    }
+    @supports (background: color-mix(in srgb, red 50%, white)) {
+      .key.on {
+        background: color-mix(in srgb, var(--crayon) calc(100% - var(--pop, 0%)), #ffffff) !important;
+      }
+    }
+    @supports (color: color(display-p3 1 0 0)) {
+      .key.on {
+        background: var(--crayon-p3, var(--crayon)) !important;
+      }
+      .chroma .fill,
+      .pencil,
+      .chip,
+      .track-btn[aria-pressed="true"] {
+        background: var(--crayon-p3, var(--crayon));
+      }
+      @supports (background: color-mix(in srgb, red 50%, white)) {
+        .key.on {
+          background: color-mix(in srgb, var(--crayon-p3, var(--crayon)) calc(100% - var(--pop, 0%)), #ffffff) !important;
+        }
+      }
+    }
+    @media (max-width: 900px) {
+      .pencils { grid-template-columns: repeat(6, 1fr); }
+      .chroma { height: 72px; }
+    }
+    @media (min-width: 768px) {
+      #board { height: 280px; }
+    }
+    @media (min-width: 1180px) {
+      #board { height: 320px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .chroma .fill,
+      .key,
+      #btn,
+      #replay { transition: none; }
+      .playhead { will-change: auto; }
+      .key.on { box-shadow: inset 0 0 0 1px var(--hairline-strong); }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+      .key.on,
+      .chip,
+      .track-btn[aria-pressed="true"],
+      .chroma .bar.on .fill { box-shadow: none; }
+    }
+    @media (prefers-contrast: more) {
+      html[data-scheme="dark"] {
+        --ink: #a8a8b0;
+        --hairline: #3e3e46;
+        --hairline-strong: #4a4a54;
+        --muted: #7a7a82;
+        --glow: 40%;
+      }
+      html[data-scheme="light"] {
+        --ink: #1c1916;
+        --hairline: #8a8276;
+        --hairline-strong: #5c564c;
+        --muted: #4a453e;
+      }
+      .key.on { box-shadow: inset 0 0 0 1px var(--ink); }
+    }
+    html[data-scheme="light"] .arrange-stack {
+      background: color-mix(in srgb, var(--ink) 6%, var(--paper));
+    }
+    html[data-scheme="light"] .arrange-heads,
+    html[data-scheme="light"] .arrange-head { background: color-mix(in srgb, var(--ink) 8%, var(--paper)); }
+    html[data-scheme="light"] .playhead { background: var(--ink); }
+    html[data-scheme="light"] .playhead::before {
+      background: transparent;
+      border-top-color: var(--ink);
+    }
+    html[data-scheme="light"] .act,
+    html[data-scheme="light"] .tog {
+      background: var(--paper);
+      border-color: var(--hairline);
+      color: var(--ink);
+    }
+    html[data-scheme="light"] .act.playing,
+    html[data-scheme="light"] .act.live,
+    html[data-scheme="light"] .tog:has(input:checked) {
+      background: color-mix(in srgb, var(--ink) 8%, var(--paper));
+      border-color: var(--hairline-strong);
+    }
+    html[data-scheme="light"] .track-btn {
+      color: var(--lab, var(--ink));
+      background: color-mix(in srgb, var(--crayon, var(--paper)) 22%, var(--paper));
+      border-color: var(--hairline-strong);
+      opacity: 0.4;
+    }
+    html[data-scheme="light"] .track-btn.hot {
+      opacity: 1;
+      box-shadow: 0 0 10px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    html[data-scheme="light"] .track-btn[aria-pressed="true"] {
+      outline: 1px solid var(--ink);
+      outline-offset: 1px;
+    }
+    html[data-scheme="light"] .tune-line { color: color-mix(in srgb, var(--aqua) 67%, #0b1016); }
+    html[data-scheme="light"] .chroma .bar.on .lab { color: var(--lab); }
+    html[data-scheme="light"] .chip {
       background: var(--crayon);
       color: var(--lab);
-      box-shadow: 0 0 16px color-mix(in srgb, var(--crayon) 60%, transparent), inset 0 0 0 2px var(--hit-ring);
+      border-color: var(--hairline-strong);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--crayon) 20%, transparent);
     }
-    .kb-key.on .note { color: var(--lab); }
-    .kb-key.off { opacity: 0.45; }
-
-    .err { color: #fca5a5; font-family: var(--font-mono); font-size: 12px; }
-    .err[hidden] { display: none; }
-    #spec { width: 100%; height: clamp(220px, 26vw, 340px); display: block; border-radius: var(--r-md); background: var(--bg-canvas); }
-    .work { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
-    .page[data-mid="1"] .work { grid-template-columns: minmax(0, 1fr); }
-    .opt-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; }
-    .page[data-narrow="1"] .opt-row { grid-template-columns: minmax(0, 1fr); }
+    html[data-scheme="light"] .board-well {
+      background: color-mix(in srgb, var(--ink) 5%, var(--paper));
+      box-shadow: inset 0 1px 2px rgba(40, 32, 24, 0.07);
+    }
+    html[data-scheme="light"] .white {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -10px 14px rgba(40, 32, 24, 0.06);
+    }
+    html[data-scheme="light"] .white .name { color: var(--ink); opacity: 0.42; }
+    html[data-scheme="light"] .key.on .name { color: var(--lab); opacity: 1; }
+    html[data-scheme="light"] .black .name { color: #efe8dc; opacity: 0.4; }
+    html[data-scheme="light"] .kb-key.mapped {
+      background: color-mix(in srgb, var(--crayon) 18%, var(--key-white));
+    }
+    html[data-scheme="light"] .key.bound .bind { color: var(--ink); opacity: 0.5; }
+    html[data-scheme="light"] .key.on .bind { color: var(--lab); opacity: 0.9; }
+    html[data-scheme="light"] .key.on {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+    }
+    html[data-scheme="light"] .legend {
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-xs);
+      padding: 12px 12px 10px;
+    }
+    html[data-scheme="light"] .pencil {
+      min-height: 88px;
+      padding: 8px 4px 6px;
+      background: var(--crayon);
+      color: var(--lab);
+      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
+    }
+    html[data-scheme="light"] .err { color: color-mix(in srgb, var(--cherry) 86%, #0b1016); }
+    html[data-scheme="light"] details.adv select {
+      background: var(--paper);
+      color: var(--ink);
+    }
+    @supports (color: color(display-p3 1 0 0)) {
+      html[data-scheme="light"] .pencil,
+      html[data-scheme="light"] .chip,
+      html[data-scheme="light"] .track-btn {
+        background: var(--crayon-p3, var(--crayon));
+      }
+    }
   </style>
+  <link rel="canonical" href="https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/">
+  <meta name="description" content="Pick US ANSI or Canadian French CSA. One board remaps instantly. Ten fingers; extras only if well clustered.">
 </head>
 <body>
-  <nav class="nav">
-    <a class="brand" href="../" aria-label="Symphony">
-      <span class="brand-chip">Hz</span>
-      <span class="brand-word">Symphony</span>
-    </a>
-    <p class="pages-crumb nav-links">
-      <a href="../">Symphony</a>
-      <a href="../tutorial/" data-i18n="navLive">Écoute live</a>
-      <a href="../how-to.html">ELI5</a>
-    </p>
-    <div class="lang-switch" role="group" aria-label="English / Français">
-      <button type="button" data-lang-switch="en" aria-pressed="true">EN</button>
-      <button type="button" data-lang-switch="fr" aria-pressed="false">FR</button>
+  <p class="pages-crumb">
+    <a href="../">Symphony</a>
+    ·
+    <a href="../tutorial/">Live listen</a>
+    ·
+    <a href="../how-to.html">ELI5</a>
+  </p>
+  <div class="top">
+    <h1>Piano-crayon</h1>
+    <div class="score-line" id="scoreLine">0 · best 0</div>
+    <div class="scenes" role="radiogroup" aria-label="Ambiance">
+      <button type="button" class="scene scene-auto" data-theme-auto aria-label="Auto" title="Auto">A</button>
+      <button type="button" class="scene" data-theme-set="day" aria-label="Jour" title="Jour"></button>
+      <button type="button" class="scene" data-theme-set="light" aria-label="Clair" title="Clair"></button>
+      <button type="button" class="scene" data-theme-set="dark" aria-label="Sombre" title="Sombre"></button>
+      <button type="button" class="scene" data-theme-set="night" aria-label="Soir" title="Soir"></button>
+      <button type="button" class="scene" data-theme-set="stealth" aria-label="Scène" title="Scène"></button>
     </div>
-  </nav>
-
-  <div class="page" id="page">
-    <section class="card transport">
-      <div class="title">
-        <span class="eyebrow eyebrow-page" data-i18n="pianoEyebrow">crayon piano</span>
-        <h1>Piano-crayon</h1>
-      </div>
-      <div class="toggles" role="group" aria-label="Lecture">
-        <button id="replay" type="button" class="act ghost" aria-label="Replay / Rejouer">
-          <span class="glyph play" aria-hidden="true"></span>
-          <span class="lab">Rejouer</span>
-        </button>
-        <button id="btn" type="button" class="act" aria-label="Listen / Écouter">
-          <span class="glyph listen" aria-hidden="true"></span>
-          <span class="lab">Écouter</span>
-        </button>
-      </div>
-      <div class="readouts">
-        <div>
-          <span class="stat-label" data-i18n="pianoClock">horloge</span>
-          <span id="clock" class="clock stat-num">0:00</span>
-        </div>
-        <div>
-          <span class="stat-label" data-i18n="pianoConcertA">la du concert</span>
-          <span id="tuneLine" class="tune-line stat-num">440</span>
-        </div>
-        <div>
-          <span class="stat-label" data-i18n="labelScore">score</span>
-          <span id="scoreLine" class="stat-num">0 · best 0</span>
-        </div>
-      </div>
-    </section>
-
-    <div class="opt-row">
-      <section class="card card-sm">
-        <span class="stat-label" data-i18n="pianoSettings">réglages</span>
-        <div class="toggles" role="group" aria-label="Options" style="margin-top:10px">
-          <label class="tog tog-chords" title="Jusqu’à 8 notes à la fois">
-            <input id="chords" type="checkbox" checked>
-            <span class="lab">Accords</span>
-          </label>
-          <label class="tog tog-son" title="Entendre la relecture, doucement">
-            <input id="unmute" type="checkbox">
-            <span class="lab">Son</span>
-          </label>
-          <label class="tog tog-la" title="Estimer le la du concert ; sinon 440 Hz">
-            <input id="autotune" type="checkbox" checked>
-            <span class="lab">La auto</span>
-          </label>
-        </div>
-      </section>
-      <section class="card card-sm">
-        <span class="stat-label" data-i18n="pianoTracksLabel">pistes</span>
-        <div class="tracks" id="tracks" role="group" aria-label="Pistes" style="margin-top:10px"></div>
-      </section>
-    </div>
-
-    <div id="err" class="err" hidden></div>
-
-    <div class="work">
-      <section class="card">
-        <div class="head-row">
-          <span class="eyebrow" data-i18n="laneEyebrow">pistes empilées</span>
-          <span class="meta" data-i18n="laneMeta">une piste par groupe de densité</span>
-        </div>
-        <div
-          id="arrange"
-          class="arrange"
-          role="slider"
-          tabindex="0"
-          aria-label="Temps"
-          aria-valuemin="0"
-          aria-valuemax="0"
-          aria-valuenow="0"
-          aria-valuetext="0:00"
-        >
-          <div class="arrange-ruler" id="ruler" aria-hidden="true"></div>
-          <div class="arrange-stack" id="arrangeStack">
-            <div class="arrange-heads" id="arrangeHeads"></div>
-            <div class="arrange-lane" id="arrangeLane">
-              <canvas id="wave" aria-hidden="true"></canvas>
-              <div class="playhead" id="playhead"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <aside class="card">
-        <div class="head-row">
-          <span class="eyebrow" data-i18n="chromaEyebrow">chroma</span>
-          <span class="meta" data-i18n="chromaMeta">12 classes de hauteur</span>
-        </div>
-        <div id="chroma" class="chroma" aria-label="Crayons allumés"></div>
-        <div class="chips" id="chips">
-          <span class="stat-label" style="width:100%" data-i18n="litNow">allumé maintenant</span>
-          <span class="hz-live" id="hzLive"></span>
-        </div>
-      </aside>
-    </div>
-
-    <section class="card">
-      <div class="head-row">
-        <span class="eyebrow" data-i18n="specEyebrow">spectre · sources regroupées</span>
-        <span class="meta" data-i18n="specMeta">axe log · 27.5 Hz → 4186 Hz</span>
-      </div>
-      <canvas id="spec" width="640" height="320" aria-label="Spectre log-hertz, sources regroupées"></canvas>
-    </section>
-
-    <section class="card">
-      <div class="head-row">
-        <span class="eyebrow" data-i18n="pianoFull">piano complet · La0–Do8</span>
-        <span class="meta" data-i18n="boardMeta">allumé = notes dans le son</span>
-      </div>
-      <div class="board-wrap">
-        <div id="board" role="group" aria-label="Piano entier, La0 à Do8"></div>
-      </div>
-    </section>
-
-    <section class="card type-well">
-      <div class="head-row">
-        <span class="eyebrow" data-i18n="kbEyebrow">clavier d’ordinateur</span>
-        <span class="meta" data-i18n="kbMetaPiano">Z=Do3 · D=Do4 · Q=La4 · 10 doigts</span>
-      </div>
-      <div class="type-head">
-        <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
-        <pre id="typeOut" class="type-out" data-hint="Lettrage US · les deux claviers jouent · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
-        <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
-        <div class="kb-picker" id="kbOctave" role="group" aria-label="Octave">
-          <button type="button" data-oct="-1" aria-label="Octave -1" title="↓">−</button>
-          <span class="kb-oct-now" id="kbOctNow" aria-live="polite">octave 0 · Si2–La♯6</span>
-          <button type="button" data-oct="1" aria-label="Octave +1" title="↑">+</button>
-        </div>
-        <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Lettrage">
-          <button type="button" data-layout="us" aria-pressed="true">US</button>
-          <button type="button" data-layout="csa" aria-pressed="false">Canadien français</button>
-        </div>
-      </div>
-      <div class="board-scroll">
-        <div class="dual-boards" id="dualBoards" data-layout="us"></div>
-      </div>
-    </section>
-
-    <hr class="divider">
-    <p class="site-foot">
-      <span data-i18n="pianoFoot">Analyse seulement — cette page ne joue jamais de son.</span>
-      <a href="https://github.com/LeBonhommePharma/SymphonyInstrumentAnalysis">GitHub</a>
-      <span data-i18n="hubFamily">· fait partie de la famille Le Bonhomme Pharma</span>
-    </p>
   </div>
 
-  <script src="../i18n.js"></script>
+  <div class="work">
+  <div class="work-main">
+  <div class="row">
+    <div class="transport" role="group" aria-label="Lecture">
+      <button id="replay" type="button" class="act" aria-label="Rejouer">
+        <span class="glyph play" aria-hidden="true"></span>
+        <span class="lab">Rejouer</span>
+      </button>
+      <button id="btn" type="button" class="act" aria-label="Écouter">
+        <span class="glyph listen" aria-hidden="true"></span>
+        <span class="lab">Écouter</span>
+      </button>
+    </div>
+    <div class="toggles" role="group" aria-label="Options">
+      <label class="tog tog-chords" title="Jusqu’à 8 notes à la fois">
+        <input id="chords" type="checkbox" checked>
+        <span class="lab">Accords</span>
+      </label>
+      <label class="tog tog-son" title="Entendre la relecture, doucement">
+        <input id="unmute" type="checkbox">
+        <span class="lab">Son</span>
+      </label>
+      <label class="tog tog-la" title="Estimer le la du concert ; sinon 440 Hz">
+        <input id="autotune" type="checkbox" checked>
+        <span class="lab">La auto</span>
+      </label>
+    </div>
+  </div>
+  <div class="tracks" id="tracks" role="group" aria-label="Pistes"></div>
+  <div id="tuneLine" class="tune-line">440</div>
+  <div class="scrub">
+    <div
+      id="arrange"
+      class="arrange"
+      role="slider"
+      tabindex="0"
+      aria-label="Temps"
+      aria-valuemin="0"
+      aria-valuemax="0"
+      aria-valuenow="0"
+      aria-valuetext="0:00"
+    >
+      <div class="arrange-ruler" id="ruler" aria-hidden="true"></div>
+      <div class="arrange-stack" id="arrangeStack">
+        <div class="arrange-heads" id="arrangeHeads"></div>
+        <div class="arrange-lane" id="arrangeLane">
+          <canvas id="wave" aria-hidden="true"></canvas>
+          <div class="playhead" id="playhead"></div>
+        </div>
+      </div>
+    </div>
+    <div id="clock" class="clock">0:00</div>
+  </div>
+  <div id="err" class="err" hidden></div>
+
+  <div id="chroma" class="chroma" aria-label="Crayons allumés"></div>
+  <div class="chips" id="chips">
+    <span class="hz-live" id="hzLive"></span>
+  </div>
+  </div>
+  <aside class="spec-panel">
+    <h3>Spectre · sources regroupées</h3>
+    <canvas id="spec" width="640" height="320" aria-label="Spectre log-hertz, sources regroupées"></canvas>
+  </aside>
+  </div>
+
+  <div class="type-well">
+    <div class="type-head">
+      <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
+      <pre id="typeOut" class="type-out" data-hint="US · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
+      <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
+      <div class="kb-picker" id="kbOctave" role="group" aria-label="Octave">
+        <button type="button" data-oct="-1" aria-label="Octave -1" title="↓">−</button>
+        <span class="kb-oct-now" id="kbOctNow" aria-live="polite">octave 0 · Si2–La♯6</span>
+        <button type="button" data-oct="1" aria-label="Octave +1" title="↑">+</button>
+      </div>
+      <div class="kb-picker" id="kbLayout" role="radiogroup" aria-label="Disposition">
+        <button type="button" data-layout="us" aria-pressed="true">US</button>
+        <button type="button" data-layout="csa" aria-pressed="false">Canadien français</button>
+      </div>
+    </div>
+    <div class="dual-boards" id="dualBoards" data-layout="us"></div>
+  </div>
+  <div class="board-well piano-strip">
+    <div class="board-wrap">
+      <div id="board" role="group" aria-label="Piano entier, La0 à Do8"></div>
+    </div>
+  </div>
+
+  <section class="legend">
+    <h2>Crayons</h2>
+    <div id="pencils" class="pencils"></div>
+  </section>
+
+  <details class="adv">
+    <summary>Micro</summary>
+    <label>
+      Micro
+      <select id="micAlt">
+        <option value="os">OS</option>
+      </select>
+    </label>
+  </details>
+
   <script src="crayon_dsp.js"></script>
   <script src="dual_keyboard.js"></script>
   <script>
@@ -675,11 +1722,11 @@
     el.style.setProperty("--lab", labColor(rgb));
   }
   const THEMES = {
-    day: { scheme: "light", bg: "#f6ead4", bar: "default" },
+    day: { scheme: "light", bg: "#f2f0ea", bar: "default" },
     light: { scheme: "light", bg: "#eef1f5", bar: "default" },
-    dark: { scheme: "dark", bg: "#1c1e24", bar: "black" },
-    night: { scheme: "dark", bg: "#0d1220", bar: "black" },
-    stealth: { scheme: "dark", bg: "#121214", bar: "black" }
+    dark: { scheme: "dark", bg: "#101820", bar: "black" },
+    night: { scheme: "dark", bg: "#08091a", bar: "black" },
+    stealth: { scheme: "dark", bg: "#0a0e14", bar: "black" }
   };
   const THEME_KEY = "crayon-theme";
   const THEME_MODE_KEY = "crayon-theme-mode";
@@ -708,22 +1755,35 @@
   function autoThemeName() {
     return lastThemeLux != null ? themeFromLux(lastThemeLux) : themeFromHour();
   }
-  /**
-   * Dark only.
-   *
-   * The five-scene Day/Light/Dark/Night/Stealth switcher was removed in the
-   * FlexAID∆S refresh so the twelve crayon note-colours stay the only
-   * saturated thing on the near-black bed. crayon-theme / crayon-theme-mode
-   * are no longer read or written — the existing values stay in localStorage
-   * untouched for iOS and the TUI.
-   */
   function preferredTheme() {
-    return "dark";
+    try {
+      const mode = localStorage.getItem(THEME_MODE_KEY);
+      const saved = localStorage.getItem(THEME_KEY);
+      if (mode === "manual" && saved && THEMES[saved]) return saved;
+    } catch (e) { /* ignore */ }
+    return autoThemeName();
   }
   function applyTheme(name, persistMode) {
-    document.documentElement.setAttribute("data-theme", "dark");
-    document.documentElement.setAttribute("data-scheme", "dark");
-    document.documentElement.style.colorScheme = "dark";
+    const id = THEMES[name] ? name : "night";
+    const spec = THEMES[id];
+    document.documentElement.setAttribute("data-theme", id);
+    document.documentElement.setAttribute("data-scheme", spec.scheme);
+    document.documentElement.style.colorScheme = spec.scheme;
+    document.documentElement.style.background = spec.bg;
+    const theme = document.querySelector('meta[name="theme-color"]');
+    if (theme) theme.setAttribute("content", spec.bg);
+    const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (bar) bar.setAttribute("content", spec.bar);
+    try {
+      localStorage.setItem(THEME_KEY, id);
+      localStorage.setItem(THEME_MODE_KEY, themeMode);
+    } catch (e) { /* ignore */ }
+    document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", themeMode === "manual" && btn.getAttribute("data-theme-set") === id ? "true" : "false");
+    });
+    document.querySelectorAll("[data-theme-auto]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", themeMode === "auto" ? "true" : "false");
+    });
     NOTE_NAMES.forEach(function (n) {
       const c = CRAYONS[n];
       document.querySelectorAll('[data-pc="' + n + '"]').forEach(function (el) {
@@ -1249,17 +2309,9 @@
     });
   }
 
-  /* True until the reader picks a layout by hand. The browser reports the
-     active OS input source, which is not the same thing as the legends
-     printed on the board in front of you — plug a CSA keyboard into a machine
-     set to U.S. and every cap lies. Clicking the picker says so, and an
-     explicit choice has to win over the inference. */
-  let liveLettering = true;
-
-  function keyLabel(key, layout) {
+  function keyLabel(key) {
     if (key.kind === "space") return "";
     if (key.kind !== "char") return key.base;
-    if (liveLettering) return DUAL.glyphForCode(key.code || key.kid, layout);
     return key.base;
   }
 
@@ -1287,7 +2339,7 @@
       el.style.height = (key.h / 5 * 100) + "%";
       el.style.zIndex = key.h > 1 ? "0" : "1";
       const main = document.createElement("span");
-      main.textContent = keyLabel(key, layout) || (key.kind === "space" ? "" : key.base);
+      main.textContent = keyLabel(key) || (key.kind === "space" ? "" : key.base);
       el.appendChild(main);
       const midi = DUAL.midiForKid(key.kid);
       if (midi != null) {
@@ -1316,54 +2368,6 @@
     return wrap;
   }
 
-  /* ── Octave ───────────────────────────────────────────────────────────
-     47 keys cannot cover 88 notes, so the board has to be able to move. The
-     bound codes are all letters, digits and punctuation, so the arrows are
-     free — nothing that plays a note is shadowed. */
-  const OCTAVE_KEYS = { ArrowDown: -1, ArrowUp: 1 };
-
-  function octaveRangeLabel() {
-    let lo = null, hi = null;
-    DUAL.allCodes().forEach(function (c) {
-      const m = DUAL.midiForKid(c);
-      if (m == null) return;
-      if (lo == null || m < lo) lo = m;
-      if (hi == null || m > hi) hi = m;
-    });
-    return lo == null ? "" : DUAL.noteLabelFr(lo) + "–" + DUAL.noteLabelFr(hi);
-  }
-
-  function renderOctave() {
-    const el = document.getElementById("kbOctNow");
-    const o = DUAL.getOctave();
-    if (el) el.textContent = "octave " + (o > 0 ? "+" : "") + o + " · " + octaveRangeLabel();
-    const box = document.getElementById("kbOctave");
-    if (box) {
-      const down = box.querySelector('[data-oct="-1"]');
-      const up = box.querySelector('[data-oct="1"]');
-      if (down) down.disabled = o <= DUAL.OCTAVE_MIN;
-      if (up) up.disabled = o >= DUAL.OCTAVE_MAX;
-    }
-    if ($dualBoards) $dualBoards.dataset.octave = String(o);
-  }
-
-  function shiftOctave(d) {
-    const before = DUAL.getOctave();
-    if (DUAL.nudgeOctave(d) === before) return;
-    releaseTypedHolds();
-    rebuildBoard();
-    syncPianoBinds();
-    syncLayoutPicker();
-    renderOctave();
-  }
-
-  function hasStoredLayout() {
-    try {
-      const saved = localStorage.getItem("crayon-kb-layout");
-      return saved === "csa" || saved === "us";
-    } catch (e) { return false; }
-  }
-
   function readStoredLayout() {
     try {
       const saved = localStorage.getItem("crayon-kb-layout");
@@ -1376,15 +2380,10 @@
     return DUAL.LAYOUTS[activeBoard] || DUAL.US;
   }
 
-  /* Names the lettering, not the input: both boards are always live. Reads
-     the notes off the current octave so the hint cannot go stale. */
   function layoutHint(id) {
-    const z = DUAL.midiForKid("KeyZ");
-    const d = DUAL.midiForKid("KeyD");
-    const q = DUAL.midiForKid("KeyQ");
-    const note = function (m) { return m == null ? "—" : DUAL.noteLabelFr(m); };
-    return (id === "csa" ? "Lettrage canadien français" : "Lettrage US") +
-      " · les deux claviers jouent · Z=" + note(z) + " · D=" + note(d) + " · Q=" + note(q);
+    return id === "csa"
+      ? "Canadien français · Z=Do3 · D=Do4 · Q=La4"
+      : "US · Z=Do3 · D=Do4 · Q=La4";
   }
 
   function syncLayoutPicker() {
@@ -1405,21 +2404,7 @@
     $dualBoards.appendChild(buildOneBoard(selectedLayout()));
   }
 
-  /* Repaint the glyph text on the caps that already exist. Never rebuilds:
-     a rebuild inside a keydown throws away the elements the held state points
-     at, which leaves the note stuck on. */
-  function relabelBoard() {
-    const layout = selectedLayout();
-    keyEls.forEach(function (el) {
-      const key = DUAL.keyById(layout, el.dataset.kid) || DUAL.keyByCodeAny(el.dataset.kid);
-      if (!key) return;
-      const main = el.firstChild;
-      if (main) main.textContent = keyLabel(key, layout) || (key.kind === "space" ? "" : key.base);
-    });
-  }
-
-  function setLayout(id, manual) {
-    if (manual) liveLettering = false;
+  function setLayout(id) {
     const next = id === "csa" ? "csa" : "us";
     if (next !== activeBoard) {
       releaseTypedHolds();
@@ -1429,6 +2414,55 @@
       syncPianoBinds();
     }
     syncLayoutPicker();
+    renderOctave();
+    renderKbMeta();
+  }
+
+  /* ── Octave transpose ───────────────────────────────────────────────────
+     Ported back from docs/piano/index.html, where PR #52 landed it. That
+     file is build output -- scripts/stage_pages_piano.py overwrites it from
+     this file on every deploy -- so the control has never actually reached
+     the live page. web/dual_keyboard.js already carried the state
+     (OCTAVE_MIN/MAX, getOctave, nudgeOctave); only the page wiring was
+     missing. .github/workflows/piano-guard.yml now makes that class of loss
+     impossible to repeat.
+     The arrows are safe to bind: every note-bearing code is a letter, digit
+     or punctuation key, so nothing that plays a note is shadowed. */
+  const OCTAVE_KEYS = { ArrowDown: -1, ArrowUp: 1 };
+
+  function octaveRangeLabel() {
+    let lo = null, hi = null;
+    DUAL.allCodes().forEach(function (c) {
+      const m = DUAL.midiForKid(c);
+      if (m == null) return;
+      if (lo == null || m < lo) lo = m;
+      if (hi == null || m > hi) hi = m;
+    });
+    return lo == null ? "" : DUAL.noteLabelFr(lo) + "–" + DUAL.noteLabelFr(hi);
+  }
+
+  function renderOctave() {
+    const o = DUAL.getOctave();
+    const el = document.getElementById("kbOctNow");
+    if (el) el.textContent = "octave " + (o > 0 ? "+" : "") + o + " · " + octaveRangeLabel();
+    const box = document.getElementById("kbOctave");
+    if (box) {
+      const down = box.querySelector('[data-oct="-1"]');
+      const up = box.querySelector('[data-oct="1"]');
+      if (down) down.disabled = o <= DUAL.OCTAVE_MIN;
+      if (up) up.disabled = o >= DUAL.OCTAVE_MAX;
+    }
+    if ($dualBoards) $dualBoards.dataset.octave = String(o);
+  }
+
+  function shiftOctave(d) {
+    const before = DUAL.getOctave();
+    if (DUAL.nudgeOctave(d) === before) return;
+    releaseTypedHolds();
+    rebuildBoard();
+    syncPianoBinds();
+    syncLayoutPicker();
+    renderOctave();
     renderKbMeta();
   }
 
@@ -1447,26 +2481,18 @@
       $kbLayout.addEventListener("click", function (ev) {
         const btn = ev.target.closest("[data-layout]");
         if (!btn) return;
-        setLayout(btn.dataset.layout, true);
+        setLayout(btn.dataset.layout);
       });
     }
     const $kbOctave = document.getElementById("kbOctave");
     if ($kbOctave) {
       $kbOctave.addEventListener("click", function (ev) {
         const btn = ev.target.closest("[data-oct]");
-        if (btn) shiftOctave(Number(btn.dataset.oct));
+        if (!btn || btn.disabled) return;
+        shiftOctave(Number(btn.dataset.oct) || 0);
       });
     }
     renderOctave();
-    /* Ask Chromium what this keyboard actually prints and adopt it. On Safari
-       and Firefox this resolves unsupported and the per-keydown glyph
-       correction in onHwKeyDown carries the labelling instead. Either way
-       nothing here changes which key plays which note. */
-    DUAL.loadLayoutMap().then(function () {
-      const want = DUAL.detectLayoutId();
-      if (want && want !== activeBoard && !hasStoredLayout()) setLayout(want);
-      else { relabelBoard(); syncPianoBinds(); }
-    });
     if ($typeClear) {
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
@@ -1685,8 +2711,9 @@
       const bind = el.querySelector(".bind");
       if (!bind) return;
       const kid = DUAL.kidForMidi(midi);
-      // IntlBackslash exists on ISO boards only, so only hint it when the CSA
-      // board is on screen or the browser has said the key is really there.
+      /* IntlBackslash is physically present on ISO boards only, so hint it
+         when either the picker or the detected hardware is CSA -- but the
+         key still SOUNDS under any picker (see onHwKeyDown). */
       const isoHidden = kid === "IntlBackslash" &&
         layout.id !== "csa" && DUAL.detectLayoutId() !== "csa";
       if (!kid || isoHidden) {
@@ -1695,7 +2722,7 @@
         return;
       }
       const key = DUAL.keyById(layout, kid) || DUAL.keyByCodeAny(kid);
-      bind.textContent = key && key.kind === "char" ? keyLabel(key, layout) : "";
+      bind.textContent = key && key.kind === "char" ? key.base : "";
       el.classList.toggle("bound", !!bind.textContent);
     });
   }
@@ -1728,38 +2755,24 @@
     renderKbMeta();
   }
 
-  /* Which board a physical `code` belongs to for bookkeeping. Input itself
-     never consults the painted board — see resolveHw. */
-  function boardForCode(layout, code) {
-    if (DUAL.keyByCode(layout, code)) return layout.id;
-    return DUAL.keyByCode(DUAL.CSA, code) ? "csa" : "us";
-  }
-
-  /* Resolve on the physical key position against the union of the layouts, so
-     a Canadian-French board and a US board are both live at the same time.
-     The picker chooses lettering; it must not choose which keys work. */
-  function resolveHw(layout, code) {
-    return DUAL.keyByCode(layout, code) || DUAL.keyByCodeAny(code);
-  }
-
   function onHwKeyDown(ev) {
     if (ev.repeat) return;
     if (ev.metaKey) return;
     const isCtrlKey = ev.code === "ControlLeft" || ev.code === "ControlRight";
     if (ev.ctrlKey && !ev.altKey && !isCtrlKey) return;
-    if (OCTAVE_KEYS[ev.code] != null) {
+    if (Object.prototype.hasOwnProperty.call(OCTAVE_KEYS, ev.code)) {
       ev.preventDefault();
       shiftOctave(OCTAVE_KEYS[ev.code]);
       return;
     }
     const layout = DUAL.LAYOUTS[activeBoard] || DUAL.US;
-    // Learn the real glyph for this key from the browser. Labelling only, and
-    // in place — see relabelBoard.
-    if (liveLettering && DUAL.observeGlyph(ev)) { relabelBoard(); syncPianoBinds(); }
-    const key = resolveHw(layout, ev.code);
+    /* Map on the physical code, not the selected lettering: an ISO board's
+       IntlBackslash must sound under the US picker too. keyByCodeAny is the
+       layout-independent lookup the shared module already exports. */
+    const key = DUAL.keyByCode(layout, ev.code) || DUAL.keyByCodeAny(ev.code);
     if (!key) return;
     ev.preventDefault();
-    const held = { board: boardForCode(layout, ev.code), kid: key.kid };
+    const held = { board: layout.id, kid: key.kid };
     const already = keyStillHeld(held);
     if (!fingerGate.down("hw-" + ev.code, held)) return;
     if (!already) applyTyped(layout.id, key.kid);
@@ -1771,8 +2784,10 @@
 
   function onHwKeyUp(ev) {
     const layout = DUAL.LAYOUTS[activeBoard] || DUAL.US;
-    const key = resolveHw(layout, ev.code);
-    const held = key ? { board: boardForCode(layout, ev.code), kid: key.kid } : null;
+    /* Must mirror onHwKeyDown's lookup exactly, or a key that sounded via
+       the layout-independent fallback would never be released. */
+    const key = DUAL.keyByCode(layout, ev.code) || DUAL.keyByCodeAny(ev.code);
+    const held = key ? { board: layout.id, kid: key.kid } : null;
     if (key) releaseTyped(layout.id, key.kid);
     fingerGate.up("hw-" + ev.code);
     if (held && !keyStillHeld(held)) {
@@ -1828,19 +2843,14 @@
   function buildLegend() {
     NOTE_NAMES.forEach(function (name) {
       const c = CRAYONS[name];
-      // The macOS crayon-box legend grid is on the `out:` list in
-      // piano/ui_contract.json, so #pencils no longer exists. The chroma bars
-      // below are the colour key now.
-      if ($pencils) {
-        const el = document.createElement("div");
-        el.className = "pencil";
-        el.dataset.pc = name;
-        el.dataset.rgb = c.rgb.join(",");
-        el.title = c.fr + " · " + c.pencil;
-        paintEl(el, c);
-        el.innerHTML = '<div class="fr">' + c.fr + "</div>";
-        $pencils.appendChild(el);
-      }
+      const el = document.createElement("div");
+      el.className = "pencil";
+      el.dataset.pc = name;
+      el.dataset.rgb = c.rgb.join(",");
+      el.title = c.fr + " · " + c.pencil;
+      paintEl(el, c);
+      el.innerHTML = '<div class="fr">' + c.fr + "</div>";
+      $pencils.appendChild(el);
 
       const bar = document.createElement("div");
       bar.className = "bar";
@@ -1965,9 +2975,6 @@
   }
 
   function fillMicList(inputs) {
-    // "Autre micro / Other mic details" is on the `out:` list in
-    // piano/ui_contract.json — the picker is gone, the OS default is used.
-    if (!$micAlt) return;
     const keep = micOverrideId || "os";
     $micAlt.innerHTML = "";
     const osOpt = document.createElement("option");
@@ -2007,7 +3014,7 @@
         });
       } catch (_) {
         micOverrideId = null;
-        if ($micAlt) $micAlt.value = "os";
+        $micAlt.value = "os";
       }
     }
     try {
@@ -2449,11 +3456,6 @@
     } catch (e) { /* already stopped */ }
   }
 
-  /** prefers-reduced-motion: no rAF loop at all — one frame, redrawn on resize. */
-  function reducedMotion() {
-    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  }
-
   function loopWantsFrames() {
     return mode === "live" || mode === "replay" || heldVoices.size > 0 || fingerGate.held().length > 0 || scrubbing;
   }
@@ -2469,12 +3471,6 @@
 
   function startLoop() {
     if (loopOn) return;
-    // Reduced motion: draw the frame, do not open a loop.
-    if (reducedMotion()) {
-      lastLoopNow = 0;
-      loop(performance.now());
-      return;
-    }
     loopOn = true;
     lastLoopNow = 0;
     raf = requestAnimationFrame(loop);
@@ -2916,9 +3912,44 @@
     syncTuneUi();
   });
 
-  // Dark only: no scene buttons, no ambient-light sensor, no hourly repaint.
-  // The storage keys are intentionally left alone rather than cleared.
-  themeMode = "dark";
+  try { themeMode = localStorage.getItem(THEME_MODE_KEY) || "auto"; } catch (e) { themeMode = "auto"; }
+  document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      themeMode = "manual";
+      applyTheme(btn.getAttribute("data-theme-set"));
+    });
+  });
+  document.querySelectorAll("[data-theme-auto]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      themeMode = "auto";
+      lastAutoThemeAt = 0;
+      applyTheme(autoThemeName());
+    });
+  });
+  try {
+    if (typeof AmbientLightSensor === "function") {
+      const als = new AmbientLightSensor({ frequency: 0.4 });
+      als.addEventListener("reading", function () {
+        lastThemeLux = als.illuminance;
+        if (themeMode !== "auto") return;
+        const next = themeFromLux(lastThemeLux);
+        const now = Date.now();
+        if (next === lastAutoTheme && now - lastAutoThemeAt < 8000) return;
+        if (lastAutoThemeAt && now - lastAutoThemeAt < 12000) return;
+        lastAutoThemeAt = now;
+        lastAutoTheme = next;
+        applyTheme(next);
+      });
+      als.start();
+    }
+  } catch (e) { /* no ALS */ }
+  setInterval(function () {
+    if (themeMode !== "auto" || lastThemeLux != null) return;
+    const next = themeFromHour();
+    if (next === lastAutoTheme) return;
+    lastAutoTheme = next;
+    applyTheme(next);
+  }, 60000);
 
   function onArrangePointer(ev, restart) {
     if (ev.pointerType === "mouse" && ev.buttons !== 1 && ev.type !== "pointerdown") return;
@@ -2962,7 +3993,7 @@
     restartBuffer(true);
   });
 
-  if ($micAlt) $micAlt.addEventListener("change", function () {
+  $micAlt.addEventListener("change", function () {
     micOverrideId = $micAlt.value === "os" ? null : $micAlt.value;
     if (mode === "live") {
       acquireStream().catch(function (e) {
@@ -2971,28 +4002,15 @@
     }
   });
 
-  // Structural breakpoints ride a ResizeObserver on the page root, not media
-  // queries, so the grid can change shape and not only style.
-  const $page = document.getElementById("page");
-  function measurePage() {
-    if (!$page) return;
-    const w = $page.clientWidth;
-    $page.setAttribute("data-narrow", w < 720 ? "1" : "0");
-    $page.setAttribute("data-mid", w < 1080 ? "1" : "0");
-  }
-
   function onResize() {
-    measurePage();
     layoutBlackKeys();
     drawWave();
     drawSpecPlot(lastSpecClusters);
   }
-  measurePage();
   if (typeof ResizeObserver === "function") {
     const ro = new ResizeObserver(onResize);
     ro.observe($arrangeLane);
     ro.observe($board);
-    if ($page) ro.observe($page);
   }
   window.addEventListener("resize", onResize);
   if (window.visualViewport) {
@@ -3056,7 +4074,7 @@
       pushTrackHist(now);
       drawWave(true, { playhead: false });
       paintClock(dt);
-      if (loopWantsFrames() && !reducedMotion()) raf = requestAnimationFrame(loop);
+      if (loopWantsFrames()) raf = requestAnimationFrame(loop);
       else {
         loopOn = false;
         window.__CRAYON_LOOP_ON = false;
@@ -3237,7 +4255,7 @@
 
     paintClock(dt);
 
-    if (loopWantsFrames() && !reducedMotion()) {
+    if (loopWantsFrames()) {
       raf = requestAnimationFrame(loop);
     } else {
       loopOn = false;

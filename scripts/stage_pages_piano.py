@@ -24,18 +24,31 @@ CRUMB = """  <p class="pages-crumb">
   </p>
 """
 
+# Structural breadcrumb: JetBrains Mono per the canonical spec, Mint (ΔH,
+# brand primary) on hover the way docs/flexaid.css paints links, and the
+# 12px floor cleared explicitly (0.78rem = 12.48px). This block ships into
+# the published page, so it is design-system surface like any other and is
+# covered by scripts/check_palette.py.
 CRUMB_CSS = """
     .pages-crumb {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin: 0 0 10px;
+      font-family: var(--font-mono);
       font-size: 0.78rem;
       font-weight: 650;
+      letter-spacing: var(--tracking-label);
       color: var(--muted);
     }
-    .pages-crumb a { color: var(--muted); text-decoration: none; }
-    .pages-crumb a:hover { color: var(--ink); }
+    .pages-crumb a {
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: var(--r-xs);
+      transition: color var(--dt) var(--ease);
+    }
+    .pages-crumb a:hover,
+    .pages-crumb a:focus-visible { color: var(--mint); }
 """
 
 HEAD_INJECT = f"""  <link rel="canonical" href="{CANONICAL}">

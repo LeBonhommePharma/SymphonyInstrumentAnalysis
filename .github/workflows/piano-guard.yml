@@ -1,0 +1,75 @@
+name: Piano guards
+
+# Deliberately a SEPARATE workflow from pages.yml.
+#
+# pages.yml's build job stages the piano and then uploads docs/ as the Pages
+# artifact. If the drift check lived in that job, a failure would block the
+# upload and take the whole site offline on the next push to main. These jobs
+# are independent, so a red guard blocks the MERGE (via branch protection)
+# without ever wedging the publish path.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: piano-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-drift:
+    # Palette-independent by design. This one exists because #49 and #52 both
+    # edited docs/piano/ directly -- which pages.yml overwrites from
+    # web/keyboard.html on every build, so the edits never reached the live
+    # site. Live served cd8da1fb..., git held ee3faecb..., and nothing caught
+    # it. After this job, that failure mode cannot ship silently.
+    name: docs/piano is in sync with web/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage crayon piano
+        run: python3 scripts/stage_pages_piano.py
+
+      - name: Fail if docs/piano/ drifted from web/
+        run: |
+          if ! git diff --quiet -- docs/piano/; then
+            echo "::error title=docs/piano is stale::scripts/stage_pages_piano.py regenerated docs/piano/ and the result differs from what is committed."
+            echo
+            echo "docs/piano/ is BUILD OUTPUT. pages.yml overwrites it from web/keyboard.html,"
+            echo "web/dual_keyboard.js and web/crayon_dsp.js on every deploy, so editing it"
+            echo "directly is a no-op that survives only until the next push."
+            echo
+            echo "Fix: make the change in web/, then run"
+            echo "    python3 scripts/stage_pages_piano.py"
+            echo "and commit the regenerated docs/piano/ alongside it."
+            echo
+            echo "----- drift -----"
+            git --no-pager diff --stat -- docs/piano/
+            git --no-pager diff -- docs/piano/ | head -200
+            exit 1
+          fi
+          echo "docs/piano/ matches web/ — staging is idempotent."
+
+  palette-contract:
+    # The v2 palette contract, including the mechanised pitch-crayon
+    # allow-list. Independent of the drift job so a palette failure and a
+    # staging failure are never confused for one another.
+    name: FlexAID∆S v2 palette contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prove the guard catches what it claims to catch
+        run: python3 scripts/check_palette.py --self-test
+
+      - name: Stage crayon piano
+        run: python3 scripts/stage_pages_piano.py
+
+      - name: Enforce the palette contract
+        run: python3 scripts/check_palette.py
