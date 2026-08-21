@@ -1,0 +1,65 @@
+{
+  "$comment": [
+    "Machine-checked palette contract for the crayon piano.",
+    "Enforced by scripts/check_palette.py; run in CI by .github/workflows/piano-guard.yml.",
+    "This file exists so the pitch-crayon exclusion is a rule that holds, not a comment",
+    "someone forgets. LP's ruling: 'keep the safety colour-coding and ignore the Design",
+    "System for safety purposes.' That exemption is scoped HERE and nowhere else."
+  ],
+  "spec": "FlexAID∆S palette · v2 · canonical",
+  "canonical_chrome": {
+    "mint":       { "hex": "#45E0A8", "carries": "ΔH · enthalpy · brand primary" },
+    "violet":     { "hex": "#8B5CF6", "carries": "ΔS · configurational entropy" },
+    "tangerine":  { "hex": "#FF9300", "carries": "ΔG · free energy · stats" },
+    "cherry":     { "hex": "#F5232B", "carries": "T · temperature", "min_font_px": 12 },
+    "aqua":       { "hex": "#00A2FF", "carries": "ΔS_vib · vibrational · tENCoM" },
+    "strawberry": { "hex": "#FF2F92", "carries": "receptor · pocket · eyebrows" },
+    "magnesium":  { "hex": "#FFFFFF", "carries": "baseline · apo · reference" }
+  },
+  "functional_exceptions": [
+    {
+      "name": "hit-ring",
+      "hex": "#b6ff55",
+      "why": "A scored hit. Already the one documented non-triad colour in docs/flexaid.css, so the three sibling Symphony routes and this page agree. Ring geometry only, never text."
+    }
+  ],
+  "pitch_crayons": {
+    "$comment": [
+      "The instrument's safety encoding: macOS Crayons.clr, one hue per pitch class.",
+      "NOT chrome. The 'no yellow' chrome rule does not reach these, because D# Lemon",
+      "is hue 60.0 deg - pure yellow - AND the highest-contrast colour in the set",
+      "(13.31:1 on --key-white). A blanket sweep would destroy the encoding.",
+      "Pinned by hex so the encoding cannot drift silently either."
+    ],
+    "C":  { "pencil": "Maraschino", "rgb": [251, 2, 7],     "hue_deg": 358.8 },
+    "C#": { "pencil": "Cayenne",    "rgb": [198, 64, 42],   "hue_deg": 8.5 },
+    "D":  { "pencil": "Tangerine",  "rgb": [253, 128, 8],   "hue_deg": 29.4 },
+    "D#": { "pencil": "Lemon",      "rgb": [255, 255, 10],  "hue_deg": 60.0, "note": "pure yellow, deliberately kept" },
+    "E":  { "pencil": "Lime",       "rgb": [128, 255, 8],   "hue_deg": 90.9 },
+    "F":  { "pencil": "Spring",     "rgb": [33, 255, 6],    "hue_deg": 113.5 },
+    "F#": { "pencil": "Fern",       "rgb": [52, 168, 88],   "hue_deg": 138.6 },
+    "G":  { "pencil": "Spindrift",  "rgb": [102, 255, 204], "hue_deg": 160.0 },
+    "G#": { "pencil": "Sky",        "rgb": [102, 204, 255], "hue_deg": 200.0 },
+    "A":  { "pencil": "Blueberry",  "rgb": [0, 0, 255],     "hue_deg": 240.0, "note": "2.25:1 on --bg. Worst in the set. Reported, not changed - LP's open decision." },
+    "A#": { "pencil": "Grape",      "rgb": [128, 0, 255],   "hue_deg": 270.1 },
+    "B":  { "pencil": "Magenta",    "rgb": [251, 2, 255],   "hue_deg": 299.1 }
+  },
+  "rules": {
+    "neutral_max_lab_chroma": 20.0,
+    "$neutral_note": "CIELAB C*. Measured separation on this page: every legitimate surface/ink lands <= 16.5, every chromatic literal >= 29.4. The forbidden triad sits at teal 40.8, salmon 60.8, gold 77.8 - all caught.",
+    "cherry_min_font_px": 12,
+    "crayon_text_min_font_px": 12,
+    "$font_note": "No crayon and no chromatic literal may be painted as TEXT below 12px. This is the mechanised form of LP's 12px rule. It generalises past Cherry because the measured worst case was not Cherry - it was A/Blueberry at 1.70:1.",
+    "forbidden_chrome_hue_bands": {
+      "yellow": [45, 70],
+      "cyan":   [175, 195],
+      "salmon": [340, 22]
+    },
+    "$forbidden_note": "Defence in depth. Chrome must already be a canonical key or a neutral; these bands catch a chromatic literal that somehow passes."
+  },
+  "files_checked": [
+    "web/keyboard.html",
+    "docs/piano/index.html",
+    "scripts/stage_pages_piano.py"
+  ]
+}
