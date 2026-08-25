@@ -125,6 +125,16 @@ Cloud / repeatable install:
 bash .cursor/install.sh
 ```
 
+### Hermes Agent
+
+Work on this repo with [Hermes Agent](https://github.com/NousResearch/hermes-agent), the open-source AI agent by Nous Research:
+
+```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+```
+
+After install, run `hermes setup --portal` once to configure models and gateway tools.
+
 Verify the analysis path (works without a microphone):
 
 ```bash
