@@ -15,7 +15,7 @@
   ],
   "layout": [
     "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
-    "actions: Rejouer | Écouter (labeled chips; Arrêter while on) | clock | La/A readout",
+    "actions: Rejouer | Écouter | En cours (labeled chips; Arrêter while on) | clock | La/A readout",
     "toggles: Accords, Son, La auto",
     "tracks: count badge + one color chip per density cluster (Tous = all on)",
     "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
@@ -76,8 +76,9 @@
     "clock": "m:ss.t / total on replay; Live · m:ss.t while listening"
   },
   "actions": {
-    "listen": "Écouter / Stop — mic FFT, silent analyser (do not tap speakers)",
-    "replay": "Rejouer / Stop — sample or 8s synth demo; muted until Entendre",
+    "listen": "Écouter / Arrêter — mic FFT, silent analyser (do not tap speakers)",
+    "nowPlaying": "En cours / Arrêter — tab audio via getDisplayMedia, silent analyser, never speakers. Chrome tab share; Safari cannot (loopback mic + Écouter). Melody cluster default.",
+    "replay": "Rejouer / Arrêter — sample or 8s synth demo; muted until Entendre",
     "keyboard": "Pick US or Canadian French CSA; the board remaps at once. Character keys are crayon notes (Z=Do3, D=Do4, Q=La4) and light the matching 88-key. 10 independent fingers, extra keys only if well clustered.",
     "chroma": "12 bars are the color key; height follows energy",
     "sensitivity": "gate for lighting keys",

@@ -62,6 +62,16 @@ Letter-row scan codes stay on the same piano notes; only punctuation glyphs chan
 
 Command keys `l r c u a t q 0–5` do **not** play notes (they are transport).
 
+### Headphones / now-playing (HTML piano)
+
+Safari cannot capture tab or system audio. Chrome can share a tab with audio.
+
+1. `python3 -m http.server 4173 --directory web` then open http://localhost:4173/keyboard.html
+2. Play a song in **another Chrome tab**, headphones on, mic muted or unplugged.
+3. Click **En cours**. Share the **music tab** and check **Partager l’audio de l’onglet**.
+4. Crayons follow (need / held / hit). The piano page stays silent — no echo in the headphones.
+5. **Safari fallback:** BlackHole (or Loopback) as the song output and as **Micro**, then **Écouter**.
+
 ---
 
 ## 2. iPhone 15 Pro (iOS)
@@ -78,6 +88,7 @@ or Xcode on this Mac to install the native app.
 5. Open https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/
 6. Tap **Écouter**, then **Rejouer**. Confirm US / Canadien français picker, dual
    typing board, 88-key strip, and held / need / hit on the piano keys.
+   **En cours** is disabled on iOS Safari (no tab audio); that is expected.
 
 `file://` on iPhone **blocks** the mic. Always use the HTTPS URLs above.
 

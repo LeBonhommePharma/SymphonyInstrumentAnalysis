@@ -21,6 +21,21 @@
       "name": "hit-ring",
       "hex": "#b6ff55",
       "why": "A scored hit. Already the one documented non-triad colour in docs/flexaid.css, so the three sibling Symphony routes and this page agree. Ring geometry only, never text."
+    },
+    {
+      "name": "chrome-play",
+      "hex": "#22C55E",
+      "why": "LP ui-styling play/active accent. Dark-scene --live / --replay-on only; light scenes mix it with #0F0F23 so text stays ≥4.5:1."
+    },
+    {
+      "name": "chrome-border",
+      "hex": "#312E81",
+      "why": "LP ui-styling hairline. Indigo chrome, not a pitch crayon."
+    },
+    {
+      "name": "chrome-focus",
+      "hex": "#4338CA",
+      "why": "LP ui-styling :focus-visible ring. Outline geometry, never body text."
     }
   ],
   "pitch_crayons": {

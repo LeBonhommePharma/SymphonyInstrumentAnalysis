@@ -199,6 +199,7 @@ def check_public_site() -> None:
         docs / "piano" / "index.html",
         docs / "piano" / "dual_keyboard.js",
         docs / "piano" / "crayon_dsp.js",
+        docs / "piano" / "now_playing.js",
         docs / ".nojekyll",
         SCRIPTS.parent / "piano" / "cluster_fixtures.json",
         SCRIPTS.parent / "web" / "crayon_dsp.js",
@@ -262,6 +263,14 @@ def check_public_site() -> None:
         raise SystemExit("public piano must ship a US / Canadian French layout picker")
     if ">Rejouer<" not in piano or ">Accords<" not in piano or ">La auto<" not in piano:
         raise SystemExit("public piano must label transport and option chips")
+    if ">En cours<" not in piano:
+        raise SystemExit("public piano must label En cours")
+    if "now_playing.js" not in piano:
+        raise SystemExit("public piano must load now_playing.js")
+    if 'id="typeOut"' in piano:
+        raise SystemExit("public piano must not dump raw typed characters")
+    if 'class="follow-row' not in piano:
+        raise SystemExit("public piano must show follow-along crayon chips")
     if "live-ring" in piano:
         raise SystemExit("public piano must not pulse candy-circle listen/replay buttons")
     if "function setLayout" not in piano or "crayon-kb-layout" not in piano:
@@ -335,12 +344,33 @@ def check_crayon_piano() -> None:
         raise SystemExit("HTML piano must show the note on the typing key and the glyph on the 88-key")
     if "class=\"act\"" not in html or ">Rejouer<" not in html or ">Écouter<" not in html:
         raise SystemExit("HTML piano must label Rejouer and Écouter")
+    if ">En cours<" not in html:
+        raise SystemExit("HTML piano must label En cours for now-playing capture")
     if ">Accords<" not in html or ">La auto<" not in html:
         raise SystemExit("HTML piano must label Accords / Son / La auto instead of mystery glyphs")
     if "live-ring" in html or "width: 56px" in html:
         raise SystemExit("HTML piano must not use pulsing candy-circle transport buttons")
-    if "getDisplayMedia" not in html:
-        raise SystemExit("HTML piano must capture tab/system audio for listen")
+    now_js = (SCRIPTS.parent / "web" / "now_playing.js").read_text(encoding="utf-8")
+    if "getDisplayMedia" not in now_js:
+        raise SystemExit("now_playing.js must call getDisplayMedia for tab audio")
+    if "tapSilentStream" not in now_js or "destination" not in now_js:
+        raise SystemExit("now-playing tap must be explicit about the silent analyser path")
+    if "Safari ne capte pas" not in now_js:
+        raise SystemExit("now-playing UI must say honestly that Safari cannot capture tab audio")
+    if "suppressLocalAudioPlayback" not in now_js:
+        raise SystemExit("now-playing capture must not echo into headphones")
+    if "now_playing.js" not in html or "__CRAYON_NOW_PLAYING_SELF_TEST" not in html:
+        raise SystemExit("HTML piano must load now_playing.js and expose the analyser self-test")
+    if 'id="typeOut"' in html:
+        raise SystemExit("HTML piano must not dump raw typed characters; use follow-along chips")
+    if 'class="follow-row' not in html:
+        raise SystemExit("HTML piano must show follow-along crayon chips, not a character dump")
+    if 'aria-label="En cours"' not in html:
+        raise SystemExit("HTML piano must expose En cours with aria-label")
+    if "prefers-reduced-motion" not in html:
+        raise SystemExit("HTML piano must honor prefers-reduced-motion")
+    if "auto-melody" not in html:
+        raise SystemExit("HTML piano must default follow-along to the melody cluster")
     if "loopWantsFrames" not in html or "requestAnimationFrame(loop)" not in html:
         raise SystemExit("HTML piano must keep a vsync rAF loop while keys, listen, or replay are active")
     if "FFT_SIZE = 8192" not in html:
@@ -495,6 +525,8 @@ def check_crayon_piano() -> None:
         raise SystemExit("crayon_dsp.js DBSCAN must exclude-self, minPts=3, and 70¢ f0 gap")
     if "function heuristicLabel" not in dsp:
         raise SystemExit("crayon_dsp.js must export heuristicLabel")
+    if "function pickLitMidis" not in dsp or "function settleLitMidis" not in dsp:
+        raise SystemExit("crayon_dsp.js must export pickLitMidis for the now-playing analyser path")
     proc = subprocess.run(
         [sys.executable, str(SCRIPTS / "dual_keyboard.py")],
         capture_output=True,
@@ -514,9 +546,17 @@ def check_crayon_piano() -> None:
             capture_output=True,
             text=True,
         )
+        nowp = subprocess.run(
+            ["node", str(SCRIPTS.parent / "web" / "now_playing.js")],
+            capture_output=True,
+            text=True,
+        )
         if dsp.returncode != 0:
             raise SystemExit(f"crayon_dsp.js failed:\n{dsp.stdout}\n{dsp.stderr}")
         print((dsp.stdout or "").strip() or "crayon_dsp.js: OK")
+        if nowp.returncode != 0:
+            raise SystemExit(f"now_playing.js failed:\n{nowp.stdout}\n{nowp.stderr}")
+        print((nowp.stdout or "").strip() or "now_playing.js: OK")
     except FileNotFoundError:
         node = None
     if node is not None:

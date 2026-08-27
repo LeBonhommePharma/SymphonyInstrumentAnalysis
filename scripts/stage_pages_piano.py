@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC_HTML = ROOT / "web" / "keyboard.html"
 SRC_JS = ROOT / "web" / "dual_keyboard.js"
 SRC_DSP = ROOT / "web" / "crayon_dsp.js"
+SRC_NOW = ROOT / "web" / "now_playing.js"
 OUT = ROOT / "docs" / "piano"
 CANONICAL = "https://thebonhomme.com/SymphonyInstrumentAnalysis/piano/"
 
@@ -57,8 +58,8 @@ HEAD_INJECT = f"""  <link rel="canonical" href="{CANONICAL}">
 
 
 def stage() -> None:
-    if not SRC_HTML.is_file() or not SRC_JS.is_file() or not SRC_DSP.is_file():
-        raise SystemExit("web/keyboard.html, dual_keyboard.js, and crayon_dsp.js are required")
+    if not SRC_HTML.is_file() or not SRC_JS.is_file() or not SRC_DSP.is_file() or not SRC_NOW.is_file():
+        raise SystemExit("web/keyboard.html, dual_keyboard.js, crayon_dsp.js, and now_playing.js are required")
     html = SRC_HTML.read_text(encoding="utf-8")
     if "</style>" not in html or "<body>" not in html:
         raise SystemExit("keyboard.html is missing expected markers")
@@ -70,7 +71,8 @@ def stage() -> None:
     (OUT / "index.html").write_text(html, encoding="utf-8")
     (OUT / "dual_keyboard.js").write_text(SRC_JS.read_text(encoding="utf-8"), encoding="utf-8")
     (OUT / "crayon_dsp.js").write_text(SRC_DSP.read_text(encoding="utf-8"), encoding="utf-8")
-    print(f"staged {OUT / 'index.html'}, dual_keyboard.js, crayon_dsp.js")
+    (OUT / "now_playing.js").write_text(SRC_NOW.read_text(encoding="utf-8"), encoding="utf-8")
+    print(f"staged {OUT / 'index.html'}, dual_keyboard.js, crayon_dsp.js, now_playing.js")
 
 
 def main() -> None:

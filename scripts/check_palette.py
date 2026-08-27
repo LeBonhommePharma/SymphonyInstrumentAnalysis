@@ -304,6 +304,12 @@ SELF_TEST_CASES = [
      ':root { --bg: #0a0e14; --ink: #d4dced; }', False),
     ("the allow-listed hit ring",
      '.hit { box-shadow: inset 0 0 0 2px #b6ff55; }', False),
+    ("LP chrome play accent",
+     ':root { --live: #22C55E; }', False),
+    ("LP chrome focus ring",
+     ':focus-visible { outline: 2px solid #4338CA; }', False),
+    ("LP chrome border",
+     ':root { --hairline: #312E81; }', False),
     ("a comment describing a violation must not be read as one",
      '/* was color: #fb0207 at 0.48rem */ .a { color: var(--ink); }', False),
 ]
