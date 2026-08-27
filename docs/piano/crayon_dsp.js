@@ -265,6 +265,115 @@
     return densityClusterFunds(funds);
   }
 
+  function hzToMidiA4(freq, a4) {
+    return 69 + 12 * Math.log2(Math.max(1e-6, freq) / (a4 || 440));
+  }
+
+  /**
+   * Need-notes from a float-dB spectrum. Same gate as the HTML/iOS loop:
+   * smooth 0.62/0.38, sensitivity 0.58, absGate = −48 − s·36, rel 10 + s·18.
+   * `opts.smooth` is mutated so a caller can settle across frames.
+   */
+  function pickLitMidis(specArr, binHz, opts) {
+    opts = opts || {};
+    const midiLo = opts.midiLo != null ? opts.midiLo : 21;
+    const midiHi = opts.midiHi != null ? opts.midiHi : 108;
+    const a4 = opts.a4 || 440;
+    const nKeys = midiHi - midiLo + 1;
+    const smooth = opts.smooth || new Float32Array(nKeys);
+    if (smooth.length !== nKeys) throw new Error("pickLitMidis: smooth length");
+    if (!opts.smooth) {
+      for (let z = 0; z < nKeys; z++) smooth[z] = -120;
+    }
+    const maxN = opts.maxN != null ? opts.maxN : 8;
+    const sens = opts.sens != null ? opts.sens : 0.58;
+    const inBand = opts.inBand || function () { return true; };
+    const fold = !!opts.fold;
+    const score = new Float32Array(nKeys);
+    const scoreHz = new Float32Array(nKeys);
+    score.fill(-120);
+    const i0 = Math.max(2, Math.floor(MIXED_LO_HZ / binHz));
+    const i1 = Math.min(specArr.length - 2, Math.ceil(MIXED_HI_HZ / binHz));
+    const peaks = [];
+    function midiFromHz(freq) {
+      let m = hzToMidiA4(freq, a4);
+      if (!isFinite(m)) return -1;
+      if (fold) {
+        while (m < midiLo) m += 12;
+        while (m > midiHi) m -= 12;
+      }
+      return Math.round(m);
+    }
+    for (let i = i0; i <= i1; i++) {
+      const freq = i * binHz;
+      if (!inBand(freq)) continue;
+      const db = specArr[i];
+      if (db > specArr[i - 1] && db >= specArr[i + 1] && db > specArr[i - 2] && db >= specArr[i + 2]) {
+        const denom = specArr[i - 1] - 2 * db + specArr[i + 1];
+        const delta = denom ? 0.5 * (specArr[i - 1] - specArr[i + 1]) / denom : 0;
+        const pf = (i + delta) * binHz;
+        if (inBand(pf)) peaks.push({ freq: pf, db: db });
+      }
+      const midi = midiFromHz(freq);
+      if (midi >= midiLo && midi <= midiHi) {
+        const idx = midi - midiLo;
+        if (db > score[idx]) {
+          score[idx] = db;
+          scoreHz[idx] = freq;
+        }
+      }
+    }
+    peaks.sort(function (a, b) { return b.db - a.db; });
+    for (let p = 0; p < peaks.length; p++) {
+      const midi = midiFromHz(peaks[p].freq);
+      if (midi < midiLo || midi > midiHi) continue;
+      const idx = midi - midiLo;
+      if (peaks[p].db + 2 > score[idx]) {
+        score[idx] = peaks[p].db + 2;
+        scoreHz[idx] = peaks[p].freq;
+      }
+    }
+    let loudest = -120;
+    for (let i = 0; i < nKeys; i++) {
+      smooth[i] = 0.62 * smooth[i] + 0.38 * score[i];
+      if (smooth[i] > loudest) loudest = smooth[i];
+    }
+    const absGate = -48 - sens * 36;
+    const relDb = 10 + sens * 18;
+    const gate = Math.max(absGate, loudest - relDb);
+    const candidates = [];
+    for (let i = 0; i < nKeys; i++) {
+      const s = smooth[i];
+      if (s < gate) continue;
+      const left = i > 0 ? smooth[i - 1] : -999;
+      const right = i < nKeys - 1 ? smooth[i + 1] : -999;
+      if (s >= left && s >= right) {
+        candidates.push({
+          midi: i + midiLo,
+          s: s,
+          freq: scoreHz[i] || 440 * Math.pow(2, (i + midiLo - 69) / 12)
+        });
+      }
+    }
+    candidates.sort(function (a, b) { return b.s - a.s; });
+    const lit = candidates.slice(0, maxN);
+    return { lit: lit, gate: gate, absGate: absGate, loudest: loudest, smooth: smooth };
+  }
+
+  function settleLitMidis(specArr, binHz, opts) {
+    opts = opts || {};
+    const midiLo = opts.midiLo != null ? opts.midiLo : 21;
+    const midiHi = opts.midiHi != null ? opts.midiHi : 108;
+    if (!opts.smooth) {
+      opts.smooth = new Float32Array(midiHi - midiLo + 1);
+      opts.smooth.fill(-120);
+    }
+    const frames = opts.frames != null ? opts.frames : 12;
+    let out = null;
+    for (let i = 0; i < frames; i++) out = pickLitMidis(specArr, binHz, opts);
+    return out;
+  }
+
   function selfTest(fixtures) {
     const cases = (fixtures && fixtures.cases) || [];
     if (!cases.length) throw new Error("crayon_dsp: missing fixtures");
@@ -279,7 +388,23 @@
         }
       });
     });
-    return "crayon_dsp.js: " + cases.length + " fixtures OK";
+    const sr = 48000;
+    const fftSize = 8192;
+    const binHz = sr / fftSize;
+    const spec = new Float32Array(fftSize / 2 + 1);
+    spec.fill(-120);
+    const k = Math.round(440 / binHz);
+    spec[k - 2] = -28;
+    spec[k - 1] = -14;
+    spec[k] = -4;
+    spec[k + 1] = -14;
+    spec[k + 2] = -28;
+    const lit = settleLitMidis(spec, binHz);
+    const midis = lit.lit.map(function (c) { return c.midi; });
+    if (midis.indexOf(69) < 0) {
+      throw new Error("pickLitMidis should light A4 (69), got " + midis.join(","));
+    }
+    return "crayon_dsp.js: " + cases.length + " fixtures OK, pickLitMidis A4";
   }
 
   global.CRAYON_DSP = {
@@ -290,6 +415,8 @@
     groupHarmonicFunds: groupHarmonicFunds,
     densityClusterFunds: densityClusterFunds,
     clusterPeaks: clusterPeaks,
+    pickLitMidis: pickLitMidis,
+    settleLitMidis: settleLitMidis,
     heuristicLabel: heuristicLabel,
     selfTest: selfTest
   };

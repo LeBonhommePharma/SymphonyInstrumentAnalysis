@@ -2,7 +2,7 @@
 <html lang="fr" data-theme="stealth" data-scheme="dark">
 <head>
   <meta charset="utf-8">
-  <style>html,body{background:#0a0e14;color-scheme:dark}
+  <style>html,body{background:#0F0F23;color-scheme:dark}
     .pages-crumb {
       display: flex;
       flex-wrap: wrap;
@@ -37,7 +37,7 @@
         else t = light ? "day" : "light";
       }
       var light = t === "day" || t === "light";
-      var bg = { day: "#f2f0ea", light: "#eef1f5", dark: "#101820", night: "#08091a", stealth: "#0a0e14" }[t];
+      var bg = { day: "#EEEEF6", light: "#F8FAFC", dark: "#16162E", night: "#0A0A1C", stealth: "#0F0F23" }[t];
       document.documentElement.setAttribute("data-theme", t);
       document.documentElement.setAttribute("data-scheme", light ? "light" : "dark");
       document.documentElement.style.colorScheme = light ? "light" : "dark";
@@ -47,7 +47,7 @@
   })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0e14">
+  <meta name="theme-color" content="#0F0F23">
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -88,6 +88,14 @@
          Matches docs/flexaid.css --hit-ring for the sibling routes. */
       --hit-ring: #b6ff55;
 
+      /* LP chrome tokens (ui-styling). Pitch crayons stay macOS pencils. */
+      --chrome-bg: #0F0F23;
+      --chrome-fg: #F8FAFC;
+      --chrome-muted: #27273B;
+      --chrome-border: #312E81;
+      --chrome-play: #22C55E;
+      --chrome-focus: #4338CA;
+
       /* Structure — 40px grid, canonical radius ladder. */
       --grid-step: 40px;
       --r-xs: 3px;
@@ -110,28 +118,29 @@
     }
     :root,
     html[data-theme="stealth"] {
-      --bg: #0a0e14;
-      --ink: #d4dced;
-      --muted: #8a93a8;
-      --paper: #101820;
-      --paper-ink: #d4dced;
-      --hairline: color-mix(in srgb, var(--mint) 12%, transparent);
-      --hairline-strong: color-mix(in srgb, var(--mint) 22%, transparent);
-      --key-white: #1b2430;
-      --key-white-edge: color-mix(in srgb, var(--mint) 16%, transparent);
-      --key-black: #0c1219;
-      --key-black-edge: #070b12;
-      --live: var(--mint);
+      --bg: #0F0F23;
+      --ink: #F8FAFC;
+      --muted: #C9C9DC;
+      --paper: #27273B;
+      --paper-ink: #F8FAFC;
+      --hairline: #312E81;
+      --hairline-strong: color-mix(in srgb, var(--chrome-focus) 55%, var(--chrome-border));
+      --key-white: #1C1C33;
+      --key-white-edge: #312E81;
+      --key-black: #0A0A18;
+      --key-black-edge: #070712;
+      --live: #22C55E;
       --stop: var(--cherry);
       --replay: var(--violet);
-      --replay-on: var(--aqua);
-      --tap: color-mix(in srgb, var(--mint) 18%, transparent);
+      --replay-on: #22C55E;
+      --focus: #4338CA;
+      --tap: color-mix(in srgb, var(--chrome-focus) 28%, transparent);
       --ease: cubic-bezier(0.22, 1, 0.36, 1);
-      --dt: 150ms;
+      --dt: 180ms;
       --glow: 8%;
-      --wave-bed: #070b12;
-      --wave-grid: color-mix(in srgb, var(--mint) 6%, transparent);
-      --btn-face: #101820;
+      --wave-bed: #0A0A18;
+      --wave-grid: color-mix(in srgb, var(--chrome-border) 35%, transparent);
+      --btn-face: #27273B;
       --safe-t: env(safe-area-inset-top, 0px);
       --safe-r: env(safe-area-inset-right, 0px);
       --safe-b: env(safe-area-inset-bottom, 0px);
@@ -143,94 +152,98 @@
        largest mix that still clears 4.5:1 on both light surfaces —
        measured, not eyeballed. */
     html[data-theme="day"] {
-      --bg: #f2f0ea;
-      --ink: #20242c;
-      --muted: #5c6068;
-      --paper: #faf9f6;
-      --paper-ink: #20242c;
-      --hairline: color-mix(in srgb, var(--mint) 32%, transparent);
-      --hairline-strong: color-mix(in srgb, var(--mint) 52%, transparent);
+      --bg: #EEEEF6;
+      --ink: #0F0F23;
+      --muted: #27273B;
+      --paper: #F8FAFC;
+      --paper-ink: #0F0F23;
+      --hairline: #312E81;
+      --hairline-strong: color-mix(in srgb, var(--chrome-focus) 70%, #0F0F23);
       --key-white: #ffffff;
-      --key-white-edge: color-mix(in srgb, var(--mint) 38%, transparent);
-      --key-black: #262c34;
-      --key-black-edge: #171c22;
-      --live: color-mix(in srgb, var(--mint) 51%, #0b1016);        /* 4.55:1 */
-      --stop: color-mix(in srgb, var(--cherry) 86%, #0b1016);      /* 4.57:1 */
-      --replay: color-mix(in srgb, var(--violet) 87%, #0b1016);    /* 4.57:1 */
-      --replay-on: color-mix(in srgb, var(--aqua) 67%, #0b1016);   /* 4.54:1 */
+      --key-white-edge: #312E81;
+      --key-black: #27273B;
+      --key-black-edge: #0F0F23;
+      --live: color-mix(in srgb, #22C55E 36%, #0F0F23);           /* ≥4.5:1 on light */
+      --stop: color-mix(in srgb, var(--cherry) 86%, #0F0F23);
+      --replay: color-mix(in srgb, var(--violet) 87%, #0F0F23);
+      --replay-on: color-mix(in srgb, #22C55E 36%, #0F0F23);
+      --focus: #4338CA;
       --tap: color-mix(in srgb, var(--ink) 14%, transparent);
       --glow: 32%;
-      --wave-bed: #e8e6df;
+      --wave-bed: #E4E4F0;
       --wave-grid: color-mix(in srgb, var(--ink) 8%, transparent);
-      --btn-face: #faf9f6;
+      --btn-face: #F8FAFC;
     }
     html[data-theme="light"] {
-      --bg: #eef1f5;
-      --ink: #1a2028;
-      --muted: #5c6672;
+      --bg: #F8FAFC;
+      --ink: #0F0F23;
+      --muted: #27273B;
       --paper: #ffffff;
-      --paper-ink: #1a2028;
-      --hairline: color-mix(in srgb, var(--mint) 32%, transparent);
-      --hairline-strong: color-mix(in srgb, var(--mint) 52%, transparent);
-      --key-white: #f7f8fa;
-      --key-white-edge: color-mix(in srgb, var(--mint) 38%, transparent);
-      --key-black: #232a34;
-      --key-black-edge: #161c24;
-      --live: color-mix(in srgb, var(--mint) 51%, #0b1016);        /* 4.58:1 */
-      --stop: color-mix(in srgb, var(--cherry) 86%, #0b1016);      /* 4.59:1 */
-      --replay: color-mix(in srgb, var(--violet) 87%, #0b1016);    /* 4.59:1 */
-      --replay-on: color-mix(in srgb, var(--aqua) 67%, #0b1016);   /* 4.57:1 */
+      --paper-ink: #0F0F23;
+      --hairline: #312E81;
+      --hairline-strong: color-mix(in srgb, var(--chrome-focus) 70%, #0F0F23);
+      --key-white: #F8FAFC;
+      --key-white-edge: #312E81;
+      --key-black: #27273B;
+      --key-black-edge: #0F0F23;
+      --live: color-mix(in srgb, #22C55E 36%, #0F0F23);           /* ≥4.5:1 on light */
+      --stop: color-mix(in srgb, var(--cherry) 86%, #0F0F23);
+      --replay: color-mix(in srgb, var(--violet) 87%, #0F0F23);
+      --replay-on: color-mix(in srgb, #22C55E 36%, #0F0F23);
+      --focus: #4338CA;
       --tap: color-mix(in srgb, var(--ink) 12%, transparent);
       --glow: 28%;
-      --wave-bed: #e4e9f0;
+      --wave-bed: #EEEEF6;
       --wave-grid: color-mix(in srgb, var(--ink) 8%, transparent);
       --btn-face: #ffffff;
     }
     html[data-theme="dark"] {
-      --bg: #101820;
-      --ink: #d4dced;
-      --muted: #8a93a8;
-      --paper: #16202b;
-      --paper-ink: #d4dced;
-      --hairline: color-mix(in srgb, var(--mint) 14%, transparent);
-      --hairline-strong: color-mix(in srgb, var(--mint) 26%, transparent);
-      --key-white: #223040;
-      --key-white-edge: color-mix(in srgb, var(--mint) 18%, transparent);
-      --key-black: #0d141c;
-      --key-black-edge: #080d13;
-      --live: var(--mint);
+      --bg: #16162E;
+      --ink: #F8FAFC;
+      --muted: #C9C9DC;
+      --paper: #27273B;
+      --paper-ink: #F8FAFC;
+      --hairline: #312E81;
+      --hairline-strong: color-mix(in srgb, var(--chrome-focus) 55%, var(--chrome-border));
+      --key-white: #22223C;
+      --key-white-edge: #312E81;
+      --key-black: #0C0C1C;
+      --key-black-edge: #080814;
+      --live: #22C55E;
       --stop: var(--cherry);
       --replay: var(--violet);
-      --replay-on: var(--aqua);
-      --tap: color-mix(in srgb, var(--mint) 16%, transparent);
+      --replay-on: #22C55E;
+      --focus: #4338CA;
+      --tap: color-mix(in srgb, var(--chrome-focus) 22%, transparent);
       --glow: 34%;
-      --wave-bed: #0b1219;
-      --wave-grid: color-mix(in srgb, var(--mint) 8%, transparent);
-      --btn-face: #16202b;
+      --wave-bed: #0F0F23;
+      --wave-grid: color-mix(in srgb, var(--chrome-border) 40%, transparent);
+      --btn-face: #27273B;
     }
     /* #08091A is the background the v2 artifact's contrast column is
        computed against; night is where it lives on this page. */
     html[data-theme="night"] {
-      --bg: #08091a;
-      --ink: #c8d0e4;
-      --muted: #7a849c;
-      --paper: #0f1226;
-      --paper-ink: #c8d0e4;
-      --hairline: color-mix(in srgb, var(--violet) 20%, transparent);
-      --hairline-strong: color-mix(in srgb, var(--violet) 34%, transparent);
-      --key-white: #1c2138;
-      --key-white-edge: color-mix(in srgb, var(--violet) 24%, transparent);
-      --key-black: #0a0c1c;
-      --key-black-edge: #060713;
-      --live: var(--mint);
+      --bg: #0A0A1C;
+      --ink: #F8FAFC;
+      --muted: #C9C9DC;
+      --paper: #1A1A34;
+      --paper-ink: #F8FAFC;
+      --hairline: #312E81;
+      --hairline-strong: color-mix(in srgb, var(--chrome-focus) 60%, var(--chrome-border));
+      --key-white: #1A1A34;
+      --key-white-edge: #312E81;
+      --key-black: #080812;
+      --key-black-edge: #05050C;
+      --live: #22C55E;
       --stop: var(--cherry);
       --replay: var(--violet);
-      --replay-on: var(--aqua);
-      --tap: color-mix(in srgb, var(--violet) 18%, transparent);
+      --replay-on: #22C55E;
+      --focus: #4338CA;
+      --tap: color-mix(in srgb, var(--chrome-focus) 24%, transparent);
       --glow: 38%;
-      --wave-bed: #070818;
-      --wave-grid: color-mix(in srgb, var(--violet) 10%, transparent);
-      --btn-face: #0f1226;
+      --wave-bed: #070712;
+      --wave-grid: color-mix(in srgb, var(--chrome-border) 38%, transparent);
+      --btn-face: #1A1A34;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -251,7 +264,7 @@
         linear-gradient(90deg, var(--wave-grid) 1px, transparent 1px);
       background-size: var(--grid-step) var(--grid-step);
       color: var(--ink);
-      transition: background-color var(--dt) var(--ease), color var(--dt) var(--ease);
+      transition: background-color var(--dt) var(--ease), color var(--dt) var(--ease), opacity var(--dt) var(--ease);
       padding:
         max(14px, var(--safe-t))
         max(16px, var(--safe-r))
@@ -287,11 +300,11 @@
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent);
       background: var(--swatch);
     }
-    .scene[data-theme-set="day"] { --swatch: #f2f0ea; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 55%, transparent); }
-    .scene[data-theme-set="light"] { --swatch: #eef1f5; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 45%, transparent); }
-    .scene[data-theme-set="dark"] { --swatch: #101820; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 45%, transparent); }
-    .scene[data-theme-set="night"] { --swatch: #08091a; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--violet) 55%, transparent); }
-    .scene[data-theme-set="stealth"] { --swatch: #0a0e14; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mint) 40%, transparent); }
+    .scene[data-theme-set="day"] { --swatch: #EEEEF6; box-shadow: inset 0 0 0 1px #312E81; }
+    .scene[data-theme-set="light"] { --swatch: #F8FAFC; box-shadow: inset 0 0 0 1px #312E81; }
+    .scene[data-theme-set="dark"] { --swatch: #16162E; box-shadow: inset 0 0 0 1px #312E81; }
+    .scene[data-theme-set="night"] { --swatch: #0A0A1C; box-shadow: inset 0 0 0 1px #312E81; }
+    .scene[data-theme-set="stealth"] { --swatch: #0F0F23; box-shadow: inset 0 0 0 1px #312E81; }
     .scene-auto {
       font: 700 0.68rem/1 var(--font-mono);
       color: var(--ink);
@@ -308,7 +321,7 @@
       box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 1px rgba(0,0,0,0.35);
     }
     .scene:focus-visible {
-      outline: 1px solid var(--replay-on);
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
     h1 {
@@ -349,25 +362,27 @@
     .row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px 14px;
+      gap: 6px 10px;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .transport,
     .toggles {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
       align-items: center;
     }
     .act,
     .tog {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      height: 36px;
-      min-height: 36px;
-      padding: 0 12px;
+      justify-content: center;
+      gap: 6px;
+      height: 44px;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0 10px;
       border: 1px solid var(--hairline);
       border-radius: var(--r-md);
       background: var(--paper);
@@ -378,21 +393,27 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: var(--tap);
       position: relative;
+      transition: color var(--dt) var(--ease), background-color var(--dt) var(--ease), border-color var(--dt) var(--ease), opacity var(--dt) var(--ease);
     }
     .act .lab,
     .tog .lab {
       white-space: nowrap;
     }
     .act:focus-visible,
-    .tog:focus-within {
-      outline: 1px solid var(--ink);
+    .tog:has(input:focus-visible) {
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
     .act.playing,
     .act.live,
     .tog:has(input:checked) {
-      background: color-mix(in srgb, var(--ink) 12%, var(--paper));
-      border-color: var(--hairline-strong);
+      background: color-mix(in srgb, var(--live) 18%, var(--paper));
+      border-color: var(--live);
+      color: var(--ink);
+    }
+    .act[aria-disabled="true"] {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     .act.loading { opacity: 0.7; }
     .act .glyph {
@@ -411,7 +432,8 @@
       border-color: transparent transparent transparent currentColor;
     }
     .act.playing .glyph.play,
-    .act.live .glyph.listen {
+    .act.live .glyph.listen,
+    .act.live .glyph.now {
       width: 8px;
       height: 8px;
       border: 0;
@@ -423,6 +445,13 @@
       height: 8px;
       border-radius: 50%;
       background: currentColor;
+    }
+    .act .glyph.now {
+      width: 10px;
+      height: 8px;
+      border-radius: 0;
+      background:
+        linear-gradient(90deg, currentColor 0 3px, transparent 3px 7px, currentColor 7px 10px);
     }
     .tog input {
       position: absolute;
@@ -528,7 +557,7 @@
       left: 0;
       width: 2px;
       margin-left: -1px;
-      background: #e8e8ee;
+      background: var(--ink);
       pointer-events: none;
       transform: translate3d(0, 0, 0);
       will-change: transform;
@@ -543,7 +572,7 @@
       transform: translateX(-50%);
       border-left: 5px solid transparent;
       border-right: 5px solid transparent;
-      border-top: 7px solid #e8e8ee;
+      border-top: 7px solid var(--ink);
     }
     .scrub .clock {
       font-variant-numeric: tabular-nums;
@@ -563,8 +592,8 @@
       min-height: 44px;
     }
     .track-count {
-      width: 28px;
-      min-width: 28px;
+      width: 44px;
+      min-width: 44px;
       height: 44px;
       display: grid;
       place-items: center;
@@ -580,7 +609,7 @@
       padding: 0;
     }
     .track-count:focus-visible {
-      outline: 1px solid var(--replay-on);
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
     .track-btn.off {
@@ -637,7 +666,7 @@
       outline-offset: 1px;
     }
     .track-btn:focus-visible {
-      outline: 1px solid var(--replay-on);
+      outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
     .tune-line {
@@ -645,7 +674,7 @@
       font-size: 0.88rem;
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum" 1;
-      color: #7a8a94;
+      color: var(--muted);
       margin: 0 0 8px;
     }
     .tune-line .muted { color: var(--muted); font-weight: 600; }
@@ -691,27 +720,51 @@
       opacity: 0.72;
     }
     .chroma .bar.on .lab { opacity: 1; color: var(--lab, var(--ink)); }
-    .chips {
-      min-height: 36px;
+    .chips,
+    .follow-row {
+      min-height: 44px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      flex-wrap: nowrap;
+      gap: 4px;
       align-items: center;
-      margin-bottom: 8px;
+      margin: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
     }
     .chip {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 5px 9px;
+      justify-content: center;
+      gap: 4px;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 4px 8px;
       border-radius: var(--r-xs);
       font-weight: 650;
-      font-size: 0.82rem;
+      font-size: 0.75rem;
       font-variant-numeric: tabular-nums;
-      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
+      border: 1px solid var(--hairline);
+      background: var(--paper);
+      color: var(--ink);
+      white-space: nowrap;
+      flex: 0 0 auto;
+      cursor: default;
+    }
+    .chip.need {
       background: var(--crayon);
       color: var(--lab, var(--ink));
-      box-shadow: 0 0 8px color-mix(in srgb, var(--crayon) var(--glow), transparent);
+      border-color: color-mix(in srgb, var(--ink) 16%, var(--crayon));
+    }
+    .chip.held:not(.need):not(.hit) {
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow: inset 0 0 0 2px var(--ink);
+    }
+    .chip.hit {
+      background: var(--crayon);
+      color: var(--lab, var(--ink));
+      box-shadow: inset 0 0 0 2px var(--hit-ring);
     }
     .hz-live {
       color: var(--muted);
@@ -741,7 +794,10 @@
       }
     }
     .type-clear { grid-area: clear; }
-    .type-out { grid-area: out; }
+    .type-out,
+    .follow-row {
+      grid-area: out;
+    }
     .kb-meta { grid-area: meta; }
     /* Both pickers carry .kb-picker, so the octave needs its own cell or it
        lands on top of the layout picker. */
@@ -753,25 +809,25 @@
       background: var(--paper);
       color: var(--ink);
       cursor: pointer;
+      min-width: 44px;
+      min-height: 44px;
     }
-    .type-out {
+    .follow-row {
       margin: 0;
       min-height: 44px;
-      max-height: 88px;
-      overflow: auto;
-      padding: 8px 10px;
+      max-height: 48px;
+      padding: 1px 6px;
       border: 1px solid var(--hairline);
       border-radius: var(--r-md);
       background: var(--paper);
-      color: var(--ink);
-      font: 650 0.92rem/1.35 var(--font-mono);
-      white-space: pre-wrap;
-      word-break: break-word;
     }
-    .type-out:empty::before {
+    .follow-row.is-idle::before,
+    .follow-row:empty::before {
       content: attr(data-hint);
       color: var(--muted);
       font-weight: 600;
+      font-size: 0.78rem;
+      white-space: nowrap;
     }
     .kb-picker {
       display: inline-flex;
@@ -800,7 +856,7 @@
       color: var(--ink);
     }
     .kb-picker button:focus-visible {
-      outline: 1px solid var(--replay-on);
+      outline: 2px solid var(--focus);
       outline-offset: -2px;
     }
     .dual-boards {
@@ -937,7 +993,7 @@
       opacity: 0.32;
     }
     .kb-key:focus-visible {
-      outline: 1px solid var(--replay-on);
+      outline: 2px solid var(--focus);
       outline-offset: 1px;
     }
     .board-well {
@@ -972,7 +1028,8 @@
       touch-action: manipulation;
       transition:
         background-color var(--dt) var(--ease),
-        box-shadow var(--dt) var(--ease);
+        color var(--dt) var(--ease),
+        opacity var(--dt) var(--ease);
     }
     .white {
       position: absolute;
@@ -1109,37 +1166,6 @@
       outline: 1px solid var(--ink);
       outline-offset: -2px;
     }
-    .legend {
-      margin-top: 14px;
-      background: transparent;
-      color: var(--paper-ink);
-      border-radius: 0;
-      padding: 8px 0 0;
-      border: none;
-    }
-    .legend h2 {
-      margin: 0 0 8px;
-      font-size: 0.72rem;
-      font-weight: 650;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .pencils {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 4px;
-    }
-    .pencil {
-      border-radius: var(--r-xs);
-      padding: 6px 3px 5px;
-      text-align: center;
-      background: var(--crayon);
-      color: var(--lab, var(--ink));
-      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
-      min-height: 52px;
-    }
-    .pencil .fr { font-weight: 650; font-size: 0.88rem; }
     details.adv {
       margin-top: 12px;
       color: var(--muted);
@@ -1182,8 +1208,8 @@
         background: var(--crayon-p3, var(--crayon)) !important;
       }
       .chroma .fill,
-      .pencil,
-      .chip,
+      .chip.need,
+      .chip.hit,
       .track-btn[aria-pressed="true"] {
         background: var(--crayon-p3, var(--crayon));
       }
@@ -1194,7 +1220,6 @@
       }
     }
     @media (max-width: 900px) {
-      .pencils { grid-template-columns: repeat(6, 1fr); }
       .chroma { height: 72px; }
     }
     @media (min-width: 768px) {
@@ -1204,10 +1229,13 @@
       #board { height: 320px; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .chroma .fill,
-      .key,
-      #btn,
-      #replay { transition: none; }
+      *,
+      *::before,
+      *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+      .chroma .fill { transition: none; }
       .playhead { will-change: auto; }
       .key.on { box-shadow: inset 0 0 0 1px var(--hairline-strong); }
     }
@@ -1219,17 +1247,17 @@
     }
     @media (prefers-contrast: more) {
       html[data-scheme="dark"] {
-        --ink: #a8a8b0;
-        --hairline: #3e3e46;
-        --hairline-strong: #4a4a54;
-        --muted: #7a7a82;
+        --ink: #F8FAFC;
+        --hairline: #312E81;
+        --hairline-strong: #4338CA;
+        --muted: #C9C9DC;
         --glow: 40%;
       }
       html[data-scheme="light"] {
-        --ink: #1c1916;
-        --hairline: #8a8276;
-        --hairline-strong: #5c564c;
-        --muted: #4a453e;
+        --ink: #0F0F23;
+        --hairline: #312E81;
+        --hairline-strong: #4338CA;
+        --muted: #27273B;
       }
       .key.on { box-shadow: inset 0 0 0 1px var(--ink); }
     }
@@ -1271,11 +1299,20 @@
     }
     html[data-scheme="light"] .tune-line { color: color-mix(in srgb, var(--aqua) 67%, #0b1016); }
     html[data-scheme="light"] .chroma .bar.on .lab { color: var(--lab); }
-    html[data-scheme="light"] .chip {
+    html[data-scheme="light"] .chip.need,
+    html[data-scheme="light"] .chip.hit {
       background: var(--crayon);
       color: var(--lab);
       border-color: var(--hairline-strong);
       box-shadow: 0 0 6px color-mix(in srgb, var(--crayon) 20%, transparent);
+    }
+    html[data-scheme="light"] .chip.hit {
+      box-shadow: inset 0 0 0 2px var(--hit-ring), 0 0 6px color-mix(in srgb, var(--crayon) 20%, transparent);
+    }
+    html[data-scheme="light"] .chip.held:not(.need):not(.hit) {
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow: inset 0 0 0 2px var(--ink);
     }
     html[data-scheme="light"] .board-well {
       background: color-mix(in srgb, var(--ink) 5%, var(--paper));
@@ -1299,27 +1336,14 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         0 0 14px color-mix(in srgb, var(--crayon) var(--glow), transparent);
     }
-    html[data-scheme="light"] .legend {
-      background: var(--paper);
-      border: 1px solid var(--hairline);
-      border-radius: var(--r-xs);
-      padding: 12px 12px 10px;
-    }
-    html[data-scheme="light"] .pencil {
-      min-height: 88px;
-      padding: 8px 4px 6px;
-      background: var(--crayon);
-      color: var(--lab);
-      border: 1px solid color-mix(in srgb, var(--ink) 16%, var(--crayon));
-    }
     html[data-scheme="light"] .err { color: color-mix(in srgb, var(--cherry) 86%, #0b1016); }
     html[data-scheme="light"] details.adv select {
       background: var(--paper);
       color: var(--ink);
     }
     @supports (color: color(display-p3 1 0 0)) {
-      html[data-scheme="light"] .pencil,
-      html[data-scheme="light"] .chip,
+      html[data-scheme="light"] .chip.need,
+      html[data-scheme="light"] .chip.hit,
       html[data-scheme="light"] .track-btn {
         background: var(--crayon-p3, var(--crayon));
       }
@@ -1353,25 +1377,29 @@
   <div class="work-main">
   <div class="row">
     <div class="transport" role="group" aria-label="Lecture">
-      <button id="replay" type="button" class="act" aria-label="Rejouer">
+      <button id="replay" type="button" class="act" aria-label="Rejouer" aria-pressed="false">
         <span class="glyph play" aria-hidden="true"></span>
         <span class="lab">Rejouer</span>
       </button>
-      <button id="btn" type="button" class="act" aria-label="Écouter">
+      <button id="btn" type="button" class="act" aria-label="Écouter" aria-pressed="false" title="Micro">
         <span class="glyph listen" aria-hidden="true"></span>
         <span class="lab">Écouter</span>
       </button>
+      <button id="nowBtn" type="button" class="act" aria-label="En cours" aria-pressed="false" title="Audio en cours de lecture">
+        <span class="glyph now" aria-hidden="true"></span>
+        <span class="lab">En cours</span>
+      </button>
     </div>
     <div class="toggles" role="group" aria-label="Options">
-      <label class="tog tog-chords" title="Jusqu’à 8 notes à la fois">
+      <label class="tog tog-chords" title="Jusqu’à 8 notes à la fois" aria-label="Accords">
         <input id="chords" type="checkbox" checked>
         <span class="lab">Accords</span>
       </label>
-      <label class="tog tog-son" title="Entendre la relecture, doucement">
+      <label class="tog tog-son" title="Entendre la relecture, doucement" aria-label="Son">
         <input id="unmute" type="checkbox">
         <span class="lab">Son</span>
       </label>
-      <label class="tog tog-la" title="Estimer le la du concert ; sinon 440 Hz">
+      <label class="tog tog-la" title="Estimer le la du concert ; sinon 440 Hz" aria-label="La auto">
         <input id="autotune" type="checkbox" checked>
         <span class="lab">La auto</span>
       </label>
@@ -1405,9 +1433,6 @@
   <div id="err" class="err" hidden></div>
 
   <div id="chroma" class="chroma" aria-label="Crayons allumés"></div>
-  <div class="chips" id="chips">
-    <span class="hz-live" id="hzLive"></span>
-  </div>
   </div>
   <aside class="spec-panel">
     <h3>Spectre · sources regroupées</h3>
@@ -1417,8 +1442,10 @@
 
   <div class="type-well">
     <div class="type-head">
-      <button type="button" id="typeClear" class="type-clear" aria-label="Effacer">⌫</button>
-      <pre id="typeOut" class="type-out" data-hint="US · Z=Do3 · D=Do4 · Q=La4" aria-live="polite"></pre>
+      <button type="button" id="typeClear" class="type-clear" aria-label="Relâcher">⌫</button>
+      <div id="chips" class="follow-row is-idle" data-hint="US · Z=Do3 · D=Do4 · Q=La4" aria-live="polite" aria-label="Suivi">
+        <span class="hz-live" id="hzLive"></span>
+      </div>
       <p id="kbMeta" class="kb-meta" aria-live="polite">0 touche · 0 groupe</p>
       <div class="kb-picker" id="kbOctave" role="group" aria-label="Octave">
         <button type="button" data-oct="-1" aria-label="Octave -1" title="↓">−</button>
@@ -1438,15 +1465,12 @@
     </div>
   </div>
 
-  <section class="legend">
-    <h2>Crayons</h2>
-    <div id="pencils" class="pencils"></div>
-  </section>
+  </div>
 
   <details class="adv">
-    <summary>Micro</summary>
+    <summary>Micro · loopback</summary>
     <label>
-      Micro
+      Micro (BlackHole / loopback si Safari)
       <select id="micAlt">
         <option value="os">OS</option>
       </select>
@@ -1454,6 +1478,7 @@
   </details>
 
   <script src="crayon_dsp.js"></script>
+  <script src="now_playing.js"></script>
   <script src="dual_keyboard.js"></script>
   <script>
 (function () {
@@ -1518,6 +1543,7 @@
   const WAVE_WINDOW_SEC = 6;
 
   const $btn = document.getElementById("btn");
+  const $nowBtn = document.getElementById("nowBtn");
   const $replay = document.getElementById("replay");
   const $chords = document.getElementById("chords");
   const $unmute = document.getElementById("unmute");
@@ -1532,14 +1558,12 @@
   const $chips = document.getElementById("chips");
   const $hzLive = document.getElementById("hzLive");
   const $board = document.getElementById("board");
-  const $pencils = document.getElementById("pencils");
   const $micAlt = document.getElementById("micAlt");
   const $tracks = document.getElementById("tracks");
   const $autotune = document.getElementById("autotune");
   const $tuneLine = document.getElementById("tuneLine");
   const $spec = document.getElementById("spec");
   const $dualBoards = document.getElementById("dualBoards");
-  const $typeOut = document.getElementById("typeOut");
   const $typeClear = document.getElementById("typeClear");
   const $kbMeta = document.getElementById("kbMeta");
   const $kbLayout = document.getElementById("kbLayout");
@@ -1548,6 +1572,7 @@
   let liveTracks = [];
   let nextTrackId = 1;
   let selectedTrackIds = new Set();
+  let trackPickMode = "auto-melody";
   const fingerGate = new DUAL.FingerGate();
   const midiHolders = new Map();
   let lastChipKey = "";
@@ -1666,6 +1691,7 @@
       el.classList.toggle("held", st === "held");
       el.classList.toggle("hit", st === "hit");
     });
+    paintFollowChips();
   }
   let lastSpecClusters = [];
   let specSizeKey = "";
@@ -1681,6 +1707,7 @@
   let deviceChangeTimer = 0;
   let reopenBusy = false;
   let actionId = 0;
+  let liveStartedAt = 0;
   let replayLoading = false;
   let sampleBuffer = null;
   let sampleLoad = null;
@@ -1722,11 +1749,11 @@
     el.style.setProperty("--lab", labColor(rgb));
   }
   const THEMES = {
-    day: { scheme: "light", bg: "#f2f0ea", bar: "default" },
-    light: { scheme: "light", bg: "#eef1f5", bar: "default" },
-    dark: { scheme: "dark", bg: "#101820", bar: "black" },
-    night: { scheme: "dark", bg: "#08091a", bar: "black" },
-    stealth: { scheme: "dark", bg: "#0a0e14", bar: "black" }
+    day: { scheme: "light", bg: "#EEEEF6", bar: "default" },
+    light: { scheme: "light", bg: "#F8FAFC", bar: "default" },
+    dark: { scheme: "dark", bg: "#16162E", bar: "black" },
+    night: { scheme: "dark", bg: "#0A0A1C", bar: "black" },
+    stealth: { scheme: "dark", bg: "#0F0F23", bar: "black" }
   };
   const THEME_KEY = "crayon-theme";
   const THEME_MODE_KEY = "crayon-theme-mode";
@@ -1892,6 +1919,7 @@
   }
 
   function selectAllTracks() {
+    trackPickMode = "user";
     selectedTrackIds = new Set();
     syncTrackUi();
     resetSmooth();
@@ -1899,6 +1927,7 @@
   }
 
   function onTrackClick(id) {
+    trackPickMode = "user";
     if (isTous()) {
       selectedTrackIds = new Set([id]);
     } else if (selectedTrackIds.has(id)) {
@@ -1915,6 +1944,13 @@
     liveTracks = [];
     selectedTrackIds = new Set();
     syncTrackUi();
+  }
+
+  function maybeAutoMelody() {
+    if (trackPickMode !== "auto-melody" || !liveTracks.length) return;
+    const pick = NOW_PLAYING.pickMelodyCluster(liveTracks);
+    if (!pick) return;
+    selectedTrackIds = new Set([pick.id]);
   }
 
   function freqMatchesTrack(freq, t) {
@@ -2030,6 +2066,7 @@
     selectedTrackIds.forEach(function (id) {
       if (!liveTracks.some(function (t) { return t.id === id; })) selectedTrackIds.delete(id);
     });
+    maybeAutoMelody();
     if (born) requestLabels(true);
   }
 
@@ -2392,7 +2429,7 @@
         btn.setAttribute("aria-pressed", String(btn.dataset.layout === activeBoard));
       });
     }
-    if ($typeOut) $typeOut.setAttribute("data-hint", layoutHint(activeBoard));
+    if ($chips) $chips.setAttribute("data-hint", layoutHint(activeBoard));
     if ($dualBoards) $dualBoards.dataset.layout = activeBoard;
     document.documentElement.dataset.kbLayout = activeBoard;
   }
@@ -2497,7 +2534,8 @@
       $typeClear.addEventListener("click", function () {
         typeState.text = "";
         typeState.dead = "";
-        renderTypeOut();
+        releaseStuckHolds();
+        paintFollowChips();
       });
     }
   }
@@ -2516,7 +2554,47 @@
   }
 
   function renderTypeOut() {
-    if ($typeOut) $typeOut.textContent = typeState.text;
+    paintFollowChips();
+  }
+
+  function followMidiList() {
+    const midis = [];
+    neededMidis.forEach(function (m) { midis.push(m); });
+    function add(m) {
+      if (midis.indexOf(m) < 0) midis.push(m);
+    }
+    computerHeld.forEach(add);
+    heldVoices.forEach(function (_v, m) { add(m); });
+    midiHolders.forEach(function (_set, m) { add(m); });
+    midis.sort(function (a, b) { return a - b; });
+    return midis;
+  }
+
+  function paintFollowChips(hz) {
+    if (!$chips) return;
+    const midis = followMidiList();
+    const key = midis.map(function (m) { return m + ":" + highlightOf(m); }).join(",");
+    if (key !== lastChipKey) {
+      lastChipKey = key;
+      $chips.innerHTML = "";
+      midis.forEach(function (midi) {
+        const info = crayonOf(midi);
+        const chip = document.createElement("span");
+        const st = highlightOf(midi);
+        chip.className = "chip" + (st ? " " + st : "");
+        chip.dataset.pc = pcOf(midi);
+        paintEl(chip, info);
+        chip.textContent = info.fr + octaveOf(midi);
+        $chips.appendChild(chip);
+      });
+      $chips.appendChild($hzLive);
+      $chips.classList.toggle("is-idle", !midis.length);
+    }
+    if (hz) $hzLive.textContent = String(Math.round(hz));
+    else if (!midis.length) $hzLive.textContent = "";
+    else if (!$hzLive.textContent && midis.length) {
+      $hzLive.textContent = String(Math.round(midiToHz(midis[0])));
+    }
   }
 
   function crayonForCluster(index) {
@@ -2684,24 +2762,7 @@
       }
     });
     if (mode === "idle" && !analysing) {
-      const chips = Array.from(held).sort(function (a, b) { return a - b; });
-      const chipKey = chips.join(",");
-      if (chipKey !== lastChipKey) {
-        lastChipKey = chipKey;
-        $chips.innerHTML = "";
-        chips.forEach(function (midi) {
-          const info = crayonOf(midi);
-          const chip = document.createElement("span");
-          chip.className = "chip";
-          chip.dataset.pc = pcOf(midi);
-          paintEl(chip, info);
-          chip.textContent = info.fr + octaveOf(midi);
-          $chips.appendChild(chip);
-        });
-        $chips.appendChild($hzLive);
-      }
-      if (chips.length) $hzLive.textContent = String(Math.round(midiToHz(chips[0])));
-      else $hzLive.textContent = "";
+      paintFollowChips();
     }
   }
 
@@ -2843,15 +2904,6 @@
   function buildLegend() {
     NOTE_NAMES.forEach(function (name) {
       const c = CRAYONS[name];
-      const el = document.createElement("div");
-      el.className = "pencil";
-      el.dataset.pc = name;
-      el.dataset.rgb = c.rgb.join(",");
-      el.title = c.fr + " · " + c.pencil;
-      paintEl(el, c);
-      el.innerHTML = '<div class="fr">' + c.fr + "</div>";
-      $pencils.appendChild(el);
-
       const bar = document.createElement("div");
       bar.className = "bar";
       bar.dataset.pc = name;
@@ -2988,7 +3040,7 @@
       if (d.deviceId === "default") return;
       const opt = document.createElement("option");
       opt.value = d.deviceId;
-      opt.textContent = d.label || d.deviceId.slice(0, 8);
+      opt.textContent = (d.label || d.deviceId.slice(0, 8)) + (looksLoopback(d.label) ? " · loopback" : "");
       $micAlt.appendChild(opt);
     });
     $micAlt.value = keep === "os" || !keep ? "os" : keep;
@@ -3506,13 +3558,52 @@
     if (lab) lab.textContent = text;
   }
 
+  function setLiveButtons(kind) {
+    const micOn = kind === "mic";
+    const nowOn = kind === "phones";
+    $btn.classList.toggle("live", micOn);
+    $nowBtn.classList.toggle("live", nowOn);
+    $btn.setAttribute("aria-pressed", micOn ? "true" : "false");
+    $nowBtn.setAttribute("aria-pressed", nowOn ? "true" : "false");
+    setActCopy($btn, micOn ? "Arrêter" : "Écouter");
+    setActCopy($nowBtn, nowOn ? "Arrêter" : "En cours");
+    $btn.title = "Micro";
+    refreshNowPlayingUi();
+  }
+
+  function syncTogPressed() {
+    [
+      [$chords, "Accords"],
+      [$unmute, "Son"],
+      [$autotune, "La auto"]
+    ].forEach(function (row) {
+      const lab = row[0] && row[0].closest("label");
+      if (!lab) return;
+      lab.setAttribute("aria-pressed", row[0].checked ? "true" : "false");
+      lab.setAttribute("aria-label", row[1]);
+    });
+    $replay.setAttribute("aria-pressed", $replay.classList.contains("playing") ? "true" : "false");
+  }
+
+  function refreshNowPlayingUi() {
+    if (!$nowBtn) return;
+    const ok = NOW_PLAYING.canCaptureNowPlaying();
+    $nowBtn.setAttribute("aria-disabled", ok ? "false" : "true");
+    if (!$nowBtn.classList.contains("live")) {
+      $nowBtn.title = ok
+        ? "Audio en cours — partage l’onglet qui joue (Chrome). La page reste muette."
+        : NOW_PLAYING.nowPlayingUnsupportedReason();
+    }
+  }
+
   function haltLive() {
     resetScoreSession();
     mode = "idle";
+    captureKind = "mic";
     stopLoop();
     stopTracks();
-    $btn.classList.remove("live");
-    setActCopy($btn, "Écouter");
+    setLiveButtons(null);
+    trackPickMode = "auto-melody";
     resetTracks();
     clearLights();
     resetTune();
@@ -3530,6 +3621,7 @@
     if (mode === "replay") mode = "idle";
     stopLoop();
     $replay.classList.remove("playing", "loading");
+    $replay.setAttribute("aria-pressed", "false");
     setActCopy($replay, "Rejouer");
     if (mode === "idle") {
       resetTracks();
@@ -3549,122 +3641,74 @@
   }
 
   function canShareTabAudio() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return false;
-    if (location.protocol === "file:") return false;
-    const ua = navigator.userAgent || "";
-    const isiOS = /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    return !isiOS;
+    return NOW_PLAYING.canCaptureNowPlaying();
   }
 
   function setCaptureKind(kind) {
-    captureKind = kind;
-    $btn.classList.toggle("phones", kind === "phones");
-    $btn.classList.toggle("mic", kind === "mic");
-    if (!$btn.classList.contains("live")) {
-      setActCopy($btn, "Écouter");
-      $btn.title = kind === "phones" ? "Audio de cet ordinateur" : "Micro";
-    }
+    captureKind = kind || "mic";
   }
 
-  function audioOnlyStream(mediaStream) {
-    const audioTracks = mediaStream.getAudioTracks();
-    mediaStream.getVideoTracks().forEach(function (t) { t.stop(); });
-    if (!audioTracks.length) {
-      mediaStream.getTracks().forEach(function (t) { t.stop(); });
-      throw new Error("Pas d'audio partagé");
-    }
-    return new MediaStream(audioTracks);
-  }
-
-  async function requestDisplayAudio() {
-    let mediaStream = null;
-    try {
-      mediaStream = await navigator.mediaDevices.getDisplayMedia({
-        audio: Object.assign({}, AUDIO_EXTRAS),
-        video: false
+  function bindCaptureEnded(mediaStream) {
+    if (!mediaStream || !mediaStream.getAudioTracks) return;
+    mediaStream.getAudioTracks().forEach(function (t) {
+      t.addEventListener("ended", function () {
+        if (mode === "live") stopLive();
       });
-    } catch (firstErr) {
-      try {
-        mediaStream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: true,
-          preferCurrentTab: true
-        });
-      } catch (_) {
-        throw firstErr;
-      }
-    }
-    return audioOnlyStream(mediaStream);
+    });
   }
 
-  async function osDefaultIsLoopback() {
-    try {
-      const inputs = await listInputs();
-      if (micOverrideId) {
-        const hit = inputs.find(function (d) { return d.deviceId === micOverrideId; });
-        if (hit && looksLoopback(hit.label)) return true;
-        return false;
-      }
-      const def = pickOsDefault(inputs);
-      return Boolean(def && looksLoopback(def.label));
-    } catch (_) {
+  async function adoptCaptureStream(next, kind) {
+    const id = actionId;
+    if (id !== actionId || mode !== "live") {
+      stopLateStream(next);
       return false;
     }
+    stream = next;
+    ensureAnalyser();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    if (id !== actionId || mode !== "live") {
+      stopTracks();
+      return false;
+    }
+    sourceNode = NOW_PLAYING.tapSilentStream(audioCtx, analyser, stream);
+    bindCaptureEnded(stream);
+    setCaptureKind(kind);
+    await updateMicStatus();
+    if (id !== actionId || mode !== "live") {
+      stopTracks();
+      return false;
+    }
+    showErr("");
+    return true;
   }
 
-  async function acquireStream() {
+  async function acquireMicStream() {
     const id = actionId;
     while (reopenBusy) {
       await new Promise(function (resolve) { setTimeout(resolve, 30); });
-      if (id !== actionId || mode !== "live") return;
+      if (id !== actionId || mode !== "live") return false;
     }
     reopenBusy = true;
     try {
       stopTracks();
-      let next = null;
-      let kind = "mic";
-      const forceMic = Boolean(micOverrideId);
-      if (!forceMic && await osDefaultIsLoopback()) {
-        next = await requestMicStream();
-        kind = "phones";
-      } else if (!forceMic && canShareTabAudio()) {
-        try {
-          next = await requestDisplayAudio();
-          kind = "phones";
-        } catch (_) {
-          next = await requestMicStream();
-          kind = "mic";
-        }
-      } else {
-        next = await requestMicStream();
-        kind = "mic";
-      }
-      if (id !== actionId || mode !== "live") {
-        stopLateStream(next);
-        return;
-      }
-      stream = next;
-      ensureAnalyser();
-      if (audioCtx.state === "suspended") await audioCtx.resume();
-      if (id !== actionId || mode !== "live") {
-        stopTracks();
-        return;
-      }
-      sourceNode = audioCtx.createMediaStreamSource(stream);
-      sourceNode.connect(analyser);
-      stream.getAudioTracks().forEach(function (t) {
-        t.addEventListener("ended", function () {
-          if (mode === "live") stopLive();
-        });
-      });
-      setCaptureKind(kind);
-      await updateMicStatus();
-      if (id !== actionId || mode !== "live") {
-        stopTracks();
-        return;
-      }
-      showErr("");
+      const next = await requestMicStream();
+      return await adoptCaptureStream(next, "mic");
+    } finally {
+      reopenBusy = false;
+    }
+  }
+
+  async function acquireNowPlayingStream() {
+    const id = actionId;
+    while (reopenBusy) {
+      await new Promise(function (resolve) { setTimeout(resolve, 30); });
+      if (id !== actionId || mode !== "live") return false;
+    }
+    reopenBusy = true;
+    try {
+      stopTracks();
+      const next = await NOW_PLAYING.requestDisplayAudio();
+      return await adoptCaptureStream(next, "phones");
     } finally {
       reopenBusy = false;
     }
@@ -3675,7 +3719,7 @@
     if (captureKind === "phones") return;
     clearTimeout(deviceChangeTimer);
     deviceChangeTimer = setTimeout(function () {
-      acquireStream().then(function () {
+      acquireMicStream().then(function () {
         if (mode !== "live") return;
       }).catch(function (e) {
         showErr("Micro: " + (e && e.message ? e.message : String(e)));
@@ -3689,40 +3733,65 @@
     deviceChangeBound = true;
   }
 
-  async function start() {
+  async function beginLive(kind) {
     showErr("");
     ensureAnalyser();
-    if (!navigator.mediaDevices || (!navigator.mediaDevices.getUserMedia && !navigator.mediaDevices.getDisplayMedia)) {
-      showErr("Pas d'audio navigateur. Ouvre Chrome ou Safari.");
-      return;
-    }
     const id = beginAction();
     try {
       if (mode === "replay" || replayLoading) haltReplay(true);
       scoreSource = "live";
       resetScoreSession();
       mode = "live";
+      captureKind = kind;
+      trackPickMode = "auto-melody";
+      liveStartedAt = performance.now();
       resetSmooth();
       resetTune();
       resetTracks();
-      await acquireStream();
-      if (id !== actionId || mode !== "live" || !stream) return;
+      const ok = kind === "phones"
+        ? await acquireNowPlayingStream()
+        : await acquireMicStream();
+      if (id !== actionId || mode !== "live" || !ok || !stream) return;
       bindDeviceChange();
-      $btn.classList.add("live");
-      setActCopy($btn, "Arrêter");
+      setLiveButtons(kind);
       startLoop();
     } catch (e) {
       if (id !== actionId) return;
       haltLive();
       var denied = e && (e.name === "NotAllowedError" || e.name === "PermissionDeniedError");
-      var msg = denied
-        ? (canShareTabAudio() ? "Partage l'audio de l'onglet, ou autorise le micro." : "Autorise le micro.")
-        : (e && e.message ? e.message : String(e));
+      var msg;
+      if (kind === "phones") {
+        msg = denied
+          ? "Partage annulé. Dans Chrome, choisis l’onglet de la chanson et coche « Partager l’audio »."
+          : (e && e.message ? e.message : String(e));
+        if (!NOW_PLAYING.canCaptureNowPlaying()) {
+          msg = NOW_PLAYING.nowPlayingUnsupportedReason();
+        }
+      } else {
+        msg = denied ? "Autorise le micro." : (e && e.message ? e.message : String(e));
+      }
       if (location.protocol === "file:") {
         msg += " Chrome bloque souvent file:// — ouvre via: python3 -m http.server 4173 --directory web";
       }
       showErr(msg);
     }
+  }
+
+  async function startMic() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showErr("Pas de micro navigateur. Ouvre Chrome ou Safari.");
+      return;
+    }
+    await beginLive("mic");
+  }
+
+  async function startNowPlaying() {
+    if (!NOW_PLAYING.canCaptureNowPlaying()) {
+      showErr(NOW_PLAYING.nowPlayingUnsupportedReason());
+      refreshNowPlayingUi();
+      return;
+    }
+    await beginLive("phones");
   }
 
   function stopLive() {
@@ -3874,6 +3943,7 @@
       startBufferAt(sampleOffset);
       $replay.classList.remove("loading");
       $replay.classList.add("playing");
+      $replay.setAttribute("aria-pressed", "true");
       setActCopy($replay, "Arrêter");
       startLoop();
     } catch (e) {
@@ -3881,6 +3951,7 @@
       replayLoading = false;
       mode = "idle";
       $replay.classList.remove("playing", "loading");
+      $replay.setAttribute("aria-pressed", "false");
       setActCopy($replay, "Rejouer");
       var msg = e && e.message ? e.message : String(e);
       if (location.protocol === "file:") {
@@ -3892,9 +3963,17 @@
 
   $btn.addEventListener("click", function () {
     ensureAnalyser();
-    if (mode === "live") stopLive();
-    else start();
+    if (mode === "live" && captureKind === "mic") stopLive();
+    else startMic();
   });
+
+  if ($nowBtn) {
+    $nowBtn.addEventListener("click", function () {
+      ensureAnalyser();
+      if (mode === "live" && captureKind === "phones") stopLive();
+      else startNowPlaying();
+    });
+  }
 
   $replay.addEventListener("click", function () {
     ensureAnalyser();
@@ -3905,12 +3984,15 @@
   $unmute.addEventListener("change", function () {
     setSampleGain($unmute.checked);
     if (window._keyHear && audioCtx) window._keyHear.gain.value = $unmute.checked ? 0.18 : 0;
+    syncTogPressed();
   });
 
   $autotune.addEventListener("change", function () {
     resetSmooth();
     syncTuneUi();
+    syncTogPressed();
   });
+  $chords.addEventListener("change", syncTogPressed);
 
   try { themeMode = localStorage.getItem(THEME_MODE_KEY) || "auto"; } catch (e) { themeMode = "auto"; }
   document.querySelectorAll("[data-theme-set]").forEach(function (btn) {
@@ -3995,8 +4077,8 @@
 
   $micAlt.addEventListener("change", function () {
     micOverrideId = $micAlt.value === "os" ? null : $micAlt.value;
-    if (mode === "live") {
-      acquireStream().catch(function (e) {
+    if (mode === "live" && captureKind === "mic") {
+      acquireMicStream().catch(function (e) {
         showErr("Micro: " + (e && e.message ? e.message : String(e)));
       });
     }
@@ -4036,12 +4118,22 @@
     $chips.innerHTML = "";
     $chips.appendChild($hzLive);
     $hzLive.textContent = "";
+    $chips.classList.add("is-idle");
     lastChipKey = "";
   }
 
   function paintClock(dt) {
     const snap = mode !== "replay" || scrubbing || reduceMotion;
     paintPlayhead(snap, dt);
+    if (mode === "live") {
+      const t = Math.max(0, (performance.now() - liveStartedAt) / 1000);
+      const text = "Live · " + fmtTime(t);
+      if (text !== lastClockText) {
+        lastClockText = text;
+        $clock.textContent = text;
+      }
+      return;
+    }
     if (mode !== "replay") return;
     const t = sampleNow();
     const text = fmtTime(t);
@@ -4230,28 +4322,7 @@
       if (fill.style.transform !== tr) fill.style.transform = tr;
     }
 
-    const chipKey = lit.map(function (c) { return c.midi; }).sort(function (a, b) { return a - b; }).join(",");
-    if (chipKey !== lastChipKey) {
-      lastChipKey = chipKey;
-      $chips.innerHTML = "";
-      if (lit.length) {
-        lit.slice().sort(function (a, b) { return a.midi - b.midi; }).forEach(function (c) {
-          const info = crayonOf(c.midi);
-          const chip = document.createElement("span");
-          chip.className = "chip";
-          chip.dataset.pc = pcOf(c.midi);
-          paintEl(chip, info);
-          chip.textContent = info.fr + octaveOf(c.midi);
-          $chips.appendChild(chip);
-        });
-      }
-      $chips.appendChild($hzLive);
-    }
-    if (lit.length) {
-      $hzLive.textContent = String(Math.round(lit[0].freq));
-    } else if ($hzLive.textContent) {
-      $hzLive.textContent = "";
-    }
+    paintFollowChips(lit.length ? lit[0].freq : 0);
 
     paintClock(dt);
 
@@ -4270,7 +4341,8 @@
   initKeyboard();
   buildTracks();
   applyTheme(preferredTheme());
-  setCaptureKind(canShareTabAudio() ? "phones" : "mic");
+  refreshNowPlayingUi();
+  syncTogPressed();
   probeFm();
   syncTuneUi();
   requestAnimationFrame(function () {
@@ -4287,6 +4359,57 @@
       }
     }
   });
+
+  window.__CRAYON_NEEDED = function () { return Array.from(neededMidis); };
+  window.__CRAYON_HIGHLIGHT = highlightOf;
+  window.__CRAYON_CAPTURE_KIND = function () { return captureKind; };
+  window.__CRAYON_NOW_PLAYING_SELF_TEST = async function () {
+    ensureAnalyser();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
+    if (mode === "replay" || replayLoading) haltReplay(true);
+    stopTracks();
+    trackPickMode = "user";
+    selectedTrackIds = new Set();
+    scoreSource = "live";
+    resetScoreSession();
+    mode = "live";
+    captureKind = "phones";
+    liveStartedAt = performance.now();
+    resetSmooth();
+    resetTune();
+    const buf = NOW_PLAYING.makeToneBuffer(audioCtx, 440, 1.5);
+    let packed = null;
+    if (audioCtx.createMediaStreamDestination) {
+      packed = NOW_PLAYING.streamFromBuffer(audioCtx, buf);
+      stream = packed.stream;
+      sourceNode = NOW_PLAYING.tapSilentStream(audioCtx, analyser, stream);
+    } else {
+      sourceNode = NOW_PLAYING.tapSilentBuffer(audioCtx, analyser, buf);
+    }
+    setLiveButtons("phones");
+    startLoop();
+    const t0 = performance.now();
+    return new Promise(function (resolve, reject) {
+      function wait() {
+        const needed = Array.from(neededMidis);
+        if (needed.indexOf(69) >= 0) {
+          resolve({
+            needed: needed,
+            highlightNeed: highlightOf(69),
+            captureKind: captureKind,
+            silent: true
+          });
+          return;
+        }
+        if (performance.now() - t0 > 2800) {
+          reject(new Error("now-playing analyser did not light A4, needed=" + needed.join(",")));
+          return;
+        }
+        requestAnimationFrame(wait);
+      }
+      requestAnimationFrame(wait);
+    });
+  };
 })();
   </script>
 </body>

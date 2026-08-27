@@ -4,7 +4,7 @@ Standalone mic-capture + spectral analysis project (**not** related to FlexAIDdS
 
 **iOS / iPadOS / Mac (no ports):** the app ships as a Swift Playgrounds package [`ios/CrayonPiano.swiftpm`](ios/CrayonPiano.swiftpm) — run it directly on **iPadOS 27** in Swift Playgrounds (no Mac needed) or on **macOS 27** in Xcode / Swift Playgrounds. Tap keys, listen through the mic, or replay the built-in demo on the scrolling waveform. See [`ios/README.md`](ios/README.md).
 
-**Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold piano keys or type the computer keyboard — **Z = Do3**, **D = Do4**, **Q = La4** — to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. Live mic on **iPhone 15 Pro** / **iPad A16**: use the HTTPS piano (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
+**Web, also no server:** open [`web/keyboard.html`](web/keyboard.html) in Safari (or Chrome). Hold piano keys or type the computer keyboard — **Z = Do3**, **D = Do4**, **Q = La4** — to play crayon notes; **Rejouer** uses a built-in demo if `samples/final_song.wav` is missing. **En cours** follows tab audio in **Chrome** (headphones, no echo into the page). **Safari cannot** capture tab/system audio — use a loopback device as **Micro** then **Écouter**, or play out loud. Live mic on **iPhone 15 Pro** / **iPad A16**: use the HTTPS piano (Safari blocks `getUserMedia` on `file://`). Details in [`web/README.md`](web/README.md).
 
 **Terminal (same layout):** `bash scripts/run_tui.sh` in Ghostty, or `.venv/bin/python scripts/crayon_piano.py` — Listen / Rejouer, density lanes, chroma, keyboard, play-along score. Optional `--wav` 16-bit PCM.
 
