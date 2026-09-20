@@ -16,3 +16,10 @@ analysis_out/*
 .ipynb_checkpoints/
 xcuserdata/
 *.xcuserstate
+
+# Build output. pages.yml stages this from web/ on every deploy and uploads
+# the result, so a committed copy is never what gets served -- it is only a
+# mirror that can rot. PR #49 and PR #52 both edited it and both were silently
+# discarded. Edit web/keyboard.html; preview with scripts/stage_pages_piano.py.
+# Enforced by scripts/check_piano_generated.py.
+docs/piano/

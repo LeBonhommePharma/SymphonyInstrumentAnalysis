@@ -187,6 +187,16 @@ def _assert_local_labeler_gate(html: str, name: str) -> None:
 
 def check_public_site() -> None:
     docs = SCRIPTS.parent / "docs"
+    # docs/piano/ is build output and is not tracked (see
+    # scripts/check_piano_generated.py), so on a fresh clone it does not exist
+    # until it is staged. Stage it here rather than reporting the generated
+    # page as "missing" -- that would be a false failure, and teaching people
+    # to ignore it is how a real failure gets ignored too.
+    subprocess.run(
+        [sys.executable, str(SCRIPTS / "stage_pages_piano.py")],
+        check=True,
+        capture_output=True,
+    )
     required = [
         docs / "index.html",
         docs / "how-to.html",
