@@ -60,7 +60,7 @@ jobs:
     # The v2 palette contract, including the mechanised pitch-crayon
     # allow-list. Independent of the drift job so a palette failure and a
     # staging failure are never confused for one another.
-    name: FlexAID∆S v2 palette contract
+    name: FlexAIDΔS v2 palette contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
