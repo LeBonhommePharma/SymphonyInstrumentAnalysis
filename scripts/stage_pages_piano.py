@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
-"""Copy the crayon piano into docs/piano for GitHub Pages.
+"""Generate docs/piano/ — the published crayon piano — from web/.
 
-The public site publishes docs/ from main. The US / Canadian French
-layout picker lives in web/; this script stages that same page under /piano/.
+web/keyboard.html is the SOURCE and the only hand-editable copy. This script
+is the build step that turns it into the published page, injecting the
+Pages-specific chrome (breadcrumb, canonical link) that only makes sense on
+the public site.
+
+docs/piano/ is therefore BUILD OUTPUT and is not tracked in git. pages.yml
+runs this script and uploads docs/ as the Pages artifact (build_type:
+workflow), so what is served is always this script's output and never a
+committed copy. Tracking one only created a file that looked editable and
+was not: PR #49 and PR #52 both edited it and both were silently discarded.
+
+Enforced by scripts/check_piano_generated.py. Run this script to preview the
+staged result locally; it is safe to re-run and overwrites docs/piano/.
 """
 from __future__ import annotations
 

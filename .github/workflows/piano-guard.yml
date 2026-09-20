@@ -22,39 +22,55 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  staging-drift:
-    # Palette-independent by design. This one exists because #49 and #52 both
+  generated-not-tracked:
+    # Palette-independent by design. This job exists because #49 and #52 both
     # edited docs/piano/ directly -- which pages.yml overwrites from
     # web/keyboard.html on every build, so the edits never reached the live
     # site. Live served cd8da1fb..., git held ee3faecb..., and nothing caught
-    # it. After this job, that failure mode cannot ship silently.
-    name: docs/piano is in sync with web/
+    # it.
+    #
+    # This job replaces the earlier drift check. That check regenerated
+    # docs/piano/ and failed if the committed copy differed. It worked -- it
+    # would have caught #49 and #52 -- but it only made the loss VISIBLE, and
+    # only blocks a merge if a branch protection rule requires the check. This
+    # repository has no branch protection and no rulesets, so a red job blocks
+    # nothing: an auto-merge lands the PR and the edit is lost anyway.
+    #
+    # docs/piano/ is no longer tracked, so the trap is gone rather than
+    # reported: a fresh clone does not contain the file, an edit to it cannot
+    # be committed, and a hand-edit PR is empty instead of silently discarded.
+    # That property holds without branch protection. This job keeps it true.
+    name: docs/piano is generated, not tracked
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Stage crayon piano
-        run: python3 scripts/stage_pages_piano.py
+      - name: Prove the guard catches what it claims to catch
+        run: python3 scripts/check_piano_generated.py --self-test
 
-      - name: Fail if docs/piano/ drifted from web/
+      - name: docs/piano/ must not be tracked
+        run: python3 scripts/check_piano_generated.py
+
+      # The drift check used to prove staging actually worked, as a side
+      # effect of comparing its output against the committed copy. There is no
+      # committed copy now, so that proof has to be made explicitly instead of
+      # quietly lost along with the job that used to carry it.
+      - name: Staging produces the published page
         run: |
-          if ! git diff --quiet -- docs/piano/; then
-            echo "::error title=docs/piano is stale::scripts/stage_pages_piano.py regenerated docs/piano/ and the result differs from what is committed."
-            echo
-            echo "docs/piano/ is BUILD OUTPUT. pages.yml overwrites it from web/keyboard.html,"
-            echo "web/dual_keyboard.js and web/crayon_dsp.js on every deploy, so editing it"
-            echo "directly is a no-op that survives only until the next push."
-            echo
-            echo "Fix: make the change in web/, then run"
-            echo "    python3 scripts/stage_pages_piano.py"
-            echo "and commit the regenerated docs/piano/ alongside it."
-            echo
-            echo "----- drift -----"
-            git --no-pager diff --stat -- docs/piano/
-            git --no-pager diff -- docs/piano/ | head -200
-            exit 1
+          python3 scripts/stage_pages_piano.py
+          missing=0
+          for f in index.html dual_keyboard.js crayon_dsp.js now_playing.js; do
+            if [ ! -s "docs/piano/$f" ]; then
+              echo "::error title=staging produced no $f::docs/piano/$f is missing or empty after staging."
+              missing=1
+            fi
+          done
+          if ! grep -q 'pages-crumb' docs/piano/index.html; then
+            echo "::error title=staging did not inject site chrome::docs/piano/index.html has no breadcrumb, so the Pages-specific transform did not run."
+            missing=1
           fi
-          echo "docs/piano/ matches web/ — staging is idempotent."
+          [ "$missing" = 0 ] || exit 1
+          echo "staging produced the full published page."
 
   palette-contract:
     # The v2 palette contract, including the mechanised pitch-crayon
