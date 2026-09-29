@@ -55,6 +55,10 @@ Resize the window to at least ~120×40 cells so the 88-key row is readable.
 | **r** Rejouer | keys light from the built-in demo (no WAV needed) |
 | Play along **Z=Do3**, **D=Do4**, **Q=La4** (same MIDI on US and CSA) | **need** fill, **held** outline, **hit** + score |
 | **l** Écouter, then sing or play psytrance / a cappella | low + high (or sung) sources, not a blank / noise-only row |
+| Play a 4/4 track (Rejouer or Écouter) | header reads **♩ …** for ~3 s, then **♩ 140** (the demo phrase has no beat: it stays **♩ …**) |
+| `bash scripts/run_tui.sh --pls ~/Downloads/"DI.FM - Progressive Psy.pls"` then **l** | header names the station; crayons, lanes and **♩ BPM** follow the stream, no mic |
+| `bash scripts/run_tui.sh --follow`, press play in Spotify or Music | Écouter starts by itself, header shows `Spotify · Artist — Title`; pause → it stops |
+| `.venv/bin/python scripts/stream_bpm.py --pls …` | one live line: `DI.FM - Progressive Psy · ♩ 140 BPM · conf … · collapse … · 0:42`; the URL, if printed, ends in `?<key>` |
 | Quit and relaunch | best score restored |
 
 Layout: the TUI infers US vs Canadian French CSA from the OS / typed glyphs.
@@ -71,6 +75,12 @@ Safari cannot capture tab or system audio. Chrome can share a tab with audio.
 3. Click **En cours**. Share the **music tab** and check **Partager l’audio de l’onglet**.
 4. Crayons follow (need / held / hit). The piano page stays silent — no echo in the headphones.
 5. **Safari fallback:** BlackHole (or Loopback) as the song output and as **Micro**, then **Écouter**.
+6. **♩ BPM** sits under the clock and follows the same audio as the crayons.
+7. **Station stream without a tab:** open **Micro · loopback · Flux**, pick the DI.FM `.pls` (or paste the URL),
+   **Suivre le flux**. Muted until **Son**. If the page reports the stream as CORS-silent, or blocks an
+   `http://` stream on the HTTPS site, fall back to the tab route above.
+8. `--follow` on the Mac prefers a loopback device: with BlackHole set as Spotify's output, the TUI reads the
+   song directly; without one, the built-in mic hears the speakers.
 
 ---
 
@@ -110,6 +120,8 @@ or Xcode on this Mac to install the native app.
 | Écouter toward a speaker playing vocals-only | keys + clusters; mix goes to 5 kHz |
 | Écouter toward dense high-frequency / psytrance | a low source **and** a high source stay split |
 | Rejouer | demo phrase, waveform scrolls, score line in the header |
+| Écouter toward a speaker playing a 4/4 track | **♩ …** for ~3 s, then **♩ 140** next to the concert-A readout |
+| **Suivre** on, then press play in DI.FM / Spotify / Apple Music | Écouter starts by itself and the other app keeps playing; pause it → Écouter stops |
 | Tap needed keys / type on a paired keyboard | hit vs held vs need; best score survives relaunch |
 | US \| Canadien français | glyphs remap; the same physical keys still hit the same notes |
 
@@ -157,6 +169,9 @@ Same table as the 15 Pro, plus:
 - Dense high-frequency / psytrance keeps a **low** cluster and a **high** cluster.
 - Play-along scoring works on whatever is currently playing (mic, demo, or your WAV).
 - US and Canadian French CSA share piano MIDI on the letter row.
+- **♩ BPM** locks on a 4/4 track within a few seconds on every surface and stays **♩ …** on a held
+  tone or an empty room; the station route (`--pls`, **Suivre le flux**) and the follow routes
+  (`--follow`, **Suivre**) hand that same audio to the tool without a manual Écouter.
 
 CLI analyzer (Mac only, after install):
 

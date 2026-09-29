@@ -9,6 +9,11 @@ captures/*
 *.wav
 *.flac
 *.aiff
+# Station playlists (DI.FM exports) carry a premium listen key in the URL.
+# They are credentials: read them at runtime, never commit them.
+*.pls
+*.m3u
+*.m3u8
 analysis_out/*
 !analysis_out/.gitkeep
 !analysis_out/*.md

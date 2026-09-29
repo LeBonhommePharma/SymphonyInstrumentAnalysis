@@ -53,6 +53,7 @@
   const specCtx = specCanvas.getContext("2d");
   const noteEl = document.getElementById("note");
   const hzEl = document.getElementById("hz");
+  const bpmEl = document.getElementById("bpm");
   const quietEl = document.getElementById("quiet");
   const peaksEl = document.getElementById("peaks");
   const hardEl = document.getElementById("hard");
@@ -65,6 +66,12 @@
   const bootstrap = document.getElementById("bootstrap");
 
   let audioCtx = null;
+  // ♩ BPM: a short analyser (2048) chained off the main one feeds the shared
+  // BPM_TRACKER (docs/piano/bpm_tracker.js) with audio-clock-stamped frames.
+  let bpmAnalyser = null;
+  let bpmSpec = new Float32Array(1024);
+  const bpmTracker = window.BPM_TRACKER ? new window.BPM_TRACKER.BpmTracker(48000) : null;
+  let lastBpmKey = "";
   let iosMicAcknowledged = false;
   let typingBoard = null;
   let analyser = null;
@@ -349,6 +356,33 @@
       } catch (e) {}
       scoreEl.textContent = scoreNow + " · best " + best;
     }
+  }
+
+  function paintBpm() {
+    if (!bpmEl) return;
+    const st = bpmTracker ? bpmTracker.snapshot() : null;
+    const listening = Boolean(analyser && audioCtx);
+    let key;
+    if (!listening) key = "idle";
+    else if (!st || !st.ready) key = "settling";
+    else key = "bpm:" + Math.round(st.bpm);
+    if (key === lastBpmKey) return;
+    lastBpmKey = key;
+    bpmEl.textContent = "";
+    if (key === "idle") {
+      bpmEl.textContent = t("bpmWaiting");
+      return;
+    }
+    if (key === "settling") {
+      bpmEl.textContent = t("bpmSettling");
+      return;
+    }
+    bpmEl.appendChild(document.createTextNode(String(Math.round(st.bpm))));
+    const unit = document.createElement("span");
+    unit.className = "unit";
+    unit.textContent = "BPM";
+    bpmEl.appendChild(unit);
+    bpmEl.title = st.bpm.toFixed(1) + " BPM · " + st.confidence.toFixed(2) + " · " + st.collapse.toFixed(2);
   }
 
   function rmsOfTime() {
@@ -851,6 +885,11 @@
     const rms = rmsOfTime();
     updateAutoGain(rms);
     const binHz = audioCtx.sampleRate / analyser.fftSize;
+    if (bpmTracker && bpmAnalyser) {
+      bpmAnalyser.getFloatFrequencyData(bpmSpec);
+      bpmTracker.pushSpectrum(audioCtx.currentTime, bpmSpec, audioCtx.sampleRate / bpmAnalyser.fftSize);
+    }
+    paintBpm();
     const extracted = { peaks: extractClusterPeaks(specDb, binHz) };
     const clusters = densityCluster(extracted.peaks);
     const litMidis = pickLitMidis(specDb, binHz);
@@ -1007,6 +1046,16 @@
     sourceNode = audioCtx.createMediaStreamSource(mediaStream);
     // Analysis only — never connect to destination (page stays silent).
     sourceNode.connect(analyser);
+    if (bpmTracker) {
+      bpmAnalyser = audioCtx.createAnalyser();
+      bpmAnalyser.fftSize = window.BPM_TRACKER.FRAME;
+      bpmAnalyser.smoothingTimeConstant = 0;
+      bpmAnalyser.minDecibels = -95;
+      bpmAnalyser.maxDecibels = 0;
+      bpmSpec = new Float32Array(bpmAnalyser.frequencyBinCount);
+      analyser.connect(bpmAnalyser);  // AnalyserNode passes audio through; still no destination
+      bpmTracker.reset();
+    }
     setStatusKey(statusKey);
     setListeningUi(true);
     listenStartedAt = performance.now();
@@ -1036,6 +1085,12 @@
       try { analyser.disconnect(); } catch (e) { /* already gone */ }
     }
     analyser = null;
+    if (bpmAnalyser) {
+      try { bpmAnalyser.disconnect(); } catch (e) { /* already gone */ }
+    }
+    bpmAnalyser = null;
+    if (bpmTracker) bpmTracker.reset();
+    paintBpm();
     if (stream) {
       stream.getTracks().forEach(function (track) {
         try { track.stop(); } catch (e) { /* already stopped */ }
@@ -1208,6 +1263,15 @@
     lastElapsed = 12;
     noteEl.textContent = "A4";
     hzEl.textContent = "440.0 Hz";
+    if (bpmEl) {
+      lastBpmKey = "demo";
+      bpmEl.textContent = "";
+      bpmEl.appendChild(document.createTextNode("128"));
+      const unit = document.createElement("span");
+      unit.className = "unit";
+      unit.textContent = "BPM";
+      bpmEl.appendChild(unit);
+    }
     lightPiano(new Set([69, 76, 81]));
     peaksEl.textContent = demo
       .map(function (row) {
@@ -1227,6 +1291,10 @@
 
   function refreshI18n() {
     updateTracksHeading();
+    if (!demoMode) {
+      lastBpmKey = "";
+      paintBpm();
+    }
     if (lastStatusKey) statusEl.textContent = t(lastStatusKey);
     if (livePill && !livePill.hidden) livePill.textContent = t("hudLive");
     if (demoMode) {
@@ -1296,6 +1364,7 @@
     peaksEl.textContent = t("peaksWaiting");
     hardEl.textContent = t("hardDefault");
     hzEl.textContent = "—";
+    paintBpm();
     updateTracksHeading();
     setListeningUi(false);
     lightPiano([]);  // nothing is lit until real audio asks for it

@@ -67,6 +67,18 @@ final class PianoSession: ObservableObject {
     let histLen = 240
     @Published var statusLine = "Touche le clavier"
     @Published var hint = ""
+    /// ♩ BPM of whatever is being analysed (mic, replay). Same strings as the web and TUI.
+    @Published var bpmLine = "♩ —"
+    /// Suivre: start Écouter whenever another app (DI.FM, Spotify, Apple Music…) is
+    /// playing, stop when it pauses. iOS gives an app no other route to another
+    /// app's audio than the microphone, so this is the reroute, honestly.
+    @Published var followOthers = UserDefaults.standard.bool(forKey: "crayon-follow") {
+        didSet {
+            UserDefaults.standard.set(followOthers, forKey: "crayon-follow")
+            syncFollow()
+        }
+    }
+    @Published var followLabel = ""
     @Published var scoreValue = 0
     @Published var bestScore = 0
     @Published var layoutId: KeyboardLayoutId = KeyboardLayout.detect()
@@ -106,6 +118,9 @@ final class PianoSession: ObservableObject {
     private let replayMixer = AVAudioMixerNode()
     private let tapMixer = AVAudioMixerNode()
     nonisolated(unsafe) private let spectrumEngine = LiveSpectrumEngine()
+    nonisolated(unsafe) private let bpmTracker = BpmTracker(sampleRate: 44100)
+    private var followTask: Task<Void, Never>?
+    private var autoLive = false
     private var lastDb: [Float] = []
     private var lastBinHz: Double = 0
     private var demoBuffer: AVAudioPCMBuffer?
@@ -170,6 +185,45 @@ final class PianoSession: ObservableObject {
         displayPulse.onTick = { [weak self] in
             Task { @MainActor in
                 self?.onDisplayTick()
+            }
+        }
+        syncFollow()
+    }
+
+    // MARK: - Suivre (auto-follow other apps' audio)
+
+    private func syncFollow() {
+        followTask?.cancel()
+        followTask = nil
+        if followOthers {
+            followTask = Task { @MainActor [weak self] in
+                while !Task.isCancelled {
+                    self?.pollFollow()
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+            }
+        } else {
+            followLabel = ""
+            if autoLive, mode == .live { stopLive() }
+            autoLive = false
+        }
+    }
+
+    /// `isOtherAudioPlaying` is the one public signal iOS gives about other apps'
+    /// playback — app-agnostic, no permission, no Media Library prompt.
+    private func pollFollow() {
+        let other = AVAudioSession.sharedInstance().isOtherAudioPlaying
+        if other {
+            followLabel = "autre app en lecture"
+            if mode == .idle {
+                startLive()
+                autoLive = (mode == .live)
+            }
+        } else {
+            followLabel = mode == .live && autoLive ? "" : "rien ne joue"
+            if mode == .live, autoLive {
+                autoLive = false
+                stopLive()
             }
         }
     }
@@ -257,6 +311,7 @@ final class PianoSession: ObservableObject {
             mixerTapOn = false
             installInputTap()
             spectrumEngine.reset()
+            bpmTracker.reset()
             refreshPickConfig()
             mode = .live
             statusLine = "live"
@@ -291,6 +346,7 @@ final class PianoSession: ObservableObject {
         persistScore(source: "live")
         engine.inputNode.removeTap(onBus: 0)
         didInstallTap = false
+        autoLive = false
         mode = .idle
         clearSpectrum()
         statusLine = ""
@@ -308,6 +364,7 @@ final class PianoSession: ObservableObject {
             try startEngineIfNeeded()
             guard let demoBuffer else { return }
             spectrumEngine.reset()
+            bpmTracker.reset()  // a start or a seek breaks onset continuity
             refreshPickConfig()
             replayMixer.outputVolume = unmute ? 0.28 : 0
             if replayOffset >= sampleDuration - 0.05 { replayOffset = 0 }
@@ -694,6 +751,8 @@ final class PianoSession: ObservableObject {
         let samples = Array(UnsafeBufferPointer(start: channel, count: frames))
         let now = ProcessInfo.processInfo.systemUptime
         spectrumEngine.push(samples, sampleRate: sampleRate)
+        // Contiguous PCM, every sample once, in order — the tracker's contract.
+        bpmTracker.push(samples, sampleRate: sampleRate)
         spectrumEngine.schedule(now: now) { [weak self] result, clustered, _ in
             Task { @MainActor in
                 self?.applySpectrum(result, clustered: clustered, now: now)
@@ -822,6 +881,8 @@ final class PianoSession: ObservableObject {
         lit = []
         harmonics = []
         chroma = [:]
+        bpmTracker.reset()
+        bpmLine = "♩ —"
         tuneReady = false
         concertA = PitchMath.a4Ref
         liveTracks = []
@@ -874,6 +935,8 @@ final class PianoSession: ObservableObject {
     }
 
     func tickDisplay(now: TimeInterval) {
+        let text = bpmTracker.snapshot().text(active: mode != .idle)
+        if text != bpmLine { bpmLine = text }
         let cols = histLen
         let secPerCol = waveWindowSec / Double(max(1, cols))
         if histClock == 0 { histClock = now }

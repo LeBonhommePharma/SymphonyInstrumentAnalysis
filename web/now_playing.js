@@ -191,6 +191,57 @@
     return "";
   }
 
+  /* ── station playlists (DI.FM .pls export, .m3u) — port of scripts/now_playing.py ── */
+  const STREAM_URL_RE = /^(https?|rtmp|rtsp):\/\//i;
+
+  function isStreamUrl(text) {
+    return STREAM_URL_RE.test(String(text || "").trim());
+  }
+
+  /** Drop credentials: user:pass@ and the whole query string (the DI.FM listen key). */
+  function maskStreamUrl(url) {
+    try {
+      const u = new URL(String(url).trim());
+      return u.protocol + "//" + u.host + u.pathname + (u.search ? "?<key>" : "");
+    } catch (_) {
+      return "<url>";
+    }
+  }
+
+  /** PLS (`[playlist]` + FileN/TitleN), M3U/M3U8 (#EXTINF + URL lines), or a bare URL. */
+  function parsePlaylist(text, name) {
+    const lines = String(text || "").replace(/\r\n?/g, "\n").split("\n").map(function (l) { return l.trim(); });
+    const fallback = name || "stream";
+    if (lines.some(function (l) { return l.toLowerCase() === "[playlist]"; })) {
+      const files = {};
+      const titles = {};
+      lines.forEach(function (l) {
+        const m = /^(File|Title)(\d+)\s*=\s*(.*)$/i.exec(l);
+        if (!m) return;
+        if (m[1].toLowerCase() === "file") files[m[2]] = m[3].trim();
+        else titles[m[2]] = m[3].trim();
+      });
+      return Object.keys(files).map(Number).sort(function (a, b) { return a - b; })
+        .filter(function (i) { return isStreamUrl(files[i]); })
+        .map(function (i) { return { url: files[i], title: titles[i] || fallback }; });
+    }
+    const out = [];
+    let pending = "";
+    lines.forEach(function (l) {
+      if (!l) return;
+      if (l.indexOf("#EXTINF") === 0) {
+        pending = l.indexOf(",") >= 0 ? l.slice(l.indexOf(",") + 1).trim() : "";
+        return;
+      }
+      if (l[0] === "#") return;
+      if (isStreamUrl(l)) {
+        out.push({ url: l, title: pending || fallback });
+        pending = "";
+      }
+    });
+    return out;
+  }
+
   const MELODY_LO_HZ = 196;
   const MELODY_HI_HZ = 2093;
 
@@ -425,7 +476,31 @@
       throw new Error("ask Chrome for systemAudio when the OS offers it");
     }
 
-    return "now_playing.js: Safari honest, silent tap, A4 need/hit OK";
+    const key = "0123456789abcdef0123456789abcdef";
+    const pls = "[playlist]\nNumberOfEntries=2\nFile1=http://prem1.di.fm:80/progressivepsy_hi?" + key +
+      "\nTitle1=DI.FM - Progressive Psy\nLength1=0\nFile2=http://prem4.di.fm:80/progressivepsy_hi?" + key +
+      "\nTitle2=DI.FM - Progressive Psy\nLength2=0\nVersion=2\n";
+    const entries = parsePlaylist(pls, "station");
+    if (entries.length !== 2 || entries[0].title !== "DI.FM - Progressive Psy" || entries[0].url.indexOf(key) < 0) {
+      throw new Error("pls parse must keep both entries and the real URL");
+    }
+    const masked = maskStreamUrl(entries[0].url);
+    if (masked.indexOf(key) >= 0 || !/\?<key>$/.test(masked) || masked.indexOf("prem1.di.fm") < 0) {
+      throw new Error("maskStreamUrl must hide the listen key, got " + masked);
+    }
+    if (maskStreamUrl("https://user:pw@host/path") !== "https://host/path") {
+      throw new Error("maskStreamUrl must drop userinfo");
+    }
+    const m3u = parsePlaylist("#EXTM3U\n#EXTINF:-1,Some Radio\nhttps://example.org/live.aac\nnot-a-url\n", "x");
+    if (m3u.length !== 1 || m3u[0].title !== "Some Radio" || m3u[0].url !== "https://example.org/live.aac") {
+      throw new Error("m3u parse");
+    }
+    if (parsePlaylist("hello\n", "x").length !== 0 || parsePlaylist("http://e.org/a.mp3", "bare")[0].title !== "bare") {
+      throw new Error("bare url / plain text parse");
+    }
+    if (!isStreamUrl("http://x/y") || isStreamUrl("file:///x")) throw new Error("isStreamUrl contract");
+
+    return "now_playing.js: Safari honest, silent tap, A4 need/hit, playlist key masked OK";
   }
 
   global.NOW_PLAYING = {
@@ -446,6 +521,9 @@
     bufferToSpecDb: bufferToSpecDb,
     highlightOf: highlightOf,
     pickMelodyCluster: pickMelodyCluster,
+    isStreamUrl: isStreamUrl,
+    maskStreamUrl: maskStreamUrl,
+    parsePlaylist: parsePlaylist,
     MELODY_LO_HZ: MELODY_LO_HZ,
     MELODY_HI_HZ: MELODY_HI_HZ,
     selfTest: selfTest

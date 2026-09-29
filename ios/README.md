@@ -60,6 +60,14 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
   waveform scrolling right→left as it plays. Drag the lane to scrub.
 - Track chips (multi-select, color-coded) and stacked waveform lanes — one lane per density cluster.
 - One typing board with a **US | Canadien français** picker. Switching remaps glyphs, ISO geometry, and hardware keys at once. Each character key is a crayon note (**Z = Do3**, **D = Do4**, **Q = La4**) and lights the matching 88-key. Ten-finger gate unless extras are well clustered.
+- **♩ BPM** next to the concert-A readout — the tempo of whatever is being analysed (mic or
+  demo): **♩ —** idle, **♩ …** settling, **♩ 140** locked. Same estimator as the web piano and
+  the TUI (`BpmTracker.swift`, contract in `piano/dsp_contract.json` → `bpm`).
+- **Suivre** — start **Écouter** whenever another app is playing (DI.FM, Spotify, Apple Music,
+  Safari…) and stop when it pauses. iOS gives an app no route to another app's audio except the
+  microphone, so this is the mic with `mixWithOthers` (the other app keeps playing), driven by
+  `AVAudioSession.isOtherAudioPlaying`. No Media Library permission is requested and no
+  track title is read — the header says *autre app en lecture*.
 - Auto-accord, day/light/dark/night/stealth + Auto ambient scenes, chords.
 - Full 88-key piano (A0–C8) spanning the window (horizontal scroll only if white keys would drop below ~28pt).
 - Log-frequency clustered spectrum (A0–C8, dBFS, 440 Hz tick) with unbounded regrouped sources.
@@ -74,7 +82,8 @@ Same crayon map as [`web/keyboard.html`](../web/keyboard.html):
 | `SpectrumPlotView.swift` | log-frequency clustered spectrum (A0–C8) |
 | `PitchMath.swift` | MIDI ↔ Hz, A0–C8 (88 keys) |
 | `SpectrumAnalyzer.swift` | vDSP FFT + the web peak-picker |
-| `PianoSession.swift` | mic, tap tones, built-in demo, waveform peaks |
+| `BpmTracker.swift` | ♩ BPM: SuperFlux onsets, comb autocorrelation, beat-phase energy collapse (Foundation + Accelerate only; `scripts/run_bpm_selftest.swift` compiles it with swiftc) |
+| `PianoSession.swift` | mic, tap tones, built-in demo, waveform peaks, Suivre auto-follow |
 | `PianoKeyboardView.swift` | multi-touch keyboard |
 | `WaveformTrackView.swift` | scrolling DAW-style waveform timeline |
 | `DualKeyboard.swift` / `DualKeyboardView.swift` | US / CSA typing board + hardware keys |

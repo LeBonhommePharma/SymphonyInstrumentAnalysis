@@ -38,6 +38,26 @@ Local-only fallback (this computer, not 5G):
 python3 scripts/serve_tutorial.py
 ```
 
+## ♩ BPM counter, and following what is already playing
+
+Every listening surface now counts the tempo of whatever it is analysing — mic, **En cours**, a station stream, or **Rejouer** — and shows it next to the clock as **♩ 140** (**♩ …** while it settles, **♩ —** when idle). One estimator, three ports that pass the same synthetic beats: [`scripts/bpm_tracker.py`](scripts/bpm_tracker.py) (reference), [`web/bpm_tracker.js`](web/bpm_tracker.js), [`ios/CrayonPiano.swiftpm/BpmTracker.swift`](ios/CrayonPiano.swiftpm/BpmTracker.swift). Constants are pinned in [`piano/dsp_contract.json`](piano/dsp_contract.json) → `bpm`.
+
+How it counts: SuperFlux onset strength on log-spaced bands (100 Hz grid), a comb-enhanced autocorrelation over the last 8 s with a mild prior around 128 BPM, then a **Shannon energy-collapse** gate — the onset energy is folded on the candidate period into 16 beat-phase bins, and the tempo is only reported when that fold's entropy collapses (a held tone or a room hum passes the autocorrelation and fails the fold). Confidence and collapse ride along in the tooltip / JSON.
+
+Reroute what is playing into the active tool — honest per platform:
+
+| What is playing | Route | Command / control |
+| --- | --- | --- |
+| **DI.FM** (any Icecast / Shoutcast / HLS URL) | decode the stream itself | `python3 scripts/stream_bpm.py --pls "DI.FM - Progressive Psy.pls"` · TUI: `python3 scripts/crayon_piano.py --pls …` (Écouter follows the station) · web: **Micro · loopback · Flux → Suivre le flux** (URL or the `.pls`) |
+| **Spotify / Apple Music** on this Mac | player state via AppleScript; audio through BlackHole / Loopback when present, else the mic | `python3 scripts/crayon_piano.py --follow` (starts Écouter when they play, stops when they pause; the header names the track) |
+| **Anything** in a Chrome tab (Spotify web, Apple Music web, DI.FM web) | tab share | **En cours** on the crayon piano |
+| **Anything** on iPhone / iPad (DI.FM app, Spotify, Apple Music) | `AVAudioSession.isOtherAudioPlaying` + the mic (`mixWithOthers` keeps the other app playing) | **Suivre** toggle in the native app |
+| A file | ffmpeg decode | `python3 scripts/stream_bpm.py --wav song.wav` |
+
+`stream_bpm.py` prints one live line (`DI.FM - Progressive Psy · ♩ 140 BPM · conf 0.61 · collapse 0.38 · 0:42`) or, with `--json`, one object per half second.
+
+**The DI.FM `.pls` carries your premium listen key in the URL.** It is a credential: `*.pls` / `*.m3u` are gitignored, every tool masks the query string when it prints a URL, and the web page never stores it. Safari cannot capture other tabs or apps (see [`web/README.md`](web/README.md)); on iOS no app can read another app's audio except through the mic — the tools say so instead of pretending.
+
 ## How-to (ELI5)
 
 Sound is air wiggling. We count the wiggles per second (**Hz**), then name the instruments and notes.
@@ -145,6 +165,10 @@ python3 scripts/record_mic.py --seconds 90
 
 # analyze (crayon-piano peak-picker; vocals and highs included)
 python3 scripts/analyze_instruments.py captures/<file>.wav
+
+# live BPM of a station, a URL, or a file (ffmpeg decodes; the listen key stays masked)
+python3 scripts/stream_bpm.py --pls "DI.FM - Progressive Psy.pls"
+python3 scripts/stream_bpm.py --wav captures/<file>.wav --json
 ```
 
 Outputs land in `analysis_out/` (Markdown + JSON). Raw WAVs stay local in `captures/` (gitignored).

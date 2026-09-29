@@ -30,7 +30,9 @@ if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
 
 from analyze_instruments import hz_to_note, load_wav
+from bpm_tracker import BpmTracker, bpm_text
 from density_cluster import cluster_peaks, heuristic_label
+from now_playing import StreamEntry, StreamSource, follow_capture_devices, follow_status, load_playlist
 from chord_pitch_colors import NOTE_NAMES, PC_FR, PC_PENCIL, crayon_rgb
 from list_mics import ranked_audio_devices
 from macos_audio import ensure_macos_input, pcm_s16le_is_silent
@@ -172,8 +174,13 @@ class RingBuffer:
             return out
 
 
-def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
-    """ffmpeg capture pipelines. macOS uses AVFoundation; Linux tries Pulse/ALSA/OpenAL."""
+def mic_ffmpeg_cmds(sr: int, *, prefer_loopback: bool = False) -> list[list[str]]:
+    """ffmpeg capture pipelines. macOS uses AVFoundation; Linux tries Pulse/ALSA/OpenAL.
+
+    `prefer_loopback` (the --follow route) tries BlackHole / Loopback devices
+    first: they carry Spotify's or Apple Music's output directly, no speaker
+    round-trip. The built-in mic stays the fallback.
+    """
     rate = str(sr)
     pcm = ["-ac", "1", "-ar", rate, "-f", "s16le", "-"]
     head = ["ffmpeg", "-hide_banner", "-nostats", "-loglevel", "error"]
@@ -181,6 +188,8 @@ def mic_ffmpeg_cmds(sr: int) -> list[list[str]]:
     if sys.platform == "darwin":
         # Built-in Mac mic first. Continuity/iPhone inputs hang ffmpeg open().
         devices = ranked_audio_devices(include_unreliable=False) or ranked_audio_devices()
+        if prefer_loopback:
+            devices = follow_capture_devices(devices)
         indices = [idx for idx, _name in devices] or [0]
         for idx in indices[:4]:
             cmds.append([*head, "-f", "avfoundation", "-i", f":{idx}", *pcm])
@@ -218,19 +227,30 @@ def _first_signal_chunk(stdout, wait_s: float) -> bytes:
 class MicStream:
     """Live capture via ffmpeg. On macOS this is AVFoundation (Ghostty / Terminal)."""
 
-    def __init__(self, sr: int) -> None:
+    def __init__(self, sr: int, *, sink=None, prefer_loopback: bool = False) -> None:
         self.sr = sr
         self.ring = RingBuffer(max(sr * 2, FFT_SIZE * 2))
         self._proc: subprocess.Popen[bytes] | None = None
         self._thread: threading.Thread | None = None
         self.alive = False
         self.error = ""
+        # Every sample once, in order, on the reader thread — the BPM tracker's contract.
+        self.sink = sink
+        self.prefer_loopback = prefer_loopback
+
+    def _push(self, samples: np.ndarray) -> None:
+        self.ring.push(samples)
+        if self.sink is not None:
+            try:
+                self.sink(samples)
+            except Exception:
+                pass
 
     def start(self) -> str:
         self.stop()
         ensure_macos_input()
         last_err = MIC_ERR
-        for cmd in mic_ffmpeg_cmds(self.sr):
+        for cmd in mic_ffmpeg_cmds(self.sr, prefer_loopback=self.prefer_loopback):
             try:
                 proc = subprocess.Popen(
                     cmd,
@@ -248,7 +268,7 @@ class MicStream:
                 proc.kill()
                 last_err = MIC_ERR
                 continue
-            self.ring.push(np.frombuffer(raw, dtype="<i2").astype(np.float64) / 32768.0)
+            self._push(np.frombuffer(raw, dtype="<i2").astype(np.float64) / 32768.0)
             self._proc = proc
             self.alive = True
             self.error = ""
@@ -269,7 +289,7 @@ class MicStream:
                 if not raw:
                     break
                 samples = np.frombuffer(raw, dtype="<i2").astype(np.float64) / 32768.0
-                self.ring.push(samples)
+                self._push(samples)
         except Exception:
             pass
         self.alive = False
@@ -730,6 +750,12 @@ class CrayonPianoApp(App[None]):
         text-style: bold;
         padding: 0 1;
     }
+    #bpm {
+        width: 9;
+        color: #c8c8d0;
+        text-style: bold;
+        padding: 0 1;
+    }
     #tune {
         width: 1fr;
         color: #7a8a94;
@@ -786,6 +812,8 @@ class CrayonPianoApp(App[None]):
         sr: int,
         envelopes: dict[str, np.ndarray] | None = None,
         source_name: str = "demo",
+        stream: StreamEntry | None = None,
+        follow: bool = False,
     ) -> None:
         super().__init__()
         self.audio = np.asarray(audio, dtype=np.float64)
@@ -812,7 +840,17 @@ class CrayonPianoApp(App[None]):
         self.held: set[int] = set()
         self.mic_error = ""
         self.live_hist: dict[int, deque[float]] = {}
-        self.mic = MicStream(self.sr)
+        # One BPM tracker for whatever is being analysed: mic, loopback, stream, replay.
+        self.bpm = BpmTracker(self.sr)
+        self._bpm_fed = 0  # replay: audio samples already pushed to the tracker
+        self.follow = follow
+        self._follow_label = ""
+        self._auto_live = False
+        self.stream_entry = stream
+        self.stream: StreamSource | None = (
+            StreamSource(stream, self.sr, sink=self.bpm.push) if stream is not None else None
+        )
+        self.mic = MicStream(self.sr, sink=self.bpm.push, prefer_loopback=follow)
         self.player = QuietPlayer()
         self._last_seek_play = 0.0
         self.source_name = source_name
@@ -827,6 +865,7 @@ class CrayonPianoApp(App[None]):
             yield Chip("Rejouer", id="btn-replay")
             yield Chip("Écouter", id="btn-listen")
             yield Static(clock_text("idle", 0.0, self.duration, 0.0), id="clock")
+            yield Static("♩ —", id="bpm")
             yield Static("La/A ≈ 440 Hz", id="tune")
             yield Static("", id="score")
         with HorizontalGroup(id="toggles"):
@@ -847,11 +886,47 @@ class CrayonPianoApp(App[None]):
     def on_mount(self) -> None:
         self._paint_tracks()
         self.set_interval(1 / 25, self._tick)
+        if self.follow:
+            self.set_interval(1.5, self._poll_follow)
+            self._poll_follow()
         self._refresh_chrome()
 
     def on_unmount(self) -> None:
         self.mic.stop()
+        if self.stream is not None:
+            self.stream.stop()
         self.player.stop()
+
+    def live_source(self):
+        """What Écouter reads: the --pls / --url stream when given, else the mic."""
+        return self.stream if self.stream is not None else self.mic
+
+    def _poll_follow(self) -> None:
+        """--follow: Spotify / Apple Music playing → Écouter; paused → stop (macOS)."""
+        fs = follow_status()
+        if not fs.available:
+            self._follow_label = ""
+            self._show_err(fs.note)
+            return
+        self._follow_label = fs.label
+        if fs.playing and self.mode == "idle":
+            self.action_listen()
+            self._auto_live = self.mode == "live"
+        elif not fs.playing and self.mode == "live" and self._auto_live:
+            self._auto_live = False
+            self._stop_live()
+        self._paint_title()
+
+    def _paint_title(self) -> None:
+        parts = ["Piano-crayon"]
+        if self.stream_entry is not None:
+            parts.append(self.stream_entry.title)
+        if self._follow_label:
+            parts.append(self._follow_label)
+        try:
+            self.query_one("#title", Static).update(" · ".join(parts))
+        except Exception:
+            pass
 
     def on_click(self, event: events.Click) -> None:
         wid = event.widget.id if event.widget is not None else None
@@ -910,6 +985,8 @@ class CrayonPianoApp(App[None]):
         if self.mode == "live":
             return
         self.sample_offset = max(0.0, min(self.duration, t))
+        self.bpm.reset()
+        self._bpm_fed = int(self.sample_offset * self.sr)
         if self.mode == "replay":
             self._replay_mono = time.monotonic()
             if restart:
@@ -922,11 +999,13 @@ class CrayonPianoApp(App[None]):
 
     def action_listen(self) -> None:
         if self.mode == "live":
+            self._auto_live = False
             self._stop_live()
             return
         if self.mode == "replay":
             self._stop_replay(keep=True)
-        err = self.mic.start()
+        self.bpm.reset()
+        err = self.live_source().start()
         if err:
             self.mic_error = err
             self.mode = "idle"
@@ -940,6 +1019,7 @@ class CrayonPianoApp(App[None]):
         self.live_clusters = []
         self.mode = "live"
         self._live_mono = time.monotonic()
+        self._paint_title()
         self._refresh_chrome()
 
     def action_replay(self) -> None:
@@ -951,6 +1031,8 @@ class CrayonPianoApp(App[None]):
         self.picker.reset()
         if self.sample_offset >= self.duration - 0.05:
             self.sample_offset = 0.0
+        self.bpm.reset()
+        self._bpm_fed = int(self.sample_offset * self.sr)
         self.mode = "replay"
         self._replay_mono = time.monotonic()
         self._restart_playback()
@@ -1047,6 +1129,9 @@ class CrayonPianoApp(App[None]):
         self._persist_score()
         self.score.reset_session()
         self.mic.stop()
+        if self.stream is not None:
+            self.stream.stop()
+        self.bpm.reset()
         self.mode = "idle"
         self.lit = []
         self.chroma = {n: -120.0 for n in NOTE_NAMES}
@@ -1152,6 +1237,7 @@ class CrayonPianoApp(App[None]):
         self.query_one("#tune", Static).update(
             tune_line(self.autotune_on, self.picker.a_est, self.picker.tune_ready, self.mode)
         )
+        self.query_one("#bpm", Static).update(bpm_text(self.bpm.snapshot(), active=self.mode != "idle"))
         self.query_one("#tog-sens", Chip).update(self._sens_label())
         self.query_one("#tog-chords", Chip).set_class(self.chords_on, "-on")
         self.query_one("#tog-unmute", Chip).set_class(self.unmute_on, "-on")
@@ -1215,11 +1301,18 @@ class CrayonPianoApp(App[None]):
             self.sample_offset = self.duration
             self._stop_replay(keep=True)
             return
-        if self.mode == "live" and not self.mic.alive:
-            self.mic_error = self.mic.error or MIC_ERR
+        if self.mode == "live" and not self.live_source().alive:
+            self.mic_error = self.live_source().error or MIC_ERR
+            self._auto_live = False
             self._stop_live()
             self._show_err(self.mic_error)
             return
+        if self.mode == "replay":
+            # Feed the tracker exactly the audio that has played since the last tick.
+            i1 = min(self.audio.size, int(self.view_time() * self.sr))
+            if i1 > self._bpm_fed:
+                self.bpm.push(self.audio[self._bpm_fed : i1])
+                self._bpm_fed = i1
         now = time.monotonic()
         for midi, seen in list(self._key_held.items()):
             if now - seen > 0.18:
@@ -1234,7 +1327,7 @@ class CrayonPianoApp(App[None]):
 
     def _analyze(self) -> None:
         if self.mode == "live":
-            window = self.mic.latest(FFT_SIZE)
+            window = self.live_source().latest(FFT_SIZE)
         elif self.mode == "replay":
             window = window_at(self.audio, self.sr, self.view_time())
         elif self.mode == "idle":
@@ -1385,6 +1478,26 @@ def self_test() -> int:
     app = CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes)
     if app.mode != "idle" or "bass" not in app.envelopes:
         raise SystemExit("app did not instantiate with demo envelopes")
+    if not isinstance(app.bpm, BpmTracker) or app.mic.sink is None:
+        raise SystemExit("TUI must feed one BpmTracker from the mic sink")
+    if bpm_text(app.bpm.snapshot(), active=False) != "♩ —" or "#bpm" not in CrayonPianoApp.CSS:
+        raise SystemExit("TUI must show the ♩ BPM readout next to the clock")
+    if app.live_source() is not app.mic:
+        raise SystemExit("without --pls/--url, Écouter reads the mic")
+    streamed = CrayonPianoApp(
+        audio=audio, sr=sr, envelopes=envelopes,
+        stream=StreamEntry("http://127.0.0.1:1/x?listenkey", "Station"),
+    )
+    if streamed.live_source() is not streamed.stream or streamed.stream is None:
+        raise SystemExit("with --pls/--url, Écouter reads the stream")
+    if streamed.stream.reader.sink is None:
+        raise SystemExit("the stream must feed the BPM tracker too")
+    if "listenkey" in streamed.stream.entry.masked:
+        raise SystemExit("the stream title/mask must never carry the listen key")
+    if sys.platform == "darwin":
+        loop = mic_ffmpeg_cmds(48000, prefer_loopback=True)
+        if not loop:
+            raise SystemExit("--follow capture must still produce ffmpeg commands")
     if not isinstance(app.tracks, ClusterTrackSet):
         raise SystemExit("TUI tracks must be a ClusterTrackSet")
 
@@ -1426,6 +1539,14 @@ def self_test() -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Piano-crayon terminal UI")
     parser.add_argument("--wav", type=Path, default=None, help="16-bit PCM WAV")
+    parser.add_argument("--pls", type=Path, default=None, help="station .pls / .m3u: Écouter follows this stream")
+    parser.add_argument("--entry", type=int, default=1, help="which playlist entry (1-based)")
+    parser.add_argument("--url", default="", help="stream URL: Écouter follows this stream")
+    parser.add_argument(
+        "--follow",
+        action="store_true",
+        help="macOS: start Écouter whenever Spotify / Apple Music plays (loopback device first)",
+    )
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
     if args.self_test:
@@ -1436,8 +1557,18 @@ def main() -> None:
     else:
         audio, sr = synthesize_demo()
         source_name = "demo"
+    stream: StreamEntry | None = None
+    if args.pls is not None:
+        entries = load_playlist(args.pls)
+        if not entries:
+            raise SystemExit(f"{args.pls}: no stream URL found")
+        stream = entries[max(1, min(len(entries), args.entry)) - 1]
+    elif args.url:
+        stream = StreamEntry(args.url, "flux")
     envelopes = compute_band_envelopes(audio, sr)
-    CrayonPianoApp(audio=audio, sr=sr, envelopes=envelopes, source_name=source_name).run()
+    CrayonPianoApp(
+        audio=audio, sr=sr, envelopes=envelopes, source_name=source_name, stream=stream, follow=args.follow
+    ).run()
 
 
 if __name__ == "__main__":
