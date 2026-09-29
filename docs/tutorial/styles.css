@@ -30,8 +30,8 @@
   margin-top: 8px;
   font-variant-numeric: tabular-nums;
 }
-#hz { font-weight: 500; }
-#hz .unit { font-size: 0.42em; color: var(--fg-muted); margin-left: 0.25em; }
+#hz, #bpm { font-weight: 500; }
+#hz .unit, #bpm .unit { font-size: 0.42em; color: var(--fg-muted); margin-left: 0.25em; }
 
 /* ── Input meter ───────────────────────────────────────────────────────── */
 .meter-bar {

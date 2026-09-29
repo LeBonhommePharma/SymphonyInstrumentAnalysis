@@ -35,6 +35,8 @@ from crayon_piano_lib import (  # noqa: E402
     rfft_db,
     spec_x_of,
 )
+import bpm_tracker  # noqa: E402
+from bpm_tracker import BpmTracker, synth_beat  # noqa: E402
 from density_cluster import cluster_peaks  # noqa: E402
 from keyboard_layout import (  # noqa: E402
     infer_layout,
@@ -210,6 +212,7 @@ def check_public_site() -> None:
         docs / "piano" / "dual_keyboard.js",
         docs / "piano" / "crayon_dsp.js",
         docs / "piano" / "now_playing.js",
+        docs / "piano" / "bpm_tracker.js",
         docs / ".nojekyll",
         SCRIPTS.parent / "piano" / "cluster_fixtures.json",
         SCRIPTS.parent / "web" / "crayon_dsp.js",
@@ -265,6 +268,10 @@ def check_public_site() -> None:
         raise SystemExit("tutorial copy must describe audio-only density clustering")
     if "listenSmart" not in app_js or "sniffHeard" not in app_js:
         raise SystemExit("tutorial must sniff the mic then fall through to live listen")
+    if 'id="bpm"' not in tutorial or "bpm_tracker.js" not in tutorial:
+        raise SystemExit("tutorial must show the ♩ BPM readout and load the shared bpm_tracker.js")
+    if "pushSpectrum" not in app_js or "BPM_TRACKER" not in app_js:
+        raise SystemExit("tutorial must feed BPM_TRACKER from its own 2048-point analyser")
     piano = (docs / "piano" / "index.html").read_text(encoding="utf-8")
     piano_js = (docs / "piano" / "dual_keyboard.js").read_text(encoding="utf-8")
     if 'id="dualBoards"' not in piano or "Canadien français" not in piano:
@@ -575,6 +582,212 @@ def check_crayon_piano() -> None:
         print((node.stdout or "").strip() or "dual_keyboard.js: OK")
     check_visualize_cli()
     check_swift_cluster_fixtures()
+    check_bpm_counter()
+
+
+def _free_port() -> int:
+    import socket
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def check_bpm_counter() -> None:
+    """One estimator on every surface, and the station route end to end."""
+    root = SCRIPTS.parent
+    for rel in (
+        "web/bpm_tracker.js",
+        "scripts/bpm_tracker.py",
+        "scripts/now_playing.py",
+        "scripts/stream_bpm.py",
+        "scripts/run_bpm_selftest.swift",
+        "ios/CrayonPiano.swiftpm/BpmTracker.swift",
+    ):
+        if not (root / rel).is_file():
+            raise SystemExit(f"BPM counter file missing: {rel}")
+    for name in ("bpm_tracker.py", "now_playing.py", "stream_bpm.py"):
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPTS / name), "--self-test"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(f"{name} --self-test failed:\n{proc.stdout}\n{proc.stderr}")
+        print((proc.stdout or "").strip().splitlines()[-1])
+    try:
+        node = subprocess.run(
+            ["node", str(root / "web" / "bpm_tracker.js")],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        node = None
+    if node is not None:
+        if node.returncode != 0:
+            raise SystemExit(f"bpm_tracker.js failed:\n{node.stdout}\n{node.stderr}")
+        print((node.stdout or "").strip() or "bpm_tracker.js: OK")
+
+    # The contract file pins the constants the three ports share.
+    dsp = json.loads((root / "piano" / "dsp_contract.json").read_text(encoding="utf-8"))
+    bpm = dsp.get("bpm") or {}
+    pins = {
+        "onsetHz": bpm_tracker.ONSET_HZ,
+        "frame": bpm_tracker.FRAME,
+        "windowS": bpm_tracker.WINDOW_S,
+        "bpmMin": bpm_tracker.BPM_MIN,
+        "bpmMax": bpm_tracker.BPM_MAX,
+        "priorBpm": bpm_tracker.PRIOR_BPM,
+        "priorSigmaOct": bpm_tracker.PRIOR_SIGMA_OCT,
+        "foldBins": bpm_tracker.FOLD_BINS,
+        "bandsPerOctave": bpm_tracker.BANDS_PER_OCTAVE,
+        "halfRatio": bpm_tracker.HALF_RATIO,
+        "readyConfidence": bpm_tracker.READY_CONFIDENCE,
+        "readyCollapse": bpm_tracker.READY_COLLAPSE,
+        "medianN": bpm_tracker.MEDIAN_N,
+    }
+    for key, want in pins.items():
+        if bpm.get(key) != want:
+            raise SystemExit(f"piano/dsp_contract.json bpm.{key} = {bpm.get(key)!r}, code says {want!r}")
+    js = (root / "web" / "bpm_tracker.js").read_text(encoding="utf-8")
+    swift = (root / "ios" / "CrayonPiano.swiftpm" / "BpmTracker.swift").read_text(encoding="utf-8")
+    for label, src, needle in (
+        ("bpm_tracker.js", js, f"const FRAME = {bpm_tracker.FRAME};"),
+        ("bpm_tracker.js", js, f"const PRIOR_BPM = {int(bpm_tracker.PRIOR_BPM)};"),
+        ("bpm_tracker.js", js, f"const HALF_RATIO = {bpm_tracker.HALF_RATIO};"),
+        ("BpmTracker.swift", swift, f"static let frame = {bpm_tracker.FRAME}"),
+        ("BpmTracker.swift", swift, f"static let priorBpm = {bpm_tracker.PRIOR_BPM}"),
+        ("BpmTracker.swift", swift, f"static let halfRatio = {bpm_tracker.HALF_RATIO}"),
+    ):
+        if needle not in src:
+            raise SystemExit(f"{label} drifted from the Python reference: missing {needle!r}")
+    if "import UIKit" in swift or "import SwiftUI" in swift:
+        raise SystemExit("BpmTracker.swift must stay Foundation + Accelerate so swiftc can test it alone")
+
+    html = (root / "web" / "keyboard.html").read_text(encoding="utf-8")
+    for needle in (
+        'id="bpm"',
+        "bpm_tracker.js",
+        "BPM_TRACKER.BpmTracker",
+        "pushSpectrum",
+        'id="streamBtn"',
+        'id="streamFile"',
+        "parsePlaylist",
+        "createMediaElementSource",
+        ">Suivre le flux<",
+        "__CRAYON_BPM",
+    ):
+        if needle not in html:
+            raise SystemExit(f"HTML piano must carry the ♩ BPM readout and the Flux source: missing {needle!r}")
+    if "crayon-stream" in html or "streamUrl.value)" in html and "localStorage" in html.split("streamUrl.value)")[0][-200:]:
+        raise SystemExit("HTML piano must never persist the stream URL (it carries the listen key)")
+    now_js = (root / "web" / "now_playing.js").read_text(encoding="utf-8")
+    if "function maskStreamUrl" not in now_js or "function parsePlaylist" not in now_js:
+        raise SystemExit("now_playing.js must parse .pls/.m3u and mask the listen key")
+    tui = (SCRIPTS / "crayon_piano.py").read_text(encoding="utf-8")
+    for needle in ("BpmTracker", 'id="bpm"', '"--pls"', '"--url"', '"--follow"', "follow_status", "prefer_loopback"):
+        if needle not in tui:
+            raise SystemExit(f"TUI must carry the ♩ BPM readout, --pls/--url and --follow: missing {needle!r}")
+    session_swift = (root / "ios" / "CrayonPiano.swiftpm" / "PianoSession.swift").read_text(encoding="utf-8")
+    content_swift = (root / "ios" / "CrayonPiano.swiftpm" / "ContentView.swift").read_text(encoding="utf-8")
+    if "bpmTracker.push(" not in session_swift or "bpmLine" not in session_swift:
+        raise SystemExit("iOS session must feed BpmTracker from the tap and publish bpmLine")
+    if "isOtherAudioPlaying" not in session_swift or "followOthers" not in session_swift:
+        raise SystemExit("iOS Suivre must follow AVAudioSession.isOtherAudioPlaying")
+    if "MPMusicPlayerController" in session_swift:
+        raise SystemExit("iOS must not touch MediaPlayer (NSAppleMusicUsageDescription crash risk)")
+    if "session.bpmLine" not in content_swift or '"Suivre"' not in content_swift:
+        raise SystemExit("iOS view must show the ♩ BPM line and the Suivre toggle")
+    stage_src = (SCRIPTS / "stage_pages_piano.py").read_text(encoding="utf-8")
+    guard_yml = (root / ".github" / "workflows" / "piano-guard.yml").read_text(encoding="utf-8")
+    if "bpm_tracker.js" not in stage_src or "bpm_tracker.js" not in guard_yml:
+        raise SystemExit("staging and the guard workflow must carry bpm_tracker.js to docs/piano/")
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8")
+    if "*.pls" not in gitignore or "*.m3u" not in gitignore:
+        raise SystemExit(".gitignore must keep station playlists (listen keys) out of git")
+
+    # Station route end to end: a .pls pointing at a local HTTP server, ffmpeg
+    # decoding it, the key masked on the way out. Same path as DI.FM minus the WAN.
+    import http.server
+    import threading
+
+    sr = 48000
+    with tempfile.TemporaryDirectory() as td:
+        root_dir = Path(td)
+        _write_pcm(root_dir / "station.wav", synth_beat(sr, 12.0, 140.0), sr)
+        port = _free_port()
+
+        class QuietHandler(http.server.SimpleHTTPRequestHandler):
+            def __init__(self, *a, **kw):
+                super().__init__(*a, directory=str(root_dir), **kw)
+
+            def log_message(self, *_a):  # the request line would echo the key
+                return
+
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), QuietHandler)
+        httpd.daemon_threads = True
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            key = "deadbeefdeadbeefdeadbeefdeadbeef"
+            pls = root_dir / "station.pls"
+            pls.write_text(
+                "[playlist]\nNumberOfEntries=1\n"
+                f"File1=http://127.0.0.1:{port}/station.wav?{key}\nTitle1=Local station\nLength1=-1\nVersion=2\n",
+                encoding="utf-8",
+            )
+            proc = subprocess.run(
+                [sys.executable, str(SCRIPTS / "stream_bpm.py"), "--pls", str(pls), "--seconds", "30", "--json"],
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+        if key in proc.stdout or key in proc.stderr:
+            raise SystemExit("stream_bpm.py leaked the listen key into its output")
+        lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip().startswith("{")]
+        if proc.returncode != 0 or not lines:
+            raise SystemExit(f"stream_bpm.py --pls over HTTP failed:\n{proc.stdout}\n{proc.stderr}")
+        last = json.loads(lines[-1])
+        if not last.get("ready") or abs(float(last.get("bpm") or 0) - 140.0) > 2.0:
+            raise SystemExit(f"station route should read ~140 BPM, got {last}")
+        if last.get("source") != "Local station":
+            raise SystemExit(f"station route must carry the playlist title, got {last.get('source')!r}")
+    print(f"station route: .pls over HTTP → ffmpeg → {last['bpm']} BPM, key masked")
+    check_swift_bpm_selftest()
+
+
+def check_swift_bpm_selftest() -> None:
+    try:
+        swiftc = subprocess.run(["swiftc", "--version"], capture_output=True, text=True)
+    except FileNotFoundError:
+        print("swiftc: skipped BpmTracker self-test")
+        return
+    if swiftc.returncode != 0:
+        print("swiftc: skipped BpmTracker self-test")
+        return
+    with tempfile.TemporaryDirectory() as td:
+        binary = Path(td) / "run_bpm_selftest"
+        proc = subprocess.run(
+            [
+                "swiftc",
+                "-O",
+                "-o",
+                str(binary),
+                str(SCRIPTS.parent / "ios" / "CrayonPiano.swiftpm" / "BpmTracker.swift"),
+                str(SCRIPTS / "run_bpm_selftest.swift"),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise SystemExit(f"swiftc BpmTracker self-test failed to build:\n{proc.stdout}\n{proc.stderr}")
+        run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=300)
+        if run.returncode != 0:
+            raise SystemExit(f"Swift BpmTracker self-test failed:\n{run.stdout}\n{run.stderr}")
+        print((run.stdout or "").strip() or "swift BpmTracker self-test: OK")
 
 
 def check_visualize_cli() -> None:

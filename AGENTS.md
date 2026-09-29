@@ -9,6 +9,18 @@ See [`README.md`](README.md), [`ios/README.md`](ios/README.md), and [`web/README
   macOS 27 via Xcode / Swift Playgrounds — open the `.swiftpm` directly (there is no `.xcodeproj`).
 - **CLI pipeline** (`scripts/*.py`): numpy/scipy FFT analysis of recorded audio → instrument
   families + note sequences, chord visualizations (matplotlib), and resynthesis.
+- **♩ BPM counter** on every surface (web piano, tutorial, TUI, iOS): one estimator,
+  `scripts/bpm_tracker.py` is the reference, `web/bpm_tracker.js` and
+  `ios/CrayonPiano.swiftpm/BpmTracker.swift` are ports; constants live in
+  `piano/dsp_contract.json` → `bpm`. Each port has a self-test on the same synthetic beats
+  (`--self-test`, `node web/bpm_tracker.js`, `scripts/run_bpm_selftest.swift` via swiftc).
+- **Following what is playing**: `scripts/stream_bpm.py --pls/--url/--wav` decodes a station
+  or file with ffmpeg; `scripts/crayon_piano.py --pls/--url` makes Écouter read that stream,
+  `--follow` (macOS) starts Écouter on Spotify / Apple Music player state (osascript, loopback
+  device first); the web piano has **Suivre le flux**; iOS has **Suivre**
+  (`AVAudioSession.isOtherAudioPlaying`). Helpers: `scripts/now_playing.py`.
+  A DI.FM `.pls` carries a premium listen key: `*.pls` / `*.m3u` are gitignored, URLs are
+  printed masked, never commit or log one.
 - **Web viewer** (`web/keyboard.html`): self-contained Web Audio page. Open the file directly
   (`file://`) — replay synthesizes a demo if the WAV is missing. Live mic on iPhone still
   needs the native app (Safari will not grant `getUserMedia` to `file://`).
@@ -48,7 +60,8 @@ Or run `bash .cursor/install.sh` — the same commands as the Cloud Agent instal
 
 The smoke test checks ffmpeg, synthesizes tones for `analyze_instruments.py`, confirms the
 capture scripts exit cleanly when no AVFoundation devices exist, checks public tutorial files,
-and runs `crayon_piano.py --self-test`.
+runs `crayon_piano.py --self-test`, runs the three BPM self-tests, and drives the station
+route end to end (a `.pls` over a local HTTP server → ffmpeg → `stream_bpm.py`, key masked).
 
 ## Cursor Cloud specific instructions
 

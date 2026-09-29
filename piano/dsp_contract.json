@@ -31,5 +31,38 @@
       { "start": 4.5, "length": 1.8, "amp": 0.18, "hz": [392.0, 493.88, 587.33] },
       { "start": 6.5, "length": 1.8, "amp": 0.18, "hz": [329.63, 415.3, 493.88] }
     ]
+  },
+  "bpm": {
+    "$comment": [
+      "Live BPM counter — one estimator, three ports: scripts/bpm_tracker.py (reference),",
+      "web/bpm_tracker.js, ios/CrayonPiano.swiftpm/BpmTracker.swift. The Python self-test,",
+      "the node self-test and scripts/run_bpm_selftest.swift lock the same synthetic beats.",
+      "Ready needs BOTH the autocorrelation peak (confidence) and the beat-phase fold",
+      "energy collapse (1 − normalised Shannon entropy over foldBins): a stationary tone",
+      "passes the first and fails the second."
+    ],
+    "onsetHz": 100,
+    "frame": 2048,
+    "fluxLoHz": 30,
+    "fluxHiHz": 8000,
+    "bandsPerOctave": 6,
+    "fluxMu": 100,
+    "fluxDeadband": 0.05,
+    "meanTauS": 1.0,
+    "windowS": 8,
+    "minS": 3,
+    "updateS": 0.25,
+    "bpmMin": 60,
+    "bpmMax": 200,
+    "priorBpm": 128,
+    "priorSigmaOct": 0.75,
+    "combW2": 0.5,
+    "combW4": 0.25,
+    "halfRatio": 0.9,
+    "foldBins": 16,
+    "readyConfidence": 0.12,
+    "readyCollapse": 0.12,
+    "medianN": 5,
+    "text": { "idle": "♩ —", "settling": "♩ …", "locked": "♩ 140" }
   }
 }

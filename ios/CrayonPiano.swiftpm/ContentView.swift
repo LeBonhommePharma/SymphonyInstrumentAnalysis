@@ -33,10 +33,22 @@ struct ContentView: View {
                                     clock
                                 }
                                 .frame(height: session.waveStackHeight)
-                                if !session.tuneLine.isEmpty {
-                                    Text(session.tuneLine)
+                                HStack(spacing: 12) {
+                                    if !session.tuneLine.isEmpty {
+                                        Text(session.tuneLine)
+                                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                                            .foregroundStyle(session.scene.ink)
+                                    }
+                                    Text(session.bpmLine)
                                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                                        .foregroundStyle(session.scene.ink)
+                                        .foregroundStyle(session.bpmLine.contains("…") || session.bpmLine.contains("—") ? session.scene.muted : session.scene.ink)
+                                        .accessibilityLabel("Tempo \(session.bpmLine)")
+                                    if !session.followLabel.isEmpty {
+                                        Text(session.followLabel)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(session.scene.muted)
+                                            .lineLimit(1)
+                                    }
                                 }
                                 if let err = session.errorMessage {
                                     Text(err)
@@ -179,6 +191,9 @@ struct ContentView: View {
             }
             labeledToggle(session.autotune, title: "La auto", hint: "Estimer le la du concert ; sinon 440 Hz") {
                 session.autotune.toggle()
+            }
+            labeledToggle(session.followOthers, title: "Suivre", hint: "Écouter dès qu’une autre app joue (DI.FM, Spotify, Apple Music) ; s’arrête quand elle se tait") {
+                session.followOthers.toggle()
             }
             if !session.statusLine.isEmpty {
                 Text(session.statusLine)

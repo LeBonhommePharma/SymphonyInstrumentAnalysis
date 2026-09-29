@@ -20,6 +20,10 @@ Browser truth (do not expect Safari to do this):
 | **Firefox** | **Cannot** (audio flag is ignored). Use Chrome, or a loopback device + **Écouter**. |
 | `file://` | Tab share is not a secure context. Serve `web/` over `http://localhost`. |
 
+**Suivre le flux** (under **Micro · loopback · Flux**) — paste a station URL or pick the `.pls` / `.m3u` a station exports (DI.FM), then **Suivre le flux**. The page decodes the stream itself through a `crossorigin` audio element into the analyser: crayons, tracks and **♩ BPM** follow it. Like **Rejouer** it is audible only through **Son**. Reads **Arrêter** while following. The listen key in the URL is never stored. Two honest failures: a stream without CORS headers plays but reaches the analyser as silence (the page says so after 4 s and points at **En cours**); the public HTTPS page cannot load an `http://` stream (mixed content) — serve `web/` on `http://localhost`, or play the station in a Chrome tab and use **En cours**.
+
+**♩ BPM** — under the clock. **♩ —** idle, **♩ …** settling (about 3 s), **♩ 140** locked; the tooltip carries confidence and the beat-phase energy collapse. Same tracker for mic, En cours, Flux and Rejouer; it resets on every start, stop and seek. Shared code: `bpm_tracker.js` (also loaded by the public tutorial).
+
 **Accords / Son / La auto** — chords (up to 8 notes), hear replay (not captured now-playing), estimate concert A (off locks 440 Hz).
 
 **Pistes** — one color chip and one stacked lane per density cluster. Follow-along defaults to the **melody** cluster; click to solo, click more to stack, click the count for Tous. Empty selection snaps back to the mix.

@@ -15,7 +15,7 @@
   ],
   "layout": [
     "title: Piano-crayon + Day/Light/Dark/Night/Stealth scenes",
-    "actions: Rejouer | Écouter | En cours (labeled chips; Arrêter while on) | clock | La/A readout",
+    "actions: Rejouer | Écouter | En cours (labeled chips; Arrêter while on) | clock | La/A readout | ♩ BPM readout",
     "toggles: Accords, Son, La auto",
     "tracks: count badge + one color chip per density cluster (Tous = all on)",
     "daw: stacked color waveform lanes (one per live cluster, top-left stack count = cluster count)",
@@ -84,7 +84,10 @@
     "sensitivity": "gate for lighting keys",
     "chords": "on = up to 8 notes; off = 1",
     "unmute": "hear replay quietly",
-    "autotune": "estimate concert A 415–466 Hz; off locks 440"
+    "autotune": "estimate concert A 415–466 Hz; off locks 440",
+    "bpm": "♩ — idle · ♩ … settling · ♩ 140 locked. One tracker for mic / En cours / Flux / Rejouer; resets on every start, stop and seek. Contract: dsp_contract.json → bpm.",
+    "stream": "Suivre le flux / Arrêter — a station URL or a .pls / .m3u file (DI.FM export) decoded in the page: crossorigin audio element → analyser (+ ♩ BPM), audible only through Son like Rejouer. CORS-silent or mixed-content streams say so and point at En cours. The listen key is never persisted.",
+    "follow": "TUI --follow (macOS): Spotify / Apple Music player state via osascript starts and stops Écouter, loopback device (BlackHole) first. iOS Suivre: AVAudioSession.isOtherAudioPlaying starts and stops Écouter while DI.FM / Spotify / Apple Music play (mixWithOthers keeps them playing)."
   },
   "tuiKeys": {
     "ctrl+l": "listen",
@@ -97,7 +100,9 @@
     "ctrl+t": "theme",
     "pageup/pagedown": "sensitivity",
     "left/right": "seek ±1s on replay",
-    "escape": "quit (Q is La4)"
+    "escape": "quit (Q is La4)",
+    "--pls / --url": "Écouter reads that stream instead of the mic (title in the header)",
+    "--follow": "auto Écouter on Spotify / Apple Music (macOS)"
   },
     "theme": {
         "scenes": ["day", "light", "dark", "night", "stealth"],

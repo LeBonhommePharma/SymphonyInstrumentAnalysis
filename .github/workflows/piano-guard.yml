@@ -59,7 +59,7 @@ jobs:
         run: |
           python3 scripts/stage_pages_piano.py
           missing=0
-          for f in index.html dual_keyboard.js crayon_dsp.js now_playing.js; do
+          for f in index.html dual_keyboard.js crayon_dsp.js now_playing.js bpm_tracker.js; do
             if [ ! -s "docs/piano/$f" ]; then
               echo "::error title=staging produced no $f::docs/piano/$f is missing or empty after staging."
               missing=1

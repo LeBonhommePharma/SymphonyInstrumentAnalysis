@@ -563,6 +563,26 @@
       min-width: 4.8rem;
       padding-bottom: 6px;
     }
+    .clock-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      padding-bottom: 6px;
+    }
+    .scrub .clock-cell .clock { padding-bottom: 0; }
+    /* ♩ BPM under the clock: same digits as the clock, muted while settling. */
+    .scrub .bpm {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      font-weight: 650;
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-width: 4.8rem;
+      text-align: right;
+      transition: color var(--dt) var(--ease);
+    }
+    .scrub .bpm.locked { color: var(--ink); }
     .tracks {
       display: flex;
       flex-wrap: wrap;
@@ -1159,6 +1179,28 @@
       align-items: center;
       touch-action: manipulation;
     }
+    details.adv label { display: block; margin-top: 10px; }
+    details.adv input[type="url"],
+    details.adv input[type="file"] {
+      display: block;
+      margin-top: 6px;
+      width: 100%;
+      max-width: 520px;
+      min-height: 44px;
+      padding: 8px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--hairline-strong);
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+    }
+    details.adv .adv-stream { margin-top: 12px; }
+    details.adv .adv-note {
+      margin: 8px 0 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-width: 60ch;
+    }
     details.adv select {
       margin-top: 8px;
       max-width: 100%;
@@ -1399,7 +1441,10 @@
         </div>
       </div>
     </div>
-    <div id="clock" class="clock">0:00</div>
+    <div class="clock-cell">
+      <div id="clock" class="clock">0:00</div>
+      <div id="bpm" class="bpm" aria-label="Tempo" title="Tempo · battements par minute">♩ —</div>
+    </div>
   </div>
   <div id="err" class="err" hidden></div>
 
@@ -1439,16 +1484,32 @@
   </div>
 
   <details class="adv">
-    <summary>Micro · loopback</summary>
+    <summary>Micro · loopback · Flux</summary>
     <label>
       Micro (BlackHole / loopback si Safari)
       <select id="micAlt">
         <option value="os">OS</option>
       </select>
     </label>
+    <div class="adv-stream" role="group" aria-label="Flux en direct">
+      <label>
+        Flux · URL du direct (DI.FM, Icecast, HLS…)
+        <input id="streamUrl" type="url" inputmode="url" placeholder="https://…/station_hi?clé" autocomplete="off" spellcheck="false">
+      </label>
+      <label>
+        Flux · fichier .pls / .m3u exporté par la station
+        <input id="streamFile" type="file" accept=".pls,.m3u,.m3u8,audio/x-scpls,audio/x-mpegurl,application/vnd.apple.mpegurl">
+      </label>
+      <button id="streamBtn" type="button" class="act" aria-label="Suivre le flux" aria-pressed="false" title="Analyser ce flux ici ; muet jusqu’à Son">
+        <span class="glyph now" aria-hidden="true"></span>
+        <span class="lab">Suivre le flux</span>
+      </button>
+      <p class="adv-note">Le flux est décodé et analysé dans cet onglet (muet jusqu’à <b>Son</b>) : crayons, pistes et ♩ BPM le suivent. La clé d’écoute reste dans cet onglet, rien n’est enregistré. Spotify, Apple Music ou DI.FM dans un autre onglet Chrome : <b>En cours</b>.</p>
+    </div>
   </details>
 
   <script src="crayon_dsp.js"></script>
+  <script src="bpm_tracker.js"></script>
   <script src="now_playing.js"></script>
   <script src="dual_keyboard.js"></script>
   <script>
@@ -1524,6 +1585,10 @@
   const $playhead = document.getElementById("playhead");
   const $ruler = document.getElementById("ruler");
   const $clock = document.getElementById("clock");
+  const $bpm = document.getElementById("bpm");
+  const $streamUrl = document.getElementById("streamUrl");
+  const $streamFile = document.getElementById("streamFile");
+  const $streamBtn = document.getElementById("streamBtn");
   const $err = document.getElementById("err");
   const $chroma = document.getElementById("chroma");
   const $chips = document.getElementById("chips");
@@ -1671,6 +1736,15 @@
   let sourceNode = null;
   let spec = null;
   let stream = null;
+  // ♩ BPM: a second, short analyser (2048) chained off the main one feeds
+  // BPM_TRACKER with audio-clock-stamped frames — mic, En cours, Flux, Rejouer.
+  let bpmAnalyser = null;
+  let bpmSpec = null;
+  const bpmTracker = new BPM_TRACKER.BpmTracker(48000);
+  let lastBpmText = "";
+  let streamAudio = null;
+  let streamSource = null;
+  let streamSilentSince = 0;
   let mode = "idle";
   let raf = 0;
   let micOverrideId = null;
@@ -3084,6 +3158,17 @@
     if (!spec || spec.length !== analyser.frequencyBinCount) {
       spec = new Float32Array(analyser.frequencyBinCount);
     }
+    if (!bpmAnalyser) {
+      // AnalyserNode passes audio through: everything tapped into `analyser`
+      // reaches the BPM analyser too, and nothing here touches the speakers.
+      bpmAnalyser = audioCtx.createAnalyser();
+      bpmAnalyser.fftSize = BPM_TRACKER.FRAME;
+      bpmAnalyser.smoothingTimeConstant = 0;
+      bpmAnalyser.minDecibels = -95;
+      bpmAnalyser.maxDecibels = 0;
+      bpmSpec = new Float32Array(bpmAnalyser.frequencyBinCount);
+      analyser.connect(bpmAnalyser);
+    }
     if (!sampleGain) {
       sampleGain = audioCtx.createGain();
       sampleGain.gain.value = $unmute.checked ? 0.28 : 0;
@@ -3103,6 +3188,152 @@
 
   function resetSmooth() {
     smooth.fill(-120);
+  }
+
+  function paintBpm() {
+    const st = bpmTracker.snapshot();
+    const active = mode !== "idle";
+    const text = BPM_TRACKER.bpmText(st, active);
+    const locked = !!(active && st.ready);
+    if (text === lastBpmText) return;
+    lastBpmText = text;
+    $bpm.textContent = text;
+    $bpm.classList.toggle("locked", locked);
+    $bpm.title = locked
+      ? "Tempo · " + st.bpm.toFixed(1) + " BPM · confiance " + st.confidence.toFixed(2) + " · collapse " + st.collapse.toFixed(2)
+      : "Tempo · battements par minute";
+  }
+
+  function resetBpm() {
+    bpmTracker.reset();
+    paintBpm();
+  }
+
+  function stopStreamAudio() {
+    if (streamSource) {
+      try { streamSource.disconnect(); } catch (_) {}
+      streamSource = null;
+    }
+    if (streamAudio) {
+      try { streamAudio.pause(); } catch (_) {}
+      try { streamAudio.removeAttribute("src"); streamAudio.load(); } catch (_) {}
+      streamAudio = null;
+    }
+    streamSilentSince = 0;
+  }
+
+  /** A page served over https cannot load an http stream (mixed content): try the https twin. */
+  function streamUrlForPage(url) {
+    if (location.protocol === "https:" && /^http:\/\//i.test(url)) return url.replace(/^http:\/\//i, "https://");
+    return url;
+  }
+
+  async function pickStreamEntry() {
+    const file = $streamFile && $streamFile.files && $streamFile.files[0];
+    if (file) {
+      const text = await file.text();
+      const entries = NOW_PLAYING.parsePlaylist(text, file.name.replace(/\.[^.]+$/, ""));
+      if (!entries.length) throw new Error("Aucune URL de flux dans " + file.name + ".");
+      return entries[0];
+    }
+    const url = ($streamUrl && $streamUrl.value || "").trim();
+    if (!url) throw new Error("Colle l’URL du direct, ou choisis le fichier .pls / .m3u de la station.");
+    if (!NOW_PLAYING.isStreamUrl(url)) throw new Error("URL de flux invalide : il faut http:// ou https://.");
+    return { url: url, title: NOW_PLAYING.maskStreamUrl(url) };
+  }
+
+  function streamErrorMessage(err, entry) {
+    const name = err && err.name;
+    if (name === "NotAllowedError") {
+      return "Le navigateur bloque la lecture automatique : clique encore sur Suivre le flux.";
+    }
+    if (location.protocol === "https:" && /^http:\/\//i.test(entry.url)) {
+      return "Page en HTTPS, flux en HTTP : contenu mixte bloqué. Sers la page en http://localhost, ou joue la station dans un onglet Chrome et clique En cours.";
+    }
+    return "Flux injoignable (" + entry.title + "). Vérifie l’URL ou la clé, ou joue la station dans un onglet Chrome et clique En cours.";
+  }
+
+  /** A cross-origin stream without CORS headers plays but is silenced for analysis. Say so. */
+  function watchStreamSilence(specArr, now) {
+    if (!streamAudio || streamAudio.paused || streamAudio.currentTime < 1.5) {
+      streamSilentSince = 0;
+      return;
+    }
+    let peak = -200;
+    for (let i = 2; i < specArr.length; i += 8) if (specArr[i] > peak) peak = specArr[i];
+    if (peak > -85) {
+      streamSilentSince = 0;
+      return;
+    }
+    if (!streamSilentSince) {
+      streamSilentSince = now;
+      return;
+    }
+    if (now - streamSilentSince > 4000) {
+      haltLive();
+      showErr("Ce flux ne renvoie pas d’en-têtes CORS : le navigateur le rend muet à l’analyse. Joue la station dans un onglet Chrome et clique En cours.");
+    }
+  }
+
+  async function startStream() {
+    showErr("");
+    ensureAnalyser();
+    const id = beginAction();
+    let entry;
+    try {
+      entry = await pickStreamEntry();
+    } catch (e) {
+      showErr(e && e.message ? e.message : String(e));
+      return;
+    }
+    if (id !== actionId) return;
+    if (mode === "replay" || replayLoading) haltReplay(true);
+    if (mode === "live") haltLive();
+    scoreSource = "live";
+    resetScoreSession();
+    mode = "live";
+    captureKind = "stream";
+    trackPickMode = "auto-melody";
+    liveStartedAt = performance.now();
+    resetSmooth();
+    resetTune();
+    resetTracks();
+    resetBpm();
+    stopStreamAudio();
+    const audio = new Audio();
+    audio.crossOrigin = "anonymous";
+    audio.preload = "none";
+    audio.src = streamUrlForPage(entry.url);
+    streamAudio = audio;
+    try {
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      streamSource = audioCtx.createMediaElementSource(audio);
+      streamSource.connect(analyser);
+      // Audible only through Son, exactly like Rejouer — never straight to the speakers.
+      streamSource.connect(sampleGain);
+      await audio.play();
+    } catch (e) {
+      if (id !== actionId) return;
+      haltLive();
+      showErr(streamErrorMessage(e, entry));
+      return;
+    }
+    if (id !== actionId || mode !== "live") {
+      stopStreamAudio();
+      return;
+    }
+    audio.addEventListener("error", function () {
+      if (mode === "live" && captureKind === "stream" && streamAudio === audio) {
+        haltLive();
+        showErr(streamErrorMessage(audio.error, entry));
+      }
+    });
+    audio.addEventListener("ended", function () {
+      if (mode === "live" && captureKind === "stream" && streamAudio === audio) stopLive();
+    });
+    setLiveButtons("stream");
+    $streamBtn.title = entry.title;
+    startLoop();
   }
 
   function fmtTime(s) {
@@ -3532,6 +3763,7 @@
   function setLiveButtons(kind) {
     const micOn = kind === "mic";
     const nowOn = kind === "phones";
+    const streamOn = kind === "stream";
     $btn.classList.toggle("live", micOn);
     $nowBtn.classList.toggle("live", nowOn);
     $btn.setAttribute("aria-pressed", micOn ? "true" : "false");
@@ -3539,6 +3771,12 @@
     setActCopy($btn, micOn ? "Arrêter" : "Écouter");
     setActCopy($nowBtn, nowOn ? "Arrêter" : "En cours");
     $btn.title = "Micro";
+    if ($streamBtn) {
+      $streamBtn.classList.toggle("live", streamOn);
+      $streamBtn.setAttribute("aria-pressed", streamOn ? "true" : "false");
+      setActCopy($streamBtn, streamOn ? "Arrêter" : "Suivre le flux");
+      if (!streamOn) $streamBtn.title = "Analyser ce flux ici ; muet jusqu’à Son";
+    }
     refreshNowPlayingUi();
   }
 
@@ -3573,6 +3811,8 @@
     captureKind = "mic";
     stopLoop();
     stopTracks();
+    stopStreamAudio();
+    resetBpm();
     setLiveButtons(null);
     trackPickMode = "auto-melody";
     resetTracks();
@@ -3598,6 +3838,7 @@
       resetTracks();
       clearLights();
       resetTune();
+      resetBpm();
       if (!keepScrub) {
         sampleOffset = 0;
       }
@@ -3687,7 +3928,7 @@
 
   function onDeviceChange() {
     if (mode !== "live") return;
-    if (captureKind === "phones") return;
+    if (captureKind === "phones" || captureKind === "stream") return;
     clearTimeout(deviceChangeTimer);
     deviceChangeTimer = setTimeout(function () {
       acquireMicStream().then(function () {
@@ -3719,6 +3960,7 @@
       resetSmooth();
       resetTune();
       resetTracks();
+      resetBpm();
       const ok = kind === "phones"
         ? await acquireNowPlayingStream()
         : await acquireMicStream();
@@ -3873,6 +4115,7 @@
   function startBufferAt(offset) {
     stopBufferSource();
     ensureAnalyser();
+    resetBpm();  // a start or a seek breaks onset continuity
     bufferSource = audioCtx.createBufferSource();
     bufferSource.buffer = sampleBuffer;
     bufferSource.connect(analyser);
@@ -3951,6 +4194,24 @@
     if (mode === "replay" || replayLoading) stopReplay(true);
     else startReplay();
   });
+
+  if ($streamBtn) {
+    $streamBtn.addEventListener("click", function () {
+      ensureAnalyser();
+      if (mode === "live" && captureKind === "stream") stopLive();
+      else startStream();
+    });
+    $streamUrl.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        ensureAnalyser();
+        startStream();
+      }
+    });
+    $streamFile.addEventListener("change", function () {
+      if ($streamFile.files && $streamFile.files[0]) $streamUrl.value = "";
+    });
+  }
 
   $unmute.addEventListener("change", function () {
     setSampleGain($unmute.checked);
@@ -4137,6 +4398,7 @@
       pushTrackHist(now);
       drawWave(true, { playhead: false });
       paintClock(dt);
+      paintBpm();
       if (loopWantsFrames()) raf = requestAnimationFrame(loop);
       else {
         loopOn = false;
@@ -4146,6 +4408,12 @@
     }
     analyser.getFloatFrequencyData(spec);
     const binHz = audioCtx.sampleRate / analyser.fftSize;
+    if (bpmAnalyser && bpmSpec && mode !== "idle") {
+      bpmAnalyser.getFloatFrequencyData(bpmSpec);
+      bpmTracker.pushSpectrum(audioCtx.currentTime, bpmSpec, audioCtx.sampleRate / bpmAnalyser.fftSize);
+    }
+    paintBpm();
+    if (mode === "live" && captureKind === "stream") watchStreamSilence(spec, now);
     updateConcertPitch(spec, binHz);
     const clustered = densityClusterFunds(groupHarmonicFunds(extractClusterPeaks(spec, binHz)));
     lastSpecClusters = clustered;
@@ -4334,6 +4602,7 @@
   window.__CRAYON_NEEDED = function () { return Array.from(neededMidis); };
   window.__CRAYON_HIGHLIGHT = highlightOf;
   window.__CRAYON_CAPTURE_KIND = function () { return captureKind; };
+  window.__CRAYON_BPM = function () { return bpmTracker.snapshot(); };
   window.__CRAYON_NOW_PLAYING_SELF_TEST = async function () {
     ensureAnalyser();
     if (audioCtx.state === "suspended") await audioCtx.resume();
